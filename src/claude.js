@@ -35,6 +35,24 @@ export const pauseInactivity = (sessionKey) =>
 export const resumeInactivity = (sessionKey) =>
   activeRuns.get(sessionKey)?.resume();
 
+// Kill the in-progress run for a channel (the `/stop` bridge command).
+// Returns false if nothing is running.
+export const cancelRun = (sessionKey) => {
+  const run = activeRuns.get(sessionKey);
+  if (!run) return false;
+  run.cancel();
+  return true;
+};
+
+// Forget a channel's stored conversation so the next message starts fresh
+// (the `/reset` bridge command). Returns false if there was nothing to clear.
+export const resetSession = (sessionKey) => {
+  if (!sessions[sessionKey]) return false;
+  delete sessions[sessionKey];
+  saveSessions();
+  return true;
+};
+
 /**
  * Ask Claude. `onText(text)` is called with each assistant message's text
  * as it streams in (i.e. between tool calls), so adapters can relay
@@ -110,6 +128,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
     let stderr = "";
     let lineBuf = "";
     let timedOut = false;
+    let cancelled = false; // killed by the /stop bridge command
     let timedOutInTool = false; // which limit fired, for the message
     let timedOutLimitMs = timeoutMs;
     let streamed = 0;
@@ -148,6 +167,11 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
       resume: () => {
         paused = Math.max(0, paused - 1);
         armTimer();
+      },
+      cancel: () => {
+        cancelled = true;
+        clearTimeout(timer);
+        child.kill("SIGKILL");
       },
     });
 
@@ -234,6 +258,10 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
 
     child.on("close", (code) => {
       if (lineBuf.trim()) handleEvent(lineBuf.trim());
+
+      if (cancelled) {
+        return finish({ ok: false, cancelled: true, text: "Run cancelled." });
+      }
 
       if (timedOut) {
         const secs = Math.round(timedOutLimitMs / 1000);

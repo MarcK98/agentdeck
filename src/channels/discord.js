@@ -15,6 +15,7 @@ import { askClaude } from "../claude.js";
 import { resolveProject } from "../projects.js";
 import { setPermissionHandler } from "../permission-server.js";
 import { downloadAttachments, cleanupAttachments } from "../attachments.js";
+import { runBridgeCommand, isInteractiveCommandMiss } from "../commands.js";
 
 const MAX_DISCORD_LEN = 2000;
 
@@ -131,6 +132,24 @@ export async function startDiscord() {
         .replaceAll(`<@${client.user.id}>`, "")
         .trim();
 
+      const sessionKey = `discord:${message.channelId}`;
+
+      // Bridge commands (/reset, /stop, /help) are handled here and never sent
+      // to Claude. Other slash commands fall through to Claude Code as-is.
+      const bridgeReply = runBridgeCommand({ text: userText, sessionKey, projectDir });
+      if (bridgeReply !== null) {
+        let first = true;
+        for (const part of chunk(bridgeReply)) {
+          if (first) {
+            first = false;
+            await message.reply(part).catch(() => {});
+          } else {
+            await message.channel.send(part).catch(() => {});
+          }
+        }
+        return;
+      }
+
       // Download any attachments to a temp folder Claude can read from.
       const attachments = [...message.attachments.values()];
       let attachmentDir = null;
@@ -202,7 +221,6 @@ export async function startDiscord() {
         return sendQueue;
       };
 
-      const sessionKey = `discord:${message.channelId}`;
       const res = await askClaude(sessionKey, prompt, projectDir, send, {
         addDirs,
       }).finally(() => {
@@ -212,9 +230,18 @@ export async function startDiscord() {
 
       // Everything Claude said was already streamed via onText; the final
       // result is just the last assistant message again. Only send it if
-      // nothing streamed (e.g. errors, timeouts, empty runs).
-      if (!res.streamed || !res.ok) {
+      // nothing streamed (e.g. errors, timeouts, empty runs). A /stop cancel
+      // was already acknowledged by the bridge command, so stay quiet.
+      if (!res.cancelled && (!res.streamed || !res.ok)) {
         send(res.text);
+      }
+      // A slash command that only works in a real terminal — nudge the user
+      // toward what the bridge can actually do.
+      if (isInteractiveCommandMiss(userText, res.text)) {
+        send(
+          "ℹ️ That's an interactive-only Claude Code command (needs a terminal). " +
+            "From here you can use `/reset`, `/stop`, `/help`, plus custom project commands and skills."
+        );
       }
       await sendQueue;
     } catch (err) {

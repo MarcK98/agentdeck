@@ -46,6 +46,24 @@ Toggle with `ATTACHMENTS_ENABLED` and cap per-file size with `ATTACHMENT_MAX_MB`
 (default 25). Oversized or un-fetchable attachments are skipped with a note in
 the channel.
 
+## Commands
+
+Slash commands work from Discord. Two kinds:
+
+- **Bridge commands** — handled by the server itself, never sent to Claude:
+  - `/reset` — start a fresh conversation for this channel (clears its session)
+  - `/stop` — cancel the run in progress
+  - `/help` — list bridge commands plus the custom commands / skills available
+    in this channel's project
+- **Claude Code commands** — anything else starting with `/` is passed straight
+  to `claude -p`, so your project `.claude/commands/` and skills (e.g.
+  `/code-review`) just work.
+
+Interactive, terminal-only commands (`/workflows`, `/status`, `/clear`, …) can't
+run headlessly — Claude Code reports they aren't available, and the bridge adds a
+hint pointing you at what does work. In a server, prefix with a mention if
+`DISCORD_REQUIRE_MENTION=true` (e.g. `@bot /reset`).
+
 ## Per-channel projects
 
 Each Discord channel maps to its own project folder, and Claude runs *inside* that folder — so every project gets its own `CLAUDE.md`, `.mcp.json` (project MCPs), `.claude/skills/`, and separate chat history (Claude Code stores sessions per working directory).
