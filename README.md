@@ -35,6 +35,17 @@ Discord ──messageCreate──▶ src/channels/discord.js
 
 Messages within one channel are queued so replies stay in order.
 
+## Attachments
+
+Attach files to a message (image, PDF, code, text, …) and the bridge downloads
+them to a temp folder, hands that folder to Claude via `--add-dir`, and appends
+the file paths to the prompt so Claude can `Read` them. The folder is deleted
+once the run finishes. A message can be attachment-only (no text needed).
+
+Toggle with `ATTACHMENTS_ENABLED` and cap per-file size with `ATTACHMENT_MAX_MB`
+(default 25). Oversized or un-fetchable attachments are skipped with a note in
+the channel.
+
 ## Per-channel projects
 
 Each Discord channel maps to its own project folder, and Claude runs *inside* that folder — so every project gets its own `CLAUDE.md`, `.mcp.json` (project MCPs), `.claude/skills/`, and separate chat history (Claude Code stores sessions per working directory).

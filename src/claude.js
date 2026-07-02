@@ -42,9 +42,11 @@ export const resumeInactivity = (sessionKey) =>
  * chunks were already delivered that way — the final `text` is the last
  * assistant message, so adapters that streamed shouldn't re-send it.
  */
-export function askClaude(sessionKey, prompt, cwd, onText) {
+export function askClaude(sessionKey, prompt, cwd, onText, opts = {}) {
   const prev = queues.get(sessionKey) ?? Promise.resolve();
-  const next = prev.catch(() => {}).then(() => run(sessionKey, prompt, cwd, onText));
+  const next = prev
+    .catch(() => {})
+    .then(() => run(sessionKey, prompt, cwd, onText, opts));
   queues.set(sessionKey, next);
   return next;
 }
@@ -53,7 +55,7 @@ const APPROVAL_MCP_PATH = fileURLToPath(
   new URL("./mcp/approval-server.js", import.meta.url)
 );
 
-function run(sessionKey, prompt, cwdOverride, onText) {
+function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   const { bin, model, persistSessions, extraArgs, timeoutMs } = config.claude;
   const cwd = cwdOverride || config.claude.cwd;
 
@@ -66,6 +68,12 @@ function run(sessionKey, prompt, cwdOverride, onText) {
   }
   if (persistSessions && sessions[sessionKey]) {
     args.push("--resume", sessions[sessionKey]);
+  }
+
+  // Extra allowed directories (e.g. a temp folder holding message attachments),
+  // so Claude can read them without a per-file approval prompt.
+  for (const dir of opts.addDirs ?? []) {
+    args.push("--add-dir", dir);
   }
 
   // Route permission prompts to Discord via the approval MCP server.

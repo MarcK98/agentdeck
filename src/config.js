@@ -42,6 +42,14 @@ export const config = {
     defaultDir: process.env.DEFAULT_PROJECT || "",
   },
 
+  attachments: {
+    // Download message attachments to a temp folder and expose it to Claude
+    // (via --add-dir) so it can read images, PDFs, code, etc. from disk.
+    enabled: bool(process.env.ATTACHMENTS_ENABLED, true),
+    // Skip any single attachment larger than this (megabytes).
+    maxMb: Number(process.env.ATTACHMENT_MAX_MB) || 25,
+  },
+
   approvals: {
     // Route Claude's permission prompts (run command, edit file, …) to Discord.
     enabled: bool(process.env.APPROVALS_ENABLED, true),

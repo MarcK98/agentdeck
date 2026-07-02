@@ -14,6 +14,7 @@ import { log } from "../logger.js";
 import { askClaude } from "../claude.js";
 import { resolveProject } from "../projects.js";
 import { setPermissionHandler } from "../permission-server.js";
+import { downloadAttachments, cleanupAttachments } from "../attachments.js";
 
 const MAX_DISCORD_LEN = 2000;
 
@@ -126,13 +127,53 @@ export async function startDiscord() {
       if (!projectDir) return;
 
       // Strip the bot mention from the prompt
-      const prompt = message.content
+      const userText = message.content
         .replaceAll(`<@${client.user.id}>`, "")
         .trim();
-      if (!prompt) return;
+
+      // Download any attachments to a temp folder Claude can read from.
+      const attachments = [...message.attachments.values()];
+      let attachmentDir = null;
+      let savedCount = 0;
+      const addDirs = [];
+      let attachmentNote = "";
+      if (config.attachments.enabled && attachments.length) {
+        const { dir, files, skipped } = await downloadAttachments(
+          `discord-${message.channelId}-${message.id}`,
+          attachments.map((a) => ({
+            url: a.url,
+            name: a.name,
+            contentType: a.contentType,
+            size: a.size,
+          }))
+        );
+        attachmentDir = dir; // remove even if nothing usable landed
+        savedCount = files.length;
+        if (files.length) {
+          addDirs.push(dir);
+          const listing = files
+            .map((f) => `- ${f.path}${f.contentType ? ` (${f.contentType})` : ""}`)
+            .join("\n");
+          attachmentNote =
+            `\n\nThe user attached the following file(s). ` +
+            `Read them from disk as needed:\n${listing}`;
+        }
+        for (const s of skipped) {
+          message.reply(`⚠️ Skipped attachment **${s.name}**: ${s.reason}`).catch(() => {});
+        }
+      }
+
+      const prompt = (userText + attachmentNote).trim();
+      // Nothing to act on (empty message, or every attachment was skipped).
+      if (!prompt) {
+        if (attachmentDir) cleanupAttachments(attachmentDir);
+        return;
+      }
 
       log.info(
-        `[discord] ${message.author.tag} in #${isDM ? "DM" : message.channel.name}: ${prompt.slice(0, 80)}`
+        `[discord] ${message.author.tag} in #${isDM ? "DM" : message.channel.name}: ${
+          userText.slice(0, 80) || "(no text)"
+        }${savedCount ? ` [+${savedCount} attachment(s)]` : ""}`
       );
 
       await message.channel.sendTyping();
@@ -162,9 +203,12 @@ export async function startDiscord() {
       };
 
       const sessionKey = `discord:${message.channelId}`;
-      const res = await askClaude(sessionKey, prompt, projectDir, send).finally(
-        () => clearInterval(typing)
-      );
+      const res = await askClaude(sessionKey, prompt, projectDir, send, {
+        addDirs,
+      }).finally(() => {
+        clearInterval(typing);
+        cleanupAttachments(attachmentDir);
+      });
 
       // Everything Claude said was already streamed via onText; the final
       // result is just the last assistant message again. Only send it if
