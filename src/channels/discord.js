@@ -89,6 +89,130 @@ const chunk = (text) => {
   return parts.length ? parts : ["(empty response)"];
 };
 
+// ── Terminal mode (interactive commands like /workflows) ─────────────────────
+// The PTY/terminal-emulator deps are native and loaded lazily, so a load
+// failure degrades to "terminal unavailable" instead of crashing the bridge.
+let termMod = null;
+let termLoadFailed = false;
+async function loadTerminal() {
+  if (termMod) return termMod;
+  if (termLoadFailed) return null;
+  try {
+    termMod = await import("../terminal.js");
+    return termMod;
+  } catch (err) {
+    termLoadFailed = true;
+    log.error("[terminal] mode unavailable:", err.message);
+    return null;
+  }
+}
+// Safe synchronous check — a terminal can only exist if the module loaded.
+const inTerminal = (sessionKey) => Boolean(termMod?.hasTerminal(sessionKey));
+
+const isTerminalTrigger = (userText) => {
+  const cmd = userText.trim().split(/\s+/)[0]?.toLowerCase();
+  return cmd === "/terminal" || config.terminal.triggers.includes(cmd);
+};
+
+const SCREEN_MAX = 1900; // leave room for the ``` fences within 2000 chars
+const codeScreen = (text) =>
+  "```\n" + (text || "(blank screen)").slice(0, SCREEN_MAX) + "\n```";
+
+// Button rows to drive the TUI: navigation + Enter, then Esc / Ctrl-C / Exit.
+const terminalControls = () => {
+  const btn = (id, label) =>
+    new ButtonBuilder()
+      .setCustomId(`term:${id}`)
+      .setLabel(label)
+      .setStyle(id === "exit" ? ButtonStyle.Danger : ButtonStyle.Secondary);
+  return [
+    new ActionRowBuilder().addComponents(
+      btn("up", "↑"),
+      btn("down", "↓"),
+      btn("left", "←"),
+      btn("right", "→"),
+      btn("enter", "⏎ Enter")
+    ),
+    new ActionRowBuilder().addComponents(
+      btn("space", "␣ Space"),
+      btn("esc", "Esc"),
+      btn("ctrlc", "Ctrl-C"),
+      btn("exit", "🚪 Exit")
+    ),
+  ];
+};
+
+// Per-channel Discord UI for an open terminal: the live screen message + its
+// button collector.
+const termUI = new Map(); // sessionKey -> { screenMsg, collector }
+
+async function startTerminal(channel, sessionKey, projectDir, initialCommand) {
+  const controls = terminalControls();
+  const screenMsg = await channel
+    .send({ content: codeScreen("starting terminal…"), components: controls })
+    .catch(() => null);
+  if (!screenMsg) return;
+
+  // Coalesce rapid renders into one in-flight edit, always showing the latest.
+  let pending = null;
+  let editing = false;
+  const pushRender = async (text) => {
+    pending = text;
+    if (editing) return;
+    editing = true;
+    try {
+      while (pending !== null) {
+        const t = pending;
+        pending = null;
+        await screenMsg
+          .edit({ content: codeScreen(t), components: controls })
+          .catch(() => {});
+      }
+    } finally {
+      editing = false;
+    }
+  };
+
+  termMod.openTerminal(sessionKey, {
+    cwd: projectDir,
+    onRender: (text) => pushRender(text),
+    onExit: async (reason) => {
+      const ui = termUI.get(sessionKey);
+      termUI.delete(sessionKey);
+      ui?.collector?.stop();
+      await screenMsg.edit({ components: [] }).catch(() => {});
+      await channel
+        .send(`🖥️ Left terminal mode${reason ? ` — ${reason}` : ""}.`)
+        .catch(() => {});
+    },
+  });
+
+  const collector = screenMsg.createMessageComponentCollector();
+  collector.on("collect", async (i) => {
+    await i.deferUpdate().catch(() => {});
+    const id = i.customId.replace(/^term:/, "");
+    if (id === "exit") termMod.closeTerminal(sessionKey, "closed with the button");
+    else termMod.writeKey(sessionKey, id);
+  });
+
+  termUI.set(sessionKey, { screenMsg, collector });
+
+  await channel
+    .send(
+      "🖥️ **Terminal mode.** This screen updates live — type to enter text, " +
+        "use the buttons to navigate, and send `/exit` to leave."
+    )
+    .catch(() => {});
+
+  // Type the triggering command once the session has booted past any dialogs.
+  if (initialCommand) {
+    setTimeout(
+      () => termMod.writeLine(sessionKey, initialCommand),
+      config.terminal.bootMs
+    );
+  }
+}
+
 export async function startDiscord() {
   const { token, allowedChannels, requireMention } = config.discord;
   if (!token) {
@@ -110,6 +234,7 @@ export async function startDiscord() {
       if (message.author.bot) return;
 
       const isDM = message.channel.type === ChannelType.DM;
+      const sessionKey = `discord:${message.channelId}`;
 
       if (
         allowedChannels.length &&
@@ -119,8 +244,25 @@ export async function startDiscord() {
         return;
       }
 
+      // While a terminal is open, drop the mention requirement so every line
+      // reaches the PTY.
       const mentioned = message.mentions.users.has(client.user.id);
-      if (!isDM && requireMention && !mentioned) return;
+      if (!isDM && requireMention && !mentioned && !inTerminal(sessionKey)) return;
+
+      // Strip the bot mention from the prompt / terminal input.
+      const userText = message.content
+        .replaceAll(`<@${client.user.id}>`, "")
+        .trim();
+
+      // Terminal mode: route the message straight to the live PTY session.
+      if (inTerminal(sessionKey)) {
+        if (/^\/(exit|close|quit)\b/i.test(userText)) {
+          termMod.closeTerminal(sessionKey, "closed by you");
+        } else if (userText) {
+          termMod.writeLine(sessionKey, userText);
+        }
+        return;
+      }
 
       // Each channel maps to its own project directory (own CLAUDE.md,
       // .mcp.json, skills, and chat history).
@@ -131,12 +273,20 @@ export async function startDiscord() {
       });
       if (!projectDir) return;
 
-      // Strip the bot mention from the prompt
-      const userText = message.content
-        .replaceAll(`<@${client.user.id}>`, "")
-        .trim();
-
-      const sessionKey = `discord:${message.channelId}`;
+      // Interactive commands (/workflows, /terminal, …) open a live terminal
+      // instead of failing headlessly.
+      if (config.terminal.enabled && isTerminalTrigger(userText)) {
+        const mod = await loadTerminal();
+        if (!mod) {
+          await message
+            .reply("Terminal mode is unavailable — the native terminal deps failed to load.")
+            .catch(() => {});
+          return;
+        }
+        const initial = /^\/terminal\b/i.test(userText) ? "" : userText;
+        await startTerminal(message.channel, sessionKey, projectDir, initial);
+        return;
+      }
 
       // Bridge commands (/reset, /stop, /help) are handled here and never sent
       // to Claude. Other slash commands fall through to Claude Code as-is.
@@ -284,8 +434,8 @@ export async function startDiscord() {
       // toward what the bridge can actually do.
       if (isInteractiveCommandMiss(userText, res.text)) {
         send(
-          "ℹ️ That command needs a terminal, so it can't run here. Try `/help` — " +
-            "the bridge supports `/status`, `/cost`, `/model`, `/mcp`, `/agents`, `/reset`, `/stop`."
+          "ℹ️ That command needs a terminal. Send `/terminal` to open a live " +
+            "interactive session and run it there, or `/help` for bridge commands."
         );
       }
       await sendQueue;
@@ -415,5 +565,8 @@ export async function startDiscord() {
   });
 
   await client.login(token);
-  return () => client.destroy();
+  return () => {
+    termMod?.closeAllTerminals();
+    client.destroy();
+  };
 }

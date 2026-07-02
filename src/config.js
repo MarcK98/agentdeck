@@ -56,6 +56,25 @@ export const config = {
     enabled: bool(process.env.PROGRESS_ENABLED, true),
   },
 
+  terminal: {
+    // Interactive commands (/workflows, …) open a live PTY terminal rendered to
+    // Discord instead of failing. Needs @lydell/node-pty + @xterm/headless.
+    enabled: bool(process.env.TERMINAL_ENABLED, true),
+    // Slash commands that flip a channel into terminal mode (/terminal always
+    // does). Compared case-insensitively against the first word.
+    triggers: (list(process.env.TERMINAL_TRIGGERS).length
+      ? list(process.env.TERMINAL_TRIGGERS)
+      : ["/workflows"]
+    ).map((s) => s.toLowerCase()),
+    // Auto-close a terminal after this much silence (no output, no input).
+    idleMs: (Number(process.env.TERMINAL_IDLE_SECONDS) || 900) * 1000,
+    // Emulated screen size. Kept small so a full screen fits one Discord message.
+    cols: 80,
+    rows: 24,
+    // Grace period after opening before the triggering command is typed in.
+    bootMs: 2500,
+  },
+
   approvals: {
     // Route Claude's permission prompts (run command, edit file, …) to Discord.
     enabled: bool(process.env.APPROVALS_ENABLED, true),

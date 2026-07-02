@@ -74,6 +74,28 @@ bridge replies with a hint. In a server, prefix with a mention if
 in place with the tool Claude is currently running (great for long CI waits).
 Toggle with `PROGRESS_ENABLED`.
 
+## Terminal mode (interactive commands)
+
+Truly interactive commands (`/workflows`, and anything else that needs a real
+terminal) open **terminal mode**: the bridge launches an interactive Claude
+session in a pseudo-terminal, renders its screen into a single Discord message
+that updates live, and gives you buttons (↑ ↓ ← → Enter, Space, Esc, Ctrl-C,
+Exit) to drive it. Plain messages are typed in as input; send `/exit` to leave.
+While a terminal is open, no mention is needed and messages go straight to it.
+
+- Trigger commands: `/terminal` (blank session) plus anything in
+  `TERMINAL_TRIGGERS` (default `/workflows`). The triggering command is typed in
+  automatically once the session boots.
+- The session is a *fresh* interactive Claude (separate from the `-p` history).
+  First time in a folder you'll see the trust / MCP prompts — answer them with
+  the buttons.
+- Auto-closes after `TERMINAL_IDLE_SECONDS` of silence; toggle the whole feature
+  with `TERMINAL_ENABLED`.
+
+Built on a real terminal emulator (`@lydell/node-pty` + `@xterm/headless`), so
+the TUI renders as clean text. The native module loads lazily — if it can't
+load, terminal mode is disabled and the rest of the bridge is unaffected.
+
 ## Per-channel projects
 
 Each Discord channel maps to its own project folder, and Claude runs *inside* that folder — so every project gets its own `CLAUDE.md`, `.mcp.json` (project MCPs), `.claude/skills/`, and separate chat history (Claude Code stores sessions per working directory).
