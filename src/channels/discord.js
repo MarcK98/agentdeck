@@ -20,6 +20,7 @@ import {
   isInteractiveCommandMiss,
   progressLabel,
 } from "../commands.js";
+import { registerPrReviewer } from "../pr-reviewer.js";
 
 const MAX_DISCORD_LEN = 2000;
 
@@ -563,6 +564,113 @@ export async function startDiscord() {
       } | mention required: ${requireMention}`
     );
   });
+
+  // ── PR review loop ─────────────────────────────────────────────────────────
+  // Wire the reviewer/author/thread hooks. Wrapped so any issue here can never
+  // break message handling or startup.
+  try {
+    const reviewerKey = process.env.PR_REVIEWER_CHANNEL || "";
+
+    const resolveReviewerChannel = () => {
+      if (!reviewerKey) return null;
+      return (
+        client.channels.cache.get(reviewerKey) ||
+        client.channels.cache.find(
+          (c) => c?.name === reviewerKey && c?.isTextBased?.() && !c?.isThread?.()
+        ) ||
+        null
+      );
+    };
+
+    // A serialized, chunked sender bound to one thread/channel.
+    const senderFor = (target) => {
+      let q = Promise.resolve();
+      return (text) => {
+        q = q
+          .then(async () => {
+            for (const part of chunk(String(text ?? ""))) {
+              await target.send(part).catch(() => {});
+            }
+          })
+          .catch(() => {});
+        return q;
+      };
+    };
+
+    const prThreads = new Map(); // prUrl -> thread (or fallback channel)
+
+    registerPrReviewer({
+      reviewer: () => {
+        const ch = resolveReviewerChannel();
+        if (!ch) return null;
+        return {
+          sessionKey: `discord:${ch.id}`,
+          cwd: resolveProject({ channelId: ch.id, channelName: ch.name, isDM: false }),
+        };
+      },
+      origin: (sessionKey) => {
+        const id = String(sessionKey).split(":")[1];
+        const ch = client.channels.cache.get(id);
+        return {
+          cwd: resolveProject({ channelId: id, channelName: ch?.name, isDM: false }),
+        };
+      },
+      ensureThread: async (prUrl) => {
+        let thread = prThreads.get(prUrl);
+        if (!thread) {
+          const parent = resolveReviewerChannel();
+          const num = (prUrl.match(/\/pull\/(\d+)/) || [])[1];
+          const name = (num ? `PR #${num}` : "PR review").slice(0, 90);
+          thread =
+            (await parent?.threads
+              ?.create({ name, autoArchiveDuration: 1440 })
+              .catch(() => null)) ||
+            parent; // fall back to the channel if threads aren't available
+          prThreads.set(prUrl, thread);
+          await thread?.send(`🧵 ${prUrl}`).catch(() => {});
+        }
+        return senderFor(thread);
+      },
+      askMerge: async (_send, prUrl) => {
+        const target = prThreads.get(prUrl) || resolveReviewerChannel();
+        if (!target) return false;
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("prmerge:yes")
+            .setLabel("Merge")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId("prmerge:no")
+            .setLabel("Keep open")
+            .setStyle(ButtonStyle.Secondary)
+        );
+        const msg = await target
+          .send({ content: `Merge **${prUrl}**?`, components: [row] })
+          .catch(() => null);
+        if (!msg) return false;
+        const i = await msg
+          .awaitMessageComponent({ time: config.approvals.timeoutMs })
+          .catch(() => null);
+        if (!i) {
+          await msg.edit({ content: `Merge **${prUrl}**? ⏱️ timed out`, components: [] }).catch(() => {});
+          return false;
+        }
+        const yes = i.customId === "prmerge:yes";
+        await i
+          .update({
+            content: `Merge **${prUrl}**? ${yes ? "✅ merging" : "❌ kept open"} (${i.user.tag})`,
+            components: [],
+          })
+          .catch(() => {});
+        return yes;
+      },
+    });
+    log.info(
+      `[pr] review loop ${reviewerKey ? `armed (channel: ${reviewerKey})` : "idle (PR_REVIEWER_CHANNEL unset)"}`
+    );
+  } catch (err) {
+    log.error("[pr] failed to wire review loop:", err.message);
+  }
 
   await client.login(token);
   return () => {
