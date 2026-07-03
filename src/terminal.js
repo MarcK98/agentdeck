@@ -50,7 +50,13 @@ export function openTerminal(key, { cwd, onRender, onExit } = {}) {
 
   const { cols, rows, idleMs } = config.terminal;
   const term = new Terminal({ cols, rows, allowProposedApi: true, scrollback: 0 });
-  const pty = spawn(config.claude.bin, [], {
+  // Inherit the permission mode so terminal sessions can skip prompts like the
+  // -p runs do. TERMINAL_PERMISSION_MODE overrides CLAUDE_PERMISSION_MODE just
+  // for the PTY (e.g. "bypassPermissions" | "acceptEdits" | "default").
+  const permMode =
+    process.env.TERMINAL_PERMISSION_MODE || config.claude.permissionMode;
+  const args = permMode ? ["--permission-mode", permMode] : [];
+  const pty = spawn(config.claude.bin, args, {
     name: "xterm-256color",
     cols,
     rows,
