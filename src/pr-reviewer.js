@@ -28,9 +28,10 @@ const reviewPrompt = (url) => `You are an automated reviewer for a teammate's pu
 
 1. Inspect it: \`gh pr view ${url}\`, \`gh pr diff ${url}\`, \`gh pr checks ${url}\`.
 2. Look for correctness bugs, security issues, and clear quality problems. Be specific and cite file:line. Do NOT edit code or push — you only review.
-3. Post the result to GitHub AND signal the bridge with exactly one tool call:
-   - If changes are needed: \`gh pr review ${url} --request-changes --body "<review>"\`, then call mcp__approver__pr_request_changes(pr_url="${url}", summary="<what must change, briefly>").
-   - If it looks good: \`gh pr review ${url} --approve --body "<review>"\`, then call mcp__approver__pr_ready_to_merge(pr_url="${url}", summary="<one line>").
+3. Post your review to GitHub as a comment: \`gh pr comment ${url} --body "<review>"\`. (GitHub blocks formally approving / requesting-changes on a PR authored by the same account, so a comment is the reliable path; only use \`gh pr review\` if a separate reviewer account is configured.)
+4. Then signal the bridge with exactly one tool call:
+   - Changes needed → mcp__approver__pr_request_changes(pr_url="${url}", summary="<what must change, briefly>").
+   - Looks good → mcp__approver__pr_ready_to_merge(pr_url="${url}", summary="<one line>").
 Keep your chat replies short.`;
 
 const fixPrompt = (url, summary) => `The reviewer requested changes on your pull request ${url}.
