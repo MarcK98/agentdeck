@@ -96,4 +96,27 @@ server.tool(
   }
 );
 
+// Team-lead only: hand a self-contained task to another project channel's agent.
+// The work runs and streams in that channel; the team lead monitors deliverables.
+server.tool(
+  "delegate",
+  "Team lead only: assign a task to a project channel's agent (by channel name or id). The work runs in that channel.",
+  { channel: z.string(), task: z.string() },
+  async ({ channel, task }) => {
+    let r;
+    try {
+      await fetch(`http://127.0.0.1:${PORT}/tl/delegate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel, task }),
+        signal: AbortSignal.timeout(10000),
+      });
+      r = "ok";
+    } catch (err) {
+      r = `error: ${err.message}`;
+    }
+    return { content: [{ type: "text", text: `delegate -> ${channel}: ${r}` }] };
+  }
+);
+
 await server.connect(new StdioServerTransport());
