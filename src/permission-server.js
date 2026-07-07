@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { pauseInactivity, resumeInactivity } from "./claude.js";
 import { onNotify, onRequestChanges, onReadyToMerge } from "./pr-reviewer.js";
+import { onDelegate } from "./teamlead.js";
 
 // Adapters register a handler: (sessionKey, { toolName, input }) => Promise<{allow, message?}>
 let handler = null;
@@ -49,6 +50,25 @@ export function startPermissionServer() {
       if (fn) {
         Promise.resolve(fn(data)).catch((err) =>
           log.error(`[pr] ${req.url} failed:`, err.message)
+        );
+      }
+      return;
+    }
+
+    // Team-lead delegation: same fire-and-forget pattern.
+    if (req.url.startsWith("/tl/")) {
+      const body = await readBody(req);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      let data = {};
+      try {
+        data = JSON.parse(body || "{}");
+      } catch {
+        return;
+      }
+      if (req.url === "/tl/delegate") {
+        Promise.resolve(onDelegate(data)).catch((err) =>
+          log.error("[teamlead] delegate failed:", err.message)
         );
       }
       return;

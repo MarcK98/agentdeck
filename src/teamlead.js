@@ -77,10 +77,12 @@ async function tick() {
   }
 }
 
-// Start the heartbeat. Returns a stop() function.
+// Start the heartbeat. Returns a stop() function. Arms whenever a channel is
+// configured; each tick resolves the channel (the client cache isn't ready yet
+// at startup), so it no-ops safely until the channel exists.
 export function startTeamLead() {
-  if (!hooks?.teamlead()) {
-    log.info("[teamlead] idle (TEAMLEAD_CHANNEL not set / not found)");
+  if (!process.env.TEAMLEAD_CHANNEL) {
+    log.info("[teamlead] idle (TEAMLEAD_CHANNEL not set)");
     return () => {};
   }
   clearInterval(heartbeat);

@@ -21,6 +21,7 @@ import {
   progressLabel,
 } from "../commands.js";
 import { registerPrReviewer } from "../pr-reviewer.js";
+import { registerTeamLead, startTeamLead, setPaused } from "../teamlead.js";
 
 const MAX_DISCORD_LEN = 2000;
 
@@ -95,6 +96,10 @@ const chunk = (text) => {
 // failure degrades to "terminal unavailable" instead of crashing the bridge.
 let termMod = null;
 let termLoadFailed = false;
+// Team-lead channel state, shared between the message handler and the
+// registration block (both inside startDiscord).
+let teamleadChannelId = "";
+let teamleadOwnerId = "";
 async function loadTerminal() {
   if (termMod) return termMod;
   if (termLoadFailed) return null;
@@ -254,6 +259,22 @@ export async function startDiscord() {
       const userText = message.content
         .replaceAll(`<@${client.user.id}>`, "")
         .trim();
+
+      // Team-lead channel: learn the owner's id (for real @mention pings) and
+      // handle the pause/resume controls.
+      if (teamleadChannelId && message.channelId === teamleadChannelId) {
+        if (!process.env.OWNER_DISCORD_ID) teamleadOwnerId = message.author.id;
+        if (/^\/pause\b/i.test(userText)) {
+          setPaused(true);
+          await message.reply("⏸ Team-lead heartbeat paused.").catch(() => {});
+          return;
+        }
+        if (/^\/resume\b/i.test(userText)) {
+          setPaused(false);
+          await message.reply("▶️ Team-lead heartbeat resumed.").catch(() => {});
+          return;
+        }
+      }
 
       // Terminal mode: route the message straight to the live PTY session.
       if (inTerminal(sessionKey)) {
@@ -672,9 +693,66 @@ export async function startDiscord() {
     log.error("[pr] failed to wire review loop:", err.message);
   }
 
+  // ── Team lead ────────────────────────────────────────────────────────────
+  let stopTeamLead = () => {};
+  try {
+    const key = process.env.TEAMLEAD_CHANNEL || "";
+    teamleadOwnerId = process.env.OWNER_DISCORD_ID || "";
+
+    const resolveChan = (k) =>
+      !k
+        ? null
+        : client.channels.cache.get(k) ||
+          client.channels.cache.find(
+            (c) => c?.name === k && c?.isTextBased?.() && !c?.isThread?.()
+          ) ||
+          null;
+
+    const tlSender = (target) => {
+      let q = Promise.resolve();
+      return (text) => {
+        q = q
+          .then(async () => {
+            for (const part of chunk(String(text ?? ""))) {
+              await target.send(part).catch(() => {});
+            }
+          })
+          .catch(() => {});
+        return q;
+      };
+    };
+
+    const chanInfo = (ch) =>
+      ch
+        ? {
+            channelId: ch.id,
+            sessionKey: `discord:${ch.id}`,
+            cwd: resolveProject({ channelId: ch.id, channelName: ch.name, isDM: false }),
+            send: tlSender(ch),
+          }
+        : null;
+
+    // Best-effort id now (cache may be empty pre-login); the handler also matches
+    // by the configured key, and the hooks re-resolve lazily at tick time.
+    teamleadChannelId = resolveChan(key)?.id || key;
+
+    registerTeamLead({
+      teamlead: () => chanInfo(resolveChan(key)),
+      resolveChannel: (nameOrId) => chanInfo(resolveChan(nameOrId)),
+      ownerMention: () => (teamleadOwnerId ? `<@${teamleadOwnerId}>` : ""),
+    });
+    stopTeamLead = startTeamLead();
+    log.info(
+      `[teamlead] ${key ? `armed (channel: ${key})` : "idle (TEAMLEAD_CHANNEL unset)"}`
+    );
+  } catch (err) {
+    log.error("[teamlead] failed to wire:", err.message);
+  }
+
   await client.login(token);
   return () => {
     termMod?.closeAllTerminals();
+    stopTeamLead();
     client.destroy();
   };
 }
