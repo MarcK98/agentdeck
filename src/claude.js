@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { log } from "./logger.js";
+import { recordUsage } from "./usage-log.js";
 
 const SESSIONS_FILE = new URL("../sessions.json", import.meta.url);
 
@@ -87,16 +88,41 @@ const APPROVAL_MCP_PATH = fileURLToPath(
   new URL("./mcp/approval-server.js", import.meta.url)
 );
 
+// Build the `npx chrome-devtools-mcp` argv from browser config. When `url` is
+// set we attach to an already-running Chrome (keeps logged-in sessions); the
+// channel/headless launch flags only apply when the MCP starts its own Chrome.
+function browserMcpArgs() {
+  const a = ["-y", "chrome-devtools-mcp@latest"];
+  const { url, channel, headless, isolated } = config.browser;
+  if (url) {
+    a.push("--browserUrl", url);
+  } else {
+    if (channel) a.push("--channel", channel);
+    if (headless) a.push("--headless");
+  }
+  if (isolated) a.push("--isolated");
+  return a;
+}
+
 function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   const { bin, persistSessions, extraArgs, timeoutMs, toolTimeoutMs } =
     config.claude;
-  const model = modelOverrides.get(sessionKey) || config.claude.model;
+  // Model/effort precedence: an explicit per-run opt (heartbeat, delegation)
+  // wins over the channel's /model override, which wins over the config default.
+  const model = opts.model || modelOverrides.get(sessionKey) || config.claude.model;
+  const effort = opts.effort || config.claude.effort;
   const cwd = cwdOverride || config.claude.cwd;
 
   // stream-json emits one JSON event per line as Claude works
   // (--verbose is required with -p + stream-json).
   const args = ["-p", prompt, "--output-format", "stream-json", "--verbose"];
   if (model) args.push("--model", model);
+  if (effort) args.push("--effort", effort);
+  // Beta headers. A per-run opts.betas (the team lead's Sonnet-1M window) wins
+  // over the global default — so the 1M beta rides only on the run that uses it,
+  // not on other channels' models that would reject it.
+  const betas = opts.betas?.length ? opts.betas : config.claude.betas;
+  if (betas.length) args.push("--betas", ...betas);
   if (config.claude.permissionMode) {
     args.push("--permission-mode", config.claude.permissionMode);
   }
@@ -110,17 +136,27 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
     args.push("--add-dir", dir);
   }
 
-  // Route permission prompts to Discord via the approval MCP server.
+  // Assemble the MCP servers exposed to this run: the approval server (routes
+  // permission prompts to Discord) and, optionally, a browser server so agents
+  // get Chrome access without switching to /terminal.
+  const mcpServers = {};
   if (config.approvals.enabled) {
-    const mcpConfig = {
-      mcpServers: {
-        approver: {
-          command: process.execPath, // this node binary
-          args: [APPROVAL_MCP_PATH],
-        },
-      },
+    mcpServers.approver = {
+      command: process.execPath, // this node binary
+      args: [APPROVAL_MCP_PATH],
     };
-    args.push("--mcp-config", JSON.stringify(mcpConfig));
+  }
+  if (config.browser.enabled) {
+    mcpServers["chrome-devtools"] = {
+      command: "npx",
+      args: browserMcpArgs(),
+    };
+  }
+  if (Object.keys(mcpServers).length) {
+    args.push("--mcp-config", JSON.stringify({ mcpServers }));
+  }
+  // The permission-prompt tool only exists when the approver server is loaded.
+  if (config.approvals.enabled) {
     args.push("--permission-prompt-tool", "mcp__approver__approve");
   }
 
@@ -244,14 +280,27 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
         }
       } else if (ev.type === "result") {
         pendingTools = 0; // turn is over; self-heal any counting drift
+        const runModel = Object.keys(ev.modelUsage ?? {})[0] || model;
         lastStats.set(sessionKey, {
           costUsd: ev.total_cost_usd,
           usage: ev.usage ?? null,
-          model: Object.keys(ev.modelUsage ?? {})[0] || model,
+          model: runModel,
           durationMs: ev.duration_ms,
           numTurns: ev.num_turns,
           sessionId: ev.session_id,
           at: Date.now(),
+        });
+        // Append to the usage ledger (exact channel/team-lead attribution for
+        // the dashboard). opts.meta comes from the adapter that started the run.
+        recordUsage({
+          sessionKey,
+          model: runModel,
+          usage: ev.usage ?? null,
+          costUsd: ev.total_cost_usd,
+          durationMs: ev.duration_ms,
+          numTurns: ev.num_turns,
+          sessionId: ev.session_id,
+          meta: opts.meta || {},
         });
         result = {
           text: ev.result ?? "",
@@ -309,10 +358,26 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
       }
 
       if (result) {
-        if (result.isError) {
-          return finish({ ok: false, text: result.text || "Claude returned an error." });
+        // Always surface the context size so callers can track/warn on it.
+        // Optionally auto-reset when it passes the cap (the caller's opts, else
+        // the global CLAUDE_MAX_CONTEXT_TOKENS). A cap of 0 = never reset.
+        const u = lastStats.get(sessionKey)?.usage || {};
+        const contextTokens =
+          (u.input_tokens || 0) +
+          (u.cache_read_input_tokens || 0) +
+          (u.cache_creation_input_tokens || 0);
+        let contextReset = false;
+        const cap = opts.maxContextTokens ?? config.claude.maxContextTokens;
+        if (cap && persistSessions && sessions[sessionKey] && contextTokens > cap) {
+          delete sessions[sessionKey];
+          saveSessions();
+          contextReset = true;
+          log.info(`[claude] auto-reset ${sessionKey} — context ${contextTokens} > ${cap} tokens`);
         }
-        return finish({ ok: true, text: result.text || "(empty response)" });
+        if (result.isError) {
+          return finish({ ok: false, contextReset, contextTokens, text: result.text || "Claude returned an error." });
+        }
+        return finish({ ok: true, contextReset, contextTokens, text: result.text || "(empty response)" });
       }
 
       // No result event: the CLI failed outright (e.g. stale --resume id).

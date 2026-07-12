@@ -9,11 +9,14 @@ import {
   StringSelectMenuBuilder,
   EmbedBuilder,
 } from "discord.js";
+import { basename, isAbsolute, resolve as resolvePath, sep } from "node:path";
+import { statSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { askClaude } from "../claude.js";
+import { askClaude, cancelRun, getLastStats } from "../claude.js";
 import { resolveProject } from "../projects.js";
-import { setPermissionHandler } from "../permission-server.js";
+import { setPermissionHandler, setShareHandler } from "../permission-server.js";
 import { downloadAttachments, cleanupAttachments } from "../attachments.js";
 import {
   runBridgeCommand,
@@ -21,7 +24,14 @@ import {
   progressLabel,
 } from "../commands.js";
 import { registerPrReviewer } from "../pr-reviewer.js";
-import { registerTeamLead, startTeamLead, setPaused } from "../teamlead.js";
+import {
+  registerTeamLead,
+  startTeamLead,
+  setPaused,
+  nudgeTeamLead,
+  teamleadRunOpts,
+} from "../teamlead.js";
+import { registerTrello, startTrello } from "../trello.js";
 
 const MAX_DISCORD_LEN = 2000;
 
@@ -235,8 +245,100 @@ export async function startDiscord() {
     partials: [Partials.Channel], // needed to receive DMs
   });
 
+  // ── Sticky control bar ─────────────────────────────────────────────────────
+  // A message with a single Stop button kept at the bottom of configured
+  // channels, re-posted after activity so it stays visible. Clicks are handled
+  // by interactionCreate. (Reset/pause/resume live on slash commands.)
+  const controlMsgs = new Map(); // channelId -> current control message id
+  const restickTimers = new Map(); // channelId -> debounce timer
+  const controlChannelIds = new Set();
+  const isControlChannel = (id) => controlChannelIds.has(id);
+
+  const resolveAnyChannel = (k) =>
+    !k
+      ? null
+      : client.channels.cache.get(k) ||
+        client.channels.cache.find(
+          (c) => c?.name === k && c?.isTextBased?.() && !c?.isThread?.()
+        ) ||
+        null;
+
+  const controlRow = () =>
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ctl:stop")
+        .setEmoji("🛑")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  const controlContent = (channelId) => {
+    const u = getLastStats(`discord:${channelId}`)?.usage;
+    const ctxk = u
+      ? Math.round(
+          ((u.input_tokens || 0) +
+            (u.cache_read_input_tokens || 0) +
+            (u.cache_creation_input_tokens || 0)) /
+            1000
+        )
+      : null;
+    return `🎛️ **Channel controls**${ctxk != null ? ` · context ~${ctxk}k tokens` : ""}`;
+  };
+
+  async function postControl(channel, { force = false } = {}) {
+    if (!channel) return;
+    const channelId = channel.id;
+    try {
+      // Skip if the bar is already the last message (avoids idle churn / loops).
+      if (!force) {
+        const last = (await channel.messages.fetch({ limit: 1 }).catch(() => null))?.first();
+        if (last && last.id === controlMsgs.get(channelId)) return;
+      }
+      const msg = await channel.send({
+        content: controlContent(channelId),
+        components: [controlRow()],
+      });
+      const prev = controlMsgs.get(channelId);
+      controlMsgs.set(channelId, msg.id);
+      if (prev && prev !== msg.id) channel.messages.delete(prev).catch(() => {});
+    } catch (err) {
+      log.warn("[controls] post failed:", err.message);
+    }
+  }
+
+  const scheduleRestick = (channel) => {
+    clearTimeout(restickTimers.get(channel.id));
+    restickTimers.set(channel.id, setTimeout(() => postControl(channel), 4000));
+  };
+
+  // Button clicks on the sticky control bar.
+  client.on("interactionCreate", async (i) => {
+    if (!i.isButton?.() || !i.customId.startsWith("ctl:")) return;
+    const sessionKey = `discord:${i.channelId}`;
+    let text;
+    switch (i.customId.slice(4)) {
+      case "stop":
+        text = cancelRun(sessionKey) ? "🛑 Stopped the run in progress." : "Nothing is running.";
+        break;
+      default:
+        text = "Unknown control.";
+    }
+    await i.reply({ content: text, ephemeral: true }).catch(() => {});
+    postControl(i.channel, { force: true }).catch(() => {}); // refresh + keep at bottom
+  });
+
   client.on("messageCreate", async (message) => {
     try {
+      // Keep the sticky control bar at the bottom: any new message (from anyone,
+      // including this bot) that isn't the bar itself schedules a debounced
+      // re-post. Runs before the bot-message early-return below.
+      if (
+        config.controls.enabled &&
+        isControlChannel(message.channelId) &&
+        message.id !== controlMsgs.get(message.channelId)
+      ) {
+        scheduleRestick(message.channel);
+      }
+
       if (message.author.bot) return;
 
       const isDM = message.channel.type === ChannelType.DM;
@@ -435,9 +537,18 @@ export async function startDiscord() {
           statusMsg = null;
         }));
 
+      // The team-lead channel shares one session between Marc's messages and the
+      // heartbeat, so his interactive runs use the same model + betas (e.g. 1M).
+      const tlOpts =
+        teamleadChannelId && message.channelId === teamleadChannelId
+          ? teamleadRunOpts()
+          : {};
+
       const res = await askClaude(sessionKey, prompt, projectDir, send, {
         addDirs,
         onProgress,
+        ...tlOpts,
+        meta: { channelName: message.channel?.name || null, source: "chat" },
       }).finally(() => {
         clearInterval(typing);
         cleanupAttachments(attachmentDir);
@@ -577,6 +688,86 @@ export async function startDiscord() {
     };
   });
 
+  // Agents (any channel + the team lead) share documents by uploading them as
+  // Discord attachments. The path is resolved against the channel's project dir,
+  // constrained to that dir or the temp dir, and size-capped before upload.
+  setShareHandler(async ({ sessionKey, path: rawPath, comment }) => {
+    try {
+      if (!rawPath) return { ok: false, error: "no path given" };
+      const channelId = String(sessionKey).split(":")[1];
+      const channel = await client.channels.fetch(channelId).catch(() => null);
+      if (!channel) return { ok: false, error: "channel not found" };
+
+      const isDM = channel.type === ChannelType.DM;
+      const projectDir = resolveProject({
+        channelId,
+        channelName: isDM ? null : channel.name,
+        isDM,
+      });
+      const abs = isAbsolute(rawPath)
+        ? resolvePath(rawPath)
+        : resolvePath(projectDir || process.cwd(), rawPath);
+
+      // Must exist and be a regular file (resolve symlinks first).
+      let real, st;
+      try {
+        real = realpathSync(abs);
+        st = statSync(real);
+      } catch {
+        return { ok: false, error: `file not found: ${rawPath}` };
+      }
+      if (!st.isFile()) return { ok: false, error: "not a regular file" };
+
+      // Containment: the channel's own project dir, the shared project workspace
+      // (PROJECTS_ROOT / DEFAULT_PROJECT), any SHARE_ALLOWED_DIRS, and the temp
+      // dir. Light hygiene — agents run auto-approved and can already read+paste
+      // any file — but it keeps uploads to the workspace and is configurable.
+      const roots = [
+        projectDir,
+        config.projects.root,
+        config.projects.defaultDir,
+        ...config.share.allowedDirs,
+        tmpdir(),
+      ]
+        .filter(Boolean)
+        .map((r) => {
+          try {
+            return realpathSync(resolvePath(r));
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      const contained = roots.some((r) => real === r || real.startsWith(r + sep));
+      if (!contained) {
+        return {
+          ok: false,
+          error: `"${real}" is outside the allowed dirs (${roots.join(", ")}). Use a path under the project workspace, or add its dir to SHARE_ALLOWED_DIRS.`,
+        };
+      }
+
+      // Size cap (Discord's default upload limit is ~25 MB).
+      const maxBytes = config.attachments.maxMb * 1024 * 1024;
+      if (st.size > maxBytes) {
+        return {
+          ok: false,
+          error: `file is ${(st.size / 1048576).toFixed(1)}MB, over the ${config.attachments.maxMb}MB limit`,
+        };
+      }
+
+      const name = basename(real);
+      await channel.send({
+        content: comment ? String(comment).slice(0, 1900) : undefined,
+        files: [{ attachment: real, name }],
+      });
+      log.info(`[share] uploaded ${name} to ${sessionKey}`);
+      return { ok: true, name };
+    } catch (err) {
+      log.warn("[share] failed:", err.message);
+      return { ok: false, error: err.message };
+    }
+  });
+
   client.once("clientReady", () => {
     log.info(`[discord] logged in as ${client.user.tag}`);
     log.info(
@@ -584,6 +775,30 @@ export async function startDiscord() {
         allowedChannels.length ? allowedChannels.join(", ") : "all channels"
       } | mention required: ${requireMention}`
     );
+
+    // Post the sticky control bar in each configured channel (default: the
+    // team-lead channel). Runs after login, so teamleadChannelId is resolved.
+    if (config.controls.enabled) {
+      const keys = config.controls.channels.length
+        ? config.controls.channels
+        : teamleadChannelId
+          ? [teamleadChannelId]
+          : [];
+      for (const k of keys) {
+        const ch = resolveAnyChannel(k);
+        if (ch) {
+          controlChannelIds.add(ch.id);
+          postControl(ch, { force: true }).catch(() => {});
+        } else {
+          log.warn(`[controls] channel not found: ${k}`);
+        }
+      }
+      log.info(
+        `[controls] ${
+          controlChannelIds.size ? `armed for ${controlChannelIds.size} channel(s)` : "no channels resolved"
+        }`
+      );
+    }
   });
 
   // ── PR review loop ─────────────────────────────────────────────────────────
@@ -695,6 +910,7 @@ export async function startDiscord() {
 
   // ── Team lead ────────────────────────────────────────────────────────────
   let stopTeamLead = () => {};
+  let stopTrello = () => {};
   try {
     const key = process.env.TEAMLEAD_CHANNEL || "";
     teamleadOwnerId = process.env.OWNER_DISCORD_ID || "";
@@ -745,6 +961,18 @@ export async function startDiscord() {
     log.info(
       `[teamlead] ${key ? `armed (channel: ${key})` : "idle (TEAMLEAD_CHANNEL unset)"}`
     );
+
+    // Trello board sync posts Marc's board changes into the team-lead channel and
+    // (optionally) wakes the team lead. Reuses the same channel resolver as above.
+    registerTrello({
+      notify: (text) => {
+        const tl = chanInfo(resolveChan(key));
+        if (tl?.send) tl.send(text);
+        else log.warn("[trello] notify dropped — team-lead channel not resolved");
+      },
+      nudge: () => nudgeTeamLead(),
+    });
+    stopTrello = startTrello();
   } catch (err) {
     log.error("[teamlead] failed to wire:", err.message);
   }
@@ -753,6 +981,7 @@ export async function startDiscord() {
   return () => {
     termMod?.closeAllTerminals();
     stopTeamLead();
+    stopTrello();
     client.destroy();
   };
 }
