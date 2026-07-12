@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude usage dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #0e1116;
+        --panel: #171b22;
+        --panel2: #1e242d;
+        --text: #e6e9ef;
+        --muted: #8b93a1;
+        --line: #2a313c;
+        --ok: #3fb950;
+        --warn: #d29922;
+        --bad: #f85149;
+        --accent: #56b4e9;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      h1 { font-size: 18px; margin: 0; font-weight: 650; }
+      .sub { color: var(--muted); font-size: 12px; }
+      .controls { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+      select, button {
+        background: var(--panel2);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 6px 10px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .toggle button.active { background: var(--accent); color: #04121d; border-color: var(--accent); font-weight: 600; }
+      main { padding: 20px 22px 60px; max-width: 1400px; margin: 0 auto; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 18px;
+      }
+      .card h2 { font-size: 13px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+      .col-3 { grid-column: span 3; }
+      .col-4 { grid-column: span 4; }
+      .col-6 { grid-column: span 6; }
+      .col-8 { grid-column: span 8; }
+      .col-12 { grid-column: span 12; }
+      @media (max-width: 900px) {
+        .col-3, .col-4, .col-6, .col-8 { grid-column: span 12; }
+      }
+      .tile .big { font-size: 26px; font-weight: 680; letter-spacing: -.01em; }
+      .tile .lbl { color: var(--muted); font-size: 12px; margin-top: 2px; }
+      .gauge { margin-bottom: 14px; }
+      .gauge:last-child { margin-bottom: 0; }
+      .gauge .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+      .gauge .row b { font-weight: 650; }
+      .bar { height: 9px; border-radius: 5px; background: var(--panel2); overflow: hidden; }
+      .bar > span { display: block; height: 100%; border-radius: 5px; transition: width .4s; }
+      .chartbox { position: relative; height: 260px; }
+      .chartbox.tall { height: 320px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .pill { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+      .note { color: var(--muted); font-size: 11px; margin-top: 10px; }
+      #err { color: var(--bad); padding: 10px 22px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Claude usage</h1>
+        <div class="sub" id="meta">loading…</div>
+      </div>
+      <div class="controls">
+        <span class="toggle" id="metricToggle">
+          <button data-metric="cost" class="active">Cost&nbsp;($)</button>
+          <button data-metric="tokens">Tokens</button>
+        </span>
+        <select id="days">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+        </select>
+        <button id="refresh">Refresh</button>
+      </div>
+    </header>
+    <div id="err"></div>
+    <main>
+      <div class="grid">
+        <div class="card col-6">
+          <h2>Plan limits — rolling windows</h2>
+          <div id="gauges"></div>
+          <div class="note">
+            Max x20 has no public token cap (dynamic 5h + weekly limits). Set your own
+            ceilings in <code>.env</code> (<code>DASHBOARD_LIMIT_*</code>) from observed usage.
+            Account-wide, from all Claude Code sessions.
+          </div>
+        </div>
+        <div class="card col-3 tile"><div class="big" id="t24">—</div><div class="lbl">last 24h</div></div>
+        <div class="card col-3 tile"><div class="big" id="t7d">—</div><div class="lbl">last 7 days</div></div>
+
+        <div class="card col-6">
+          <h2>By model (account-wide)</h2>
+          <div class="chartbox"><canvas id="modelChart"></canvas></div>
+        </div>
+        <div class="card col-6">
+          <h2>By day</h2>
+          <div class="chartbox"><canvas id="dayChart"></canvas></div>
+        </div>
+
+        <div class="card col-6">
+          <h2>By hour of day</h2>
+          <div class="chartbox"><canvas id="hourChart"></canvas></div>
+        </div>
+        <div class="card col-6">
+          <h2>By channel (bridge)</h2>
+          <div class="chartbox"><canvas id="channelChart"></canvas></div>
+        </div>
+
+        <div class="card col-4">
+          <h2>By source / team-lead (bridge)</h2>
+          <div class="chartbox"><canvas id="sourceChart"></canvas></div>
+        </div>
+        <div class="card col-8">
+          <h2>By project (account-wide)</h2>
+          <table>
+            <thead>
+              <tr><th>Project</th><th class="num">Cost</th><th class="num">Tokens</th><th class="num">Runs</th></tr>
+            </thead>
+            <tbody id="projectRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // Okabe-Ito color-blind-safe palette.
+      const PALETTE = ["#56b4e9", "#009e73", "#e69f00", "#cc79a7", "#f0e442", "#0072b2", "#d55e00", "#999999"];
+      const TIER_COLOR = { opus: "#56b4e9", sonnet: "#009e73", haiku: "#e69f00", fable: "#cc79a7", other: "#999999" };
+      Chart.defaults.color = "#8b93a1";
+      Chart.defaults.borderColor = "#2a313c";
+      Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+      let METRIC = "cost"; // "cost" | "tokens"
+      let DATA = null;
+      const charts = {};
+
+      const fmtTokens = (n) => {
+        if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+        return String(Math.round(n));
+      };
+      const fmtCost = (n) => "$" + (n || 0).toFixed(2);
+      const val = (o) => (METRIC === "cost" ? o.cost : o.tokens);
+      const fmtVal = (v) => (METRIC === "cost" ? fmtCost(v) : fmtTokens(v));
+
+      function draw(id, cfg) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(document.getElementById(id), cfg);
+      }
+
+      const baseOpts = (horizontal) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: horizontal ? "y" : "x",
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: (c) => fmtVal(c.parsed[horizontal ? "x" : "y"]) },
+          },
+        },
+        scales: {
+          [horizontal ? "x" : "y"]: {
+            beginAtZero: true,
+            ticks: { callback: (v) => (METRIC === "cost" ? "$" + v : fmtTokens(v)) },
+            grid: { color: "#2a313c" },
+          },
+          [horizontal ? "y" : "x"]: { grid: { display: false } },
+        },
+      });
+
+      function renderGauges() {
+        const w = DATA.windows, lim = DATA.limits;
+        const rows = [
+          { label: "5h window", cost: w["5h"].cost, tokens: w["5h"].tokens, limUsd: lim.usd5h, limTok: lim.tokens5h },
+          { label: "7d window", cost: w["7d"].cost, tokens: w["7d"].tokens, limUsd: lim.usd7d, limTok: lim.tokens7d },
+        ];
+        const box = document.getElementById("gauges");
+        box.innerHTML = rows.map((r) => {
+          const v = METRIC === "cost" ? r.cost : r.tokens;
+          const limit = METRIC === "cost" ? r.limUsd : r.limTok;
+          let pct = 0, color = "var(--accent)", right = fmtVal(v);
+          if (limit > 0) {
+            pct = Math.min(100, (v / limit) * 100);
+            color = pct >= 90 ? "var(--bad)" : pct >= 70 ? "var(--warn)" : "var(--ok)";
+            right = `${fmtVal(v)} / ${fmtVal(limit)} · ${pct.toFixed(0)}%`;
+          } else {
+            pct = 100;
+            color = "var(--accent)";
+            right = `${fmtVal(v)} · no limit set`;
+          }
+          return `<div class="gauge">
+            <div class="row"><span>${r.label}</span><b>${right}</b></div>
+            <div class="bar"><span style="width:${pct}%;background:${color}"></span></div>
+          </div>`;
+        }).join("");
+      }
+
+      function renderTiles() {
+        document.getElementById("t24").textContent = fmtVal(val(DATA.windows["24h"]));
+        document.getElementById("t7d").textContent = fmtVal(val(DATA.windows["7d"]));
+      }
+
+      function renderModel() {
+        const rows = DATA.account.byModel;
+        draw("modelChart", {
+          type: "bar",
+          data: {
+            labels: rows.map((r) => r.model),
+            datasets: [{ data: rows.map(val), backgroundColor: rows.map((r) => TIER_COLOR[r.tier] || "#999") }],
+          },
+          options: baseOpts(true),
+        });
+      }
+
+      function renderDay() {
+        const rows = DATA.account.byDay;
+        draw("dayChart", {
+          type: "line",
+          data: {
+            labels: rows.map((r) => r.date.slice(5)),
+            datasets: [{
+              data: rows.map(val),
+              borderColor: "#56b4e9",
+              backgroundColor: "rgba(86,180,233,.15)",
+              fill: true,
+              tension: 0.25,
+              pointRadius: 0,
+            }],
+          },
+          options: baseOpts(false),
+        });
+      }
+
+      function renderHour() {
+        const rows = DATA.account.byHour;
+        draw("hourChart", {
+          type: "bar",
+          data: {
+            labels: rows.map((r) => String(r.hour).padStart(2, "0")),
+            datasets: [{ data: rows.map(val), backgroundColor: "#0072b2" }],
+          },
+          options: baseOpts(false),
+        });
+      }
+
+      function renderChannel() {
+        const rows = DATA.bridge.byChannel;
+        draw("channelChart", {
+          type: "bar",
+          data: {
+            labels: rows.map((r) => r.channelName || r.channelId || "?"),
+            datasets: [{ data: rows.map(val), backgroundColor: PALETTE }],
+          },
+          options: baseOpts(true),
+        });
+      }
+
+      function renderSource() {
+        const rows = DATA.bridge.bySource;
+        draw("sourceChart", {
+          type: "doughnut",
+          data: {
+            labels: rows.map((r) => r.source),
+            datasets: [{ data: rows.map(val), backgroundColor: PALETTE, borderColor: "#171b22", borderWidth: 2 }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { boxWidth: 12 } },
+              tooltip: { callbacks: { label: (c) => `${c.label}: ${fmtVal(c.parsed)}` } },
+            },
+          },
+        });
+      }
+
+      function renderProjects() {
+        document.getElementById("projectRows").innerHTML = DATA.account.byProject
+          .map((r) => `<tr>
+            <td>${r.project}</td>
+            <td class="num">${fmtCost(r.cost)}</td>
+            <td class="num">${fmtTokens(r.tokens)}</td>
+            <td class="num">${r.runs}</td>
+          </tr>`).join("") || `<tr><td colspan="4" style="color:var(--muted)">No data.</td></tr>`;
+      }
+
+      function renderAll() {
+        if (!DATA) return;
+        renderGauges();
+        renderTiles();
+        renderModel();
+        renderDay();
+        renderHour();
+        renderChannel();
+        renderSource();
+        renderProjects();
+      }
+
+      async function load() {
+        const days = document.getElementById("days").value;
+        document.getElementById("err").textContent = "";
+        try {
+          const res = await fetch(`/api/usage?days=${days}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          DATA = await res.json();
+          const t = DATA.account.total, b = DATA.bridge.total;
+          document.getElementById("meta").textContent =
+            `${days}d · account ${fmtCost(t.cost)} / ${fmtTokens(t.tokens)} tokens · ` +
+            `bridge ${fmtCost(b.cost)} (${b.runs} runs) · updated ${new Date(DATA.generatedAt).toLocaleTimeString()}`;
+          renderAll();
+        } catch (e) {
+          document.getElementById("err").textContent = "Failed to load usage: " + e.message;
+        }
+      }
+
+      document.getElementById("metricToggle").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        METRIC = b.dataset.metric;
+        document.querySelectorAll("#metricToggle button").forEach((x) => x.classList.toggle("active", x === b));
+        renderAll();
+      });
+      document.getElementById("days").addEventListener("change", load);
+      document.getElementById("refresh").addEventListener("click", load);
+      load();
+      setInterval(load, 60_000);
+    </script>
+  </body>
+</html>
