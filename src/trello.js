@@ -199,22 +199,35 @@ export async function syncTasks({ tasks = [], archiveMissing = false } = {}) {
 // archive) by card key, so the team lead can act immediately instead of waiting
 // for the next full trello_sync. Comments WE post are recorded so the poll won't
 // echo them back as if Marc wrote them.
-export async function writeCard({ cardKey, action, text, status, title, body } = {}) {
+export async function writeCard({ cardKey, cardRef, action, text, status, title, body } = {}) {
   if (!enabledBasic()) return { ok: false, error: "Trello is off (TRELLO_ENABLED)." };
   if (!(await ensureReady())) return { ok: false, error: "Trello board not reachable." };
   const act = String(action || "").toLowerCase();
 
-  // Resolve the card by its stable key (everything except create needs one).
+  // Resolve the card (everything except create needs one). Normally by its
+  // stable marker key — cards the team lead created. `cardRef` (a card id,
+  // shortLink, or its trello.com/c/... URL) additionally reaches UNTRACKED
+  // cards Marc made by hand, which carry no marker so no key matches them.
   let card = null;
   if (act !== "create") {
-    if (!cardKey) return { ok: false, error: "card_key is required." };
+    if (!cardKey && !cardRef)
+      return { ok: false, error: "card_key or card_ref is required." };
     const cardsRes = await api(
       "GET",
-      `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl`
+      `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
     );
     if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
-    card = cardsRes.data.find((c) => keyOf(c.desc) === cardKey);
-    if (!card) return { ok: false, error: `no card with key "${cardKey}".` };
+    if (cardKey) {
+      card = cardsRes.data.find((c) => keyOf(c.desc) === cardKey);
+      if (!card) return { ok: false, error: `no card with key "${cardKey}".` };
+    } else {
+      const ref = String(cardRef).trim();
+      const link = (ref.match(/\/c\/([^/]+)/) || [])[1] || ref; // shortLink out of a URL
+      card = cardsRes.data.find(
+        (c) => c.id === ref || c.shortLink === ref || c.shortLink === link
+      );
+      if (!card) return { ok: false, error: `no card matching ref "${cardRef}".` };
+    }
   }
 
   if (act === "comment") {
@@ -284,11 +297,12 @@ export async function readBoard({ limit = 20, cardKey } = {}) {
 
   const cardsRes = await api(
     "GET",
-    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl`
+    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
   );
   if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
   const cards = cardsRes.data.map((c) => ({
     key: keyOf(c.desc),
+    ref: c.shortLink, // stable handle for trello_write when key is null (untracked)
     title: c.name,
     status: statusByListId.get(c.idList) || nameByListId.get(c.idList) || null,
     url: c.shortUrl,

@@ -172,7 +172,7 @@ server.tool(
 // the team lead can check a comment Marc left without waiting for the poll feed.
 server.tool(
   "trello_read",
-  "Team lead only: READ the Trello board right now — returns the current cards (each with its status list + url) and recent comments Marc left. Use this to check a comment or the live board state on demand instead of waiting for the automatic heartbeat feed. Optional `card_key` filters comments to one card (the same stable key you pass to trello_sync); `limit` caps how many recent comments to return (default 20).",
+  "Team lead only: READ the Trello board right now — returns the current cards (each with its status list, url, key, and `ref`) and recent comments Marc left. Use this to check a comment or the live board state on demand instead of waiting for the automatic heartbeat feed. A card with a null `key` is an untracked card Marc made by hand — pass its `ref` to trello_write (as `card_ref`) to comment/move/archive it. Optional `card_key` filters comments to one card (the same stable key you pass to trello_sync); `limit` caps how many recent comments to return (default 20).",
   {
     card_key: z.string().optional(),
     limit: z.number().optional(),
@@ -211,22 +211,23 @@ server.tool(
 // move/update/create/archive a single card — without waiting for the next sync.
 server.tool(
   "trello_write",
-  "Team lead only: make ONE targeted change to the Trello board right now. Use for a single immediate action (use trello_sync for the full-board mirror each tick). `card_key` is the stable task key. action: 'comment' (reply to Marc on a card — needs `text`), 'move' (change a card's status list — needs `status`), 'update' (change `title` and/or `body`), 'create' (needs `card_key` + `title`, optional `status`/`body`), 'archive'. status is one of todo | in-progress | blocked | in-review | done.",
+  "Team lead only: make ONE targeted change to the Trello board right now. Use for a single immediate action (use trello_sync for the full-board mirror each tick). Identify the card by `card_key` (the stable task key of a card the team lead created) OR `card_ref` (a card id, shortLink, or trello.com/c/... URL — use this to reach cards Marc made by hand, which have no key; get their `ref` from trello_read). action: 'comment' (reply to Marc on a card — needs `text`), 'move' (change a card's status list — needs `status`), 'update' (change `title` and/or `body`), 'create' (needs `card_key` + `title`, optional `status`/`body`), 'archive'. status is one of todo | in-progress | blocked | in-review | done.",
   {
     action: z.enum(["comment", "move", "update", "create", "archive"]),
     card_key: z.string().optional(),
+    card_ref: z.string().optional(),
     text: z.string().optional(),
     status: z.enum(["todo", "in-progress", "blocked", "in-review", "done"]).optional(),
     title: z.string().optional(),
     body: z.string().optional(),
   },
-  async ({ action, card_key, text, status, title, body }) => {
+  async ({ action, card_key, card_ref, text, status, title, body }) => {
     let out;
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/trello/write`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, cardKey: card_key, text, status, title, body }),
+        body: JSON.stringify({ action, cardKey: card_key, cardRef: card_ref, text, status, title, body }),
         signal: AbortSignal.timeout(30000),
       });
       const j = await res.json();
