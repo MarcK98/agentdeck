@@ -1,6 +1,10 @@
 import { askClaude } from "./claude.js";
 import { log } from "./logger.js";
-import { isEnabled as trelloEnabled, drainPending as drainTrello } from "./trello.js";
+import {
+  isEnabled as trelloEnabled,
+  peekPending as peekTrello,
+  consumePending as consumeTrello,
+} from "./trello.js";
 
 // An always-on "team lead" bound to one channel. A heartbeat wakes it on an
 // interval to check progress on its task board, delegate coding to project
@@ -77,14 +81,16 @@ const nowStamp = () => {
   return `${local} (${d.toISOString()})`;
 };
 
-// Trello board changes Marc made since the last tick (moves/adds/comments),
-// drained here so the team lead reconciles them into TASKS.md this run.
+// Trello board changes Marc made since the last tick (moves/adds/comments).
+// PEEKED, not drained — the caller consumes the queue only after the run is
+// committed (see tick/nudge), so a failed run doesn't drop the changes.
 const trelloInbound = () => {
-  if (!trelloEnabled()) return "";
-  const note = drainTrello();
-  return note
+  if (!trelloEnabled()) return { text: "", count: 0 };
+  const { note, count } = peekTrello();
+  const text = note
     ? `\n\n📥 Trello — Marc changed the board since your last tick:\n${note}\nReconcile these into TASKS.md (a card moved to "Blocked for Marc"/"Done" is Marc's decision; a comment is input for you).`
     : "";
+  return { text, count };
 };
 
 // Standing instruction to mirror TASKS.md to the board each run (only when the
@@ -96,7 +102,7 @@ const trelloSyncStep = () =>
    one-line \`body\`). Skip the call only if no task changed since last sync.`
     : "";
 
-const tickPrompt = (ownerMention) =>
+const tickPrompt = (ownerMention, inboundText = "") =>
   `⏰ Team-lead heartbeat check-in.  Current time: ${nowStamp()}.
 
 You are the team lead, dedicated to the tasks Marc has assigned you. Work
@@ -117,7 +123,7 @@ proactively — this is an automatic tick, not a message from Marc.
 4. Update \`TASKS.md\` (status + next step per task).
 5. Post a SHORT status here: what moved, what's blocked, what's next.
 6. Only if you need a decision or input from Marc, @mention him: ${ownerMention || "Marc"}.
-   Otherwise do not ping.${trelloSyncStep()}${trelloInbound()}
+   Otherwise do not ping.${trelloSyncStep()}${inboundText}
 
 Be terse and token-cheap. If nothing changed since the last tick, say so in one line.`;
 
@@ -137,10 +143,11 @@ async function tick() {
   ticksToday++;
 
   running = true;
+  const inbound = trelloInbound(); // peek; consumed below only if the run commits
   try {
     const res = await askClaude(
       tl.sessionKey,
-      tickPrompt(hooks.ownerMention?.()),
+      tickPrompt(hooks.ownerMention?.(), inbound.text),
       tl.cwd,
       tl.send,
       {
@@ -177,8 +184,9 @@ async function tick() {
       );
     }
     if (!res.ok) tl.send(`⚠️ Team-lead tick failed: ${res.text}`);
+    else consumeTrello(inbound.count); // committed — safe to clear these changes
   } catch (err) {
-    log.warn("[teamlead] tick error:", err.message);
+    log.warn("[teamlead] tick error:", err.message); // leave changes queued for next tick
   } finally {
     running = false;
   }
@@ -209,10 +217,10 @@ export async function nudgeTeamLead() {
   if (!tl) return;
   running = true;
   try {
-    const note = drainTrello(); // claim the queued changes for this run
+    const { note, count } = peekTrello(); // peek; consumed only after a committed run
     if (!note) return;
     log.info("[teamlead] acting on Trello change(s) now");
-    await askClaude(
+    const res = await askClaude(
       tl.sessionKey,
       `🗂️ Trello — Marc changed the board:\n${note}\n\nAct on this now: read the relevant card's comments with mcp__approver__trello_read if you need the full text, update \`TASKS.md\`, take the next action (delegate if it's implementation), reply to Marc on the card with mcp__approver__trello_write if useful, then re-sync with mcp__approver__trello_sync. Be terse.`,
       tl.cwd,
@@ -225,6 +233,7 @@ export async function nudgeTeamLead() {
         meta: { channelName: "team-lead", source: "teamlead-trello" },
       }
     );
+    if (res?.ok) consumeTrello(count); // committed — clear; else leave queued for the poll/tick to retry
   } catch (err) {
     log.warn("[teamlead] trello nudge error:", err.message);
   } finally {

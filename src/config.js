@@ -67,6 +67,9 @@ export const config = {
     enabled: bool(process.env.TRELLO_ENABLED, false),
     key: process.env.TRELLO_API_KEY || "",
     token: process.env.TRELLO_TOKEN || "",
+    // API secret (same Power-Up as the key) — used to verify the HMAC on
+    // incoming webhook POSTs. Required when a webhook callback URL is set.
+    apiSecret: process.env.TRELLO_API_SECRET || "",
     // Board short id (from the board URL, e.g. Oy8FxTK4) or the long id.
     boardId: process.env.TRELLO_BOARD_ID || "",
     // Task status -> board list name. Missing lists are auto-created on start.

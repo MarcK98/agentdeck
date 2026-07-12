@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
@@ -26,7 +27,8 @@ const auth = () => `key=${encodeURIComponent(T.key)}&token=${encodeURIComponent(
 // A stable per-task marker hidden at the end of a card's description, so we can
 // match a card back to its TASKS.md task across renames.
 const MARKER = /\[\[tl:([^\]]+)\]\]/;
-const withMarker = (body, key) => `${(body || "").trim()}\n\n[[tl:${key}]]`;
+const withMarker = (body, key) =>
+  key ? `${(body || "").trim()}\n\n[[tl:${key}]]` : (body || "").trim();
 const stripMarker = (desc) => String(desc || "").replace(MARKER, "").trim();
 const keyOf = (desc) => (String(desc || "").match(MARKER) || [])[1] || null;
 
@@ -254,7 +256,10 @@ export async function writeCard({ cardKey, cardRef, action, text, status, title,
   if (act === "update") {
     const patch = {};
     if (title) patch.name = title;
-    if (body != null) patch.desc = withMarker(body, cardKey);
+    // Re-stamp only with the card's OWN key. An untracked card (resolved by
+    // cardRef, no cardKey) stays untracked — never adopt it with a marker, or
+    // a later archive_missing resync would silently archive it.
+    if (body != null) patch.desc = withMarker(body, cardKey || keyOf(card.desc));
     if (!Object.keys(patch).length)
       return { ok: false, error: "update needs `title` and/or `body`." };
     const r = await api("PUT", `/cards/${card.id}`, patch);
@@ -378,12 +383,20 @@ loadState();
 
 // Drained by the team lead when it acts on Marc's changes (heartbeat tick or an
 // immediate nudge). Clears the queue and persists so a restart won't replay it.
-export function drainPending() {
-  if (!pendingForTick.length) return "";
-  const s = pendingForTick.join("\n");
-  pendingForTick.length = 0;
-  saveState();
-  return s;
+// Read the queued changes WITHOUT clearing them, plus how many there are. The
+// caller builds its run prompt from `note`, then calls consumePending(count)
+// only AFTER the run is committed — so a failed run leaves the changes queued
+// for the next tick instead of dropping them. `count` (not clear-all) is spliced
+// so changes the poll appends DURING the run survive to the next tick.
+export function peekPending() {
+  return { note: pendingForTick.join("\n"), count: pendingForTick.length };
+}
+
+export function consumePending(count) {
+  if (count > 0) {
+    pendingForTick.splice(0, count);
+    saveState();
+  }
 }
 
 // Ask the team lead to act on whatever is queued — but only when nudgeOnChange is
@@ -491,7 +504,31 @@ async function registerWebhook() {
   else log.warn(`[trello] webhook registration failed (poll still active): ${r.error}`);
 }
 
+// Trello signs each webhook POST: base64(HMAC-SHA1(rawBody + callbackURL,
+// apiSecret)) in the X-Trello-Webhook header. Verify it so the endpoint (a
+// PUBLIC URL) can't be driven by forged POSTs — each accepted event can wake a
+// paid team-lead run. Returns false unless the signature matches; if no secret
+// is configured we can't verify, so we also reject (fail closed).
+function validWebhook(rawBody, header) {
+  if (!T.apiSecret || !header) return false;
+  let expected, got;
+  try {
+    expected = createHmac("sha1", T.apiSecret)
+      .update(rawBody)
+      .update(T.webhookCallbackUrl || "")
+      .digest();
+    got = Buffer.from(String(header), "base64");
+  } catch {
+    return false;
+  }
+  return expected.length === got.length && timingSafeEqual(expected, got);
+}
+
 function startWebhookServer() {
+  if (T.webhookCallbackUrl && !T.apiSecret)
+    log.warn(
+      "[trello] TRELLO_API_SECRET not set — webhook POSTs cannot be verified and will be rejected; poll loop still active."
+    );
   // Trello validates a new webhook by sending HEAD, then POSTs each action.
   const server = createServer((req, res) => {
     if (req.method === "HEAD") {
@@ -502,13 +539,18 @@ function startWebhookServer() {
       res.writeHead(200).end();
       return;
     }
-    let body = "";
-    req.on("data", (d) => (body += d));
+    const chunks = [];
+    req.on("data", (d) => chunks.push(d));
     req.on("end", () => {
+      const raw = Buffer.concat(chunks);
+      if (!validWebhook(raw, req.headers["x-trello-webhook"])) {
+        res.writeHead(401).end(); // forged/unsigned — drop before doing any work
+        return;
+      }
       res.writeHead(200).end();
       let action;
       try {
-        action = JSON.parse(body || "{}").action;
+        action = JSON.parse(raw.toString("utf8") || "{}").action;
       } catch {
         return;
       }
