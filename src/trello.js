@@ -436,9 +436,12 @@ export async function readBoard({ limit = 20, cardKey } = {}) {
   if (!enabledBasic()) return { ok: false, error: "Trello is off (TRELLO_ENABLED)." };
   if (!(await ensureReady())) return { ok: false, error: "Trello board not reachable." };
 
+  // Pull attachments inline (attachments=true) so a link/file Marc pasted onto a
+  // card reaches the team lead too — not just the description. attachment_fields
+  // keeps the payload to name+url.
   const cardsRes = await api(
     "GET",
-    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
+    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink&attachments=true&attachment_fields=name,url`
   );
   if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
   const cards = cardsRes.data.map((c) => ({
@@ -448,6 +451,9 @@ export async function readBoard({ limit = 20, cardKey } = {}) {
     desc: stripMarker(c.desc), // the card's description (our [[tl:...]] marker removed)
     status: statusByListId.get(c.idList) || nameByListId.get(c.idList) || null,
     url: c.shortUrl,
+    attachments: (c.attachments || [])
+      .map((a) => ({ name: a.name || null, url: a.url || null }))
+      .filter((a) => a.url || a.name),
   }));
 
   const actsRes = await api(
