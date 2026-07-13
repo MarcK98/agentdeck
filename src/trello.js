@@ -445,6 +445,7 @@ export async function readBoard({ limit = 20, cardKey } = {}) {
     key: keyOf(c.desc),
     ref: c.shortLink, // stable handle for trello_write when key is null (untracked)
     title: c.name,
+    desc: stripMarker(c.desc), // the card's description (our [[tl:...]] marker removed)
     status: statusByListId.get(c.idList) || nameByListId.get(c.idList) || null,
     url: c.shortUrl,
   }));
