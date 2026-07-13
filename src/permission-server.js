@@ -5,7 +5,7 @@ import { pauseInactivity, resumeInactivity } from "./claude.js";
 import { onNotify, onRequestChanges, onReadyToMerge } from "./pr-reviewer.js";
 import { onDelegate } from "./teamlead.js";
 import { controlVpn } from "./vpn.js";
-import { syncTasks, readBoard, writeCard } from "./trello.js";
+import { syncTasks, readBoard, writeCard, attachCard } from "./trello.js";
 
 // Adapters register a handler: (sessionKey, { toolName, input }) => Promise<{allow, message?}>
 let handler = null;
@@ -156,6 +156,26 @@ export function startPermissionServer() {
       let result;
       try {
         result = await writeCard(data);
+      } catch (err) {
+        result = { ok: false, error: err.message };
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    // Trello attach: upload a local file or attach a URL to a card.
+    if (req.url === "/trello/attach") {
+      const body = await readBody(req);
+      let data = {};
+      try {
+        data = JSON.parse(body || "{}");
+      } catch {
+        /* fall through with empty data */
+      }
+      let result;
+      try {
+        result = await attachCard(data);
       } catch (err) {
         result = { ok: false, error: err.message };
       }

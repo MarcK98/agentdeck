@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, realpathSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { basename, isAbsolute, resolve as resolvePath, sep } from "node:path";
+import { tmpdir } from "node:os";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 
@@ -31,6 +33,9 @@ const withMarker = (body, key) =>
   key ? `${(body || "").trim()}\n\n[[tl:${key}]]` : (body || "").trim();
 const stripMarker = (desc) => String(desc || "").replace(MARKER, "").trim();
 const keyOf = (desc) => (String(desc || "").match(MARKER) || [])[1] || null;
+// Normalize a card title for adoption matching (trim, collapse whitespace,
+// case-insensitive) so a task adopts Marc's hand-made card despite minor casing.
+const normTitle = (s) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
 
 // Registered by the Discord adapter: notify() posts a human-readable line to the
 // team-lead channel; nudge() wakes the team lead to act on a change right away.
@@ -135,14 +140,23 @@ export async function syncTasks({ tasks = [], archiveMissing = false } = {}) {
   if (!cards.ok) return { ok: false, error: `list cards: ${cards.error}` };
 
   const managed = new Map(); // key -> card (cards we created, by marker)
+  // Cards Marc made by hand (no marker) indexed by normalized title, so a task
+  // can ADOPT the matching one instead of minting a duplicate. Consumed as we go
+  // so two tasks never claim the same card.
+  const untrackedByTitle = new Map();
   for (const c of cards.data) {
     known.add(c.id);
     expected.set(c.id, c.idList);
     const k = keyOf(c.desc);
-    if (k) managed.set(k, c);
+    if (k) {
+      managed.set(k, c);
+    } else {
+      const n = normTitle(c.name);
+      if (n && !untrackedByTitle.has(n)) untrackedByTitle.set(n, c);
+    }
   }
 
-  const out = { created: 0, updated: 0, moved: 0, archived: 0, cards: [] };
+  const out = { created: 0, updated: 0, moved: 0, adopted: 0, archived: 0, cards: [] };
   const seen = new Set();
 
   for (const t of tasks) {
@@ -170,17 +184,40 @@ export async function syncTasks({ tasks = [], archiveMissing = false } = {}) {
         expected.set(existing.id, idList);
       }
       out.cards.push({ key: t.key, title: t.title, status, url: existing.shortUrl });
-    } else {
-      const r = await api("POST", "/cards", { idList, name: t.title, desc, pos: "bottom" });
+      continue;
+    }
+
+    // No marker match. Before minting a new card, adopt the untracked card Marc
+    // made with the same title: stamp our marker so we work with HIS card, not a
+    // duplicate. Keep his description when the task carries no body of its own.
+    const adopt = untrackedByTitle.get(normTitle(t.title));
+    if (adopt) {
+      untrackedByTitle.delete(normTitle(t.title));
+      const keepBody = t.body && t.body.trim() ? t.body : stripMarker(adopt.desc);
+      const patch = { desc: withMarker(keepBody, t.key) };
+      if (adopt.idList !== idList) patch.idList = idList;
+      const r = await api("PUT", `/cards/${adopt.id}`, patch);
       if (!r.ok) {
-        log.warn(`[trello] create "${t.title}": ${r.error}`);
+        log.warn(`[trello] adopt "${t.title}": ${r.error}`);
         continue;
       }
-      out.created++;
-      known.add(r.data.id);
-      expected.set(r.data.id, idList);
-      out.cards.push({ key: t.key, title: t.title, status, url: r.data.shortUrl });
+      out.adopted++;
+      managed.set(t.key, adopt); // now ours — protected from archive_missing this run
+      known.add(adopt.id);
+      expected.set(adopt.id, idList);
+      out.cards.push({ key: t.key, title: t.title, status, url: adopt.shortUrl });
+      continue;
     }
+
+    const r = await api("POST", "/cards", { idList, name: t.title, desc, pos: "bottom" });
+    if (!r.ok) {
+      log.warn(`[trello] create "${t.title}": ${r.error}`);
+      continue;
+    }
+    out.created++;
+    known.add(r.data.id);
+    expected.set(r.data.id, idList);
+    out.cards.push({ key: t.key, title: t.title, status, url: r.data.shortUrl });
   }
 
   if (archiveMissing) {
@@ -197,6 +234,23 @@ export async function syncTasks({ tasks = [], archiveMissing = false } = {}) {
   return out;
 }
 
+// Resolve a card from a board-cards list by its stable marker key (cards the
+// team lead created) OR a cardRef — a card id, shortLink, or trello.com/c/... URL
+// — which additionally reaches UNTRACKED cards Marc made by hand (no marker).
+// Returns { card } or { error }.
+function resolveCard(cards, { cardKey, cardRef }) {
+  if (cardKey) {
+    const card = cards.find((c) => keyOf(c.desc) === cardKey);
+    return card ? { card } : { error: `no card with key "${cardKey}".` };
+  }
+  const ref = String(cardRef).trim();
+  const link = (ref.match(/\/c\/([^/]+)/) || [])[1] || ref; // shortLink out of a URL
+  const card = cards.find(
+    (c) => c.id === ref || c.shortLink === ref || c.shortLink === link
+  );
+  return card ? { card } : { error: `no card matching ref "${cardRef}".` };
+}
+
 // On-demand WRITE — one targeted change (reply/comment, move, update, create,
 // archive) by card key, so the team lead can act immediately instead of waiting
 // for the next full trello_sync. Comments WE post are recorded so the poll won't
@@ -206,10 +260,7 @@ export async function writeCard({ cardKey, cardRef, action, text, status, title,
   if (!(await ensureReady())) return { ok: false, error: "Trello board not reachable." };
   const act = String(action || "").toLowerCase();
 
-  // Resolve the card (everything except create needs one). Normally by its
-  // stable marker key — cards the team lead created. `cardRef` (a card id,
-  // shortLink, or its trello.com/c/... URL) additionally reaches UNTRACKED
-  // cards Marc made by hand, which carry no marker so no key matches them.
+  // Resolve the card (everything except create needs one).
   let card = null;
   if (act !== "create") {
     if (!cardKey && !cardRef)
@@ -219,17 +270,9 @@ export async function writeCard({ cardKey, cardRef, action, text, status, title,
       `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
     );
     if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
-    if (cardKey) {
-      card = cardsRes.data.find((c) => keyOf(c.desc) === cardKey);
-      if (!card) return { ok: false, error: `no card with key "${cardKey}".` };
-    } else {
-      const ref = String(cardRef).trim();
-      const link = (ref.match(/\/c\/([^/]+)/) || [])[1] || ref; // shortLink out of a URL
-      card = cardsRes.data.find(
-        (c) => c.id === ref || c.shortLink === ref || c.shortLink === link
-      );
-      if (!card) return { ok: false, error: `no card matching ref "${cardRef}".` };
-    }
+    const r = resolveCard(cardsRes.data, { cardKey, cardRef });
+    if (r.error) return { ok: false, error: r.error };
+    card = r.card;
   }
 
   if (act === "comment") {
@@ -291,6 +334,99 @@ export async function writeCard({ cardKey, cardRef, action, text, status, title,
     ok: false,
     error: `unknown action "${action}" — use comment | move | update | create | archive.`,
   };
+}
+
+// Workspace roots a local attachment must live under (light hygiene, mirrors
+// share_file). Resolved lazily so config/env is read at call time.
+function attachRoots() {
+  return [
+    config.projects.root,
+    config.projects.defaultDir,
+    ...(config.share?.allowedDirs || []),
+    tmpdir(),
+  ]
+    .filter(Boolean)
+    .map((r) => {
+      try {
+        return realpathSync(resolvePath(r));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+// Attach a file (local `path`) or a link (`url`) to a card. Card is addressed by
+// cardKey (a tracked card) or cardRef (id/shortLink/URL — reaches Marc's cards).
+// Local uploads must be an absolute path inside the workspace, under the size cap.
+export async function attachCard({ cardKey, cardRef, path: filePath, url, name } = {}) {
+  if (!enabledBasic()) return { ok: false, error: "Trello is off (TRELLO_ENABLED)." };
+  if (!(await ensureReady())) return { ok: false, error: "Trello board not reachable." };
+  if (!cardKey && !cardRef) return { ok: false, error: "card_key or card_ref is required." };
+  if (!filePath && !url) return { ok: false, error: "attach needs `path` or `url`." };
+
+  const cardsRes = await api(
+    "GET",
+    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
+  );
+  if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
+  const found = resolveCard(cardsRes.data, { cardKey, cardRef });
+  if (found.error) return { ok: false, error: found.error };
+  const card = found.card;
+  const endpoint = `${API}/cards/${card.id}/attachments?${auth()}`;
+
+  // Link attachment — Trello just stores the URL, no upload.
+  if (url) {
+    const form = new URLSearchParams({ url });
+    if (name) form.set("name", name);
+    let res, text, data;
+    try {
+      res = await fetch(endpoint, { method: "POST", body: form, signal: AbortSignal.timeout(30000) });
+      text = await res.text();
+      data = text ? JSON.parse(text) : null;
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+    if (!res.ok) return { ok: false, error: `${res.status} ${data?.message || text}` };
+    return { ok: true, action: "attach", card: card.name, attachment: data?.name || url, url: card.shortUrl };
+  }
+
+  // File upload — absolute path, must resolve to a regular file in the workspace.
+  if (!isAbsolute(filePath)) return { ok: false, error: "`path` must be absolute." };
+  let real, st;
+  try {
+    real = realpathSync(resolvePath(filePath));
+    st = statSync(real);
+  } catch {
+    return { ok: false, error: `file not found: ${filePath}` };
+  }
+  if (!st.isFile()) return { ok: false, error: "not a regular file." };
+  const roots = attachRoots();
+  if (!roots.some((r) => real === r || real.startsWith(r + sep)))
+    return {
+      ok: false,
+      error: `"${real}" is outside the allowed dirs (${roots.join(", ")}). Use a path under the project workspace, or add its dir to SHARE_ALLOWED_DIRS.`,
+    };
+  const maxBytes = (config.attachments?.maxMb || 25) * 1024 * 1024;
+  if (st.size > maxBytes)
+    return {
+      ok: false,
+      error: `file is ${(st.size / 1048576).toFixed(1)}MB, over the ${config.attachments?.maxMb || 25}MB limit.`,
+    };
+
+  let res, text, data;
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([readFileSync(real)]), name || basename(real));
+    if (name) form.append("name", name);
+    res = await fetch(endpoint, { method: "POST", body: form, signal: AbortSignal.timeout(60000) });
+    text = await res.text();
+    data = text ? JSON.parse(text) : null;
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  if (!res.ok) return { ok: false, error: `${res.status} ${data?.message || text}` };
+  return { ok: true, action: "attach", card: card.name, attachment: data?.name || basename(real), url: card.shortUrl };
 }
 
 // On-demand READ of the board — so the team lead can check a comment / the board

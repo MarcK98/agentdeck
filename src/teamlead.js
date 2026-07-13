@@ -88,7 +88,7 @@ const trelloInbound = () => {
   if (!trelloEnabled()) return { text: "", count: 0 };
   const { note, count } = peekTrello();
   const text = note
-    ? `\n\n📥 Trello — Marc changed the board since your last tick:\n${note}\nReconcile these into TASKS.md (a card moved to "Blocked for Marc"/"Done" is Marc's decision; a comment is input for you).`
+    ? `\n\n📥 Trello — Marc changed the board since your last tick:\n${note}\nReconcile these into TASKS.md (a card moved to "Blocked for Marc"/"Done" is Marc's decision; a comment is input for you). For a card Marc ADDED, create the matching TASKS.md task using his card's EXACT title — the next trello_sync then adopts his card instead of making a duplicate. Do NOT open a new card for something he already carded.`
     : "";
   return { text, count };
 };

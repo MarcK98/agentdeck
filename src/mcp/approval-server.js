@@ -159,7 +159,7 @@ server.tool(
       });
       const j = await res.json();
       text = j.ok
-        ? `synced ${tasks.length} task(s): +${j.created} created, ${j.moved} moved, ${j.updated} updated, ${j.archived} archived.`
+        ? `synced ${tasks.length} task(s): +${j.created} created, ${j.adopted || 0} adopted, ${j.moved} moved, ${j.updated} updated, ${j.archived} archived.`
         : `error: ${j.error}`;
     } catch (err) {
       text = `error: ${err.message}`;
@@ -238,6 +238,38 @@ server.tool(
       out = `error: ${err.message}`;
     }
     return { content: [{ type: "text", text: `trello_write: ${out}` }] };
+  }
+);
+
+// Team-lead only: attach a file or link to a Trello card (screenshots, reports,
+// logs, exported docs, reference URLs).
+server.tool(
+  "trello_attach",
+  "Team lead only: attach a file or a link to a Trello card. Identify the card by `card_key` (a tracked task) or `card_ref` (id/shortLink/URL — for cards Marc made by hand). Provide either `path` (an ABSOLUTE path to a local file in the project workspace — uploaded to the card) or `url` (a link stored on the card), and an optional `name` label. Use this to put a screenshot, report, log, exported doc, or reference link on the relevant card.",
+  {
+    card_key: z.string().optional(),
+    card_ref: z.string().optional(),
+    path: z.string().optional(),
+    url: z.string().optional(),
+    name: z.string().optional(),
+  },
+  async ({ card_key, card_ref, path, url, name }) => {
+    let out;
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/trello/attach`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cardKey: card_key, cardRef: card_ref, path, url, name }),
+        signal: AbortSignal.timeout(90000),
+      });
+      const j = await res.json();
+      out = j.ok
+        ? `attached "${j.attachment}" to "${j.card}"${j.url ? ` ${j.url}` : ""}`
+        : `error: ${j.error}`;
+    } catch (err) {
+      out = `error: ${err.message}`;
+    }
+    return { content: [{ type: "text", text: `trello_attach: ${out}` }] };
   }
 );
 
