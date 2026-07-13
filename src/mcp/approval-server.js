@@ -172,7 +172,7 @@ server.tool(
 // the team lead can check a comment Marc left without waiting for the poll feed.
 server.tool(
   "trello_read",
-  "Team lead only: READ the Trello board right now — returns the current cards (each with its status list, url, key, `ref`, and `desc` — the card's full description) and recent comments Marc left. Use this to read a ticket's description/details or check a comment on demand, instead of waiting for the automatic heartbeat feed. A card with a null `key` is an untracked card Marc made by hand — pass its `ref` to trello_write (as `card_ref`) to comment/move/archive it. Optional `card_key` filters comments to one card (the same stable key you pass to trello_sync); `limit` caps how many recent comments to return (default 20).",
+  "Team lead only: READ the Trello board right now — returns the current cards (each with its status list, url, key, `ref`, `desc` — the card's full description — and any `attachments` (files/links Marc pasted on the card, shown with a 📎)) and recent comments Marc left. Use this to read a ticket's description/details, attachments, or check a comment on demand, instead of waiting for the automatic heartbeat feed. A card with a null `key` is an untracked card Marc made by hand — pass its `ref` to trello_write (as `card_ref`) to comment/move/archive it. Optional `card_key` filters comments to one card (the same stable key you pass to trello_sync); `limit` caps how many recent comments to return (default 20).",
   {
     card_key: z.string().optional(),
     limit: z.number().optional(),
@@ -198,7 +198,11 @@ server.tool(
             const head = `• [${c.status || "?"}] ${c.title}${tags ? ` (${tags})` : ""}${c.url ? ` ${c.url}` : ""}`;
             // Indent the description under its card so the team lead actually sees it.
             const body = c.desc ? `\n    ${String(c.desc).replace(/\n/g, "\n    ")}` : "";
-            return head + body;
+            // Attachments (files/links Marc pasted on the card) — one line each.
+            const atts = (c.attachments || [])
+              .map((a) => `\n    📎 ${[a.name, a.url].filter(Boolean).join(" — ")}`)
+              .join("");
+            return head + body + atts;
           })
           .join("\n");
         const comments = (j.comments || [])
