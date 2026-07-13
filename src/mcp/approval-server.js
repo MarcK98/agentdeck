@@ -191,7 +191,15 @@ server.tool(
         text = `error: ${j.error}`;
       } else {
         const cards = (j.cards || [])
-          .map((c) => `• [${c.status || "?"}] ${c.title}${c.key ? ` (key: ${c.key})` : ""} ${c.url || ""}`)
+          .map((c) => {
+            const tags = [c.key ? `key: ${c.key}` : null, c.ref ? `ref: ${c.ref}` : null]
+              .filter(Boolean)
+              .join(" | ");
+            const head = `• [${c.status || "?"}] ${c.title}${tags ? ` (${tags})` : ""}${c.url ? ` ${c.url}` : ""}`;
+            // Indent the description under its card so the team lead actually sees it.
+            const body = c.desc ? `\n    ${String(c.desc).replace(/\n/g, "\n    ")}` : "";
+            return head + body;
+          })
           .join("\n");
         const comments = (j.comments || [])
           .map((c) => `• ${c.date} — ${c.by || "?"} on "${c.card}": ${c.text}`)
