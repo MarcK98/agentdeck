@@ -285,6 +285,49 @@ server.tool(
   }
 );
 
+// Team-lead only: download a card's attachment BYTES (authenticated) — trello_read
+// only gives attachment metadata/URLs, which 403 without Trello auth.
+server.tool(
+  "trello_read_attachment",
+  "Team lead only: DOWNLOAD a card's attachment file(s) — the actual bytes, authenticated (the plain URLs from trello_read return 403). Identify the card by `card_key` or `card_ref`. Omit `name`/`index` to fetch ALL uploaded attachments, or pass `name` (substring, case-insensitive) or `index` (1-based) for one. Pass `dest_dir` = an ABSOLUTE directory inside your project so you can Read the saved files without a permission prompt (default: a private temp dir). Returns each attachment's saved `path`, size, and mimeType, plus inline text for small text files; binary docs (pdf/docx) come back as a path to Read/convert. Use this to read specs/docs Marc attached to a ticket.",
+  {
+    card_key: z.string().optional(),
+    card_ref: z.string().optional(),
+    name: z.string().optional(),
+    index: z.number().optional(),
+    dest_dir: z.string().optional(),
+  },
+  async ({ card_key, card_ref, name, index, dest_dir }) => {
+    let text;
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/trello/attachment`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cardKey: card_key, cardRef: card_ref, name, index, destDir: dest_dir }),
+        signal: AbortSignal.timeout(120000),
+      });
+      const j = await res.json();
+      if (!j.ok) {
+        text = `error: ${j.error}`;
+      } else if (!j.attachments?.length) {
+        text = `"${j.card}" has no attachments.`;
+      } else {
+        const lines = j.attachments.map((a) => {
+          if (!a.downloaded)
+            return `• ${a.name}: not downloaded — ${a.note || "unknown"}${a.url ? ` (${a.url})` : ""}`;
+          const kb = a.bytes != null ? ` (${(a.bytes / 1024).toFixed(1)} KB, ${a.mimeType || "?"})` : "";
+          const body = a.text != null ? `\n----- ${a.name} -----\n${a.text}\n-----` : "";
+          return `• ${a.name} -> ${a.path}${kb}${body}`;
+        });
+        text = `Attachments on "${j.card}" (saved in ${j.dir}):\n${lines.join("\n")}`;
+      }
+    } catch (err) {
+      text = `error: ${err.message}`;
+    }
+    return { content: [{ type: "text", text }] };
+  }
+);
+
 // Share a file/document with the user by uploading it as a Discord attachment to
 // this channel. The bridge resolves the path (relative paths are taken against
 // the channel's project dir), enforces containment + a size cap, then uploads.

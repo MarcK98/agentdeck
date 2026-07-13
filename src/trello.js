@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { readFileSync, writeFileSync, realpathSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, realpathSync, statSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { basename, isAbsolute, resolve as resolvePath, sep } from "node:path";
+import { basename, isAbsolute, resolve as resolvePath, join, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { config } from "./config.js";
 import { log } from "./logger.js";
@@ -427,6 +427,133 @@ export async function attachCard({ cardKey, cardRef, path: filePath, url, name }
   }
   if (!res.ok) return { ok: false, error: `${res.status} ${data?.message || text}` };
   return { ok: true, action: "attach", card: card.name, attachment: data?.name || basename(real), url: card.shortUrl };
+}
+
+// Private temp dir for downloaded attachments when the caller gives no dest_dir.
+const ATT_DL_DIR = join(tmpdir(), "claude-channel-bridge", "trello-downloads");
+const attSafeName = (name, fallback) =>
+  String(name || "")
+    .replace(/[/\\]/g, "_") // no path separators
+    .replace(/^\.+/, "") // no leading dots (hidden / traversal)
+    .trim() || fallback;
+
+// Decode a buffer as UTF-8 text, or null if it looks binary (has a NUL byte in
+// the first 4KB, or isn't valid UTF-8). Lets us inline small text docs.
+function asText(buf) {
+  if (buf.subarray(0, Math.min(buf.length, 4096)).includes(0)) return null;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return null;
+  }
+}
+
+// DOWNLOAD a card's attachment bytes. Trello requires the Authorization header
+// (not ?key&token — that 401s) to fetch an uploaded file; external link
+// attachments aren't Trello-hosted so we return their url instead. Files are
+// saved to `destDir` (must be absolute + inside the workspace) so the team lead
+// can Read them without a permission prompt; default is a private temp dir.
+// Omit name/index to fetch ALL uploaded attachments; else pick by name
+// (substring, case-insensitive) or 1-based index.
+export async function fetchCardAttachments({ cardKey, cardRef, name, index, destDir } = {}) {
+  if (!enabledBasic()) return { ok: false, error: "Trello is off (TRELLO_ENABLED)." };
+  if (!(await ensureReady())) return { ok: false, error: "Trello board not reachable." };
+  if (!cardKey && !cardRef) return { ok: false, error: "card_key or card_ref is required." };
+
+  const cardsRes = await api(
+    "GET",
+    `/boards/${boardId}/cards?fields=name,idList,desc,shortUrl,shortLink`
+  );
+  if (!cardsRes.ok) return { ok: false, error: `list cards: ${cardsRes.error}` };
+  const found = resolveCard(cardsRes.data, { cardKey, cardRef });
+  if (found.error) return { ok: false, error: found.error };
+  const card = found.card;
+
+  const attRes = await api(
+    "GET",
+    `/cards/${card.id}/attachments?fields=name,url,mimeType,bytes,isUpload`
+  );
+  if (!attRes.ok) return { ok: false, error: `list attachments: ${attRes.error}` };
+  let atts = attRes.data || [];
+  if (!atts.length) return { ok: true, card: card.name, attachments: [] };
+
+  // Narrow to the requested attachment, if any.
+  if (index != null) {
+    const one = atts[Number(index) - 1];
+    if (!one) return { ok: false, error: `no attachment at index ${index} (card has ${atts.length}).` };
+    atts = [one];
+  } else if (name) {
+    const n = String(name).toLowerCase();
+    atts = atts.filter((a) => String(a.name || "").toLowerCase().includes(n));
+    if (!atts.length) return { ok: false, error: `no attachment matching "${name}".` };
+  }
+
+  // Resolve + validate the destination directory.
+  let dir;
+  if (destDir) {
+    if (!isAbsolute(destDir)) return { ok: false, error: "`dest_dir` must be absolute." };
+    let real;
+    try {
+      real = realpathSync(resolvePath(destDir));
+    } catch {
+      return { ok: false, error: `dest_dir not found: ${destDir}` };
+    }
+    const roots = attachRoots();
+    if (!roots.some((r) => real === r || real.startsWith(r + sep)))
+      return {
+        ok: false,
+        error: `dest_dir "${real}" is outside the allowed dirs (${roots.join(", ")}). Use a dir under your project, or add it to SHARE_ALLOWED_DIRS.`,
+      };
+    dir = real;
+  } else {
+    dir = join(ATT_DL_DIR, card.id);
+  }
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    return { ok: false, error: `mkdir ${dir}: ${err.message}` };
+  }
+
+  const maxBytes = (config.attachments?.maxMb || 25) * 1024 * 1024;
+  const authHeader = `OAuth oauth_consumer_key="${T.key}", oauth_token="${T.token}"`;
+  const out = [];
+  let i = 0;
+  for (const a of atts) {
+    i++;
+    if (!a.isUpload) {
+      out.push({ name: a.name, url: a.url, downloaded: false, note: "external link — not a Trello-hosted file" });
+      continue;
+    }
+    if (a.bytes && a.bytes > maxBytes) {
+      out.push({ name: a.name, downloaded: false, note: `too large (${(a.bytes / 1048576).toFixed(1)}MB > ${config.attachments?.maxMb || 25}MB)` });
+      continue;
+    }
+    try {
+      const res = await fetch(a.url, {
+        headers: { Authorization: authHeader },
+        redirect: "follow",
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) {
+        out.push({ name: a.name, downloaded: false, note: `HTTP ${res.status}` });
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.byteLength > maxBytes) {
+        out.push({ name: a.name, downloaded: false, note: `too large (${(buf.byteLength / 1048576).toFixed(1)}MB)` });
+        continue;
+      }
+      const path = join(dir, `${i}-${attSafeName(a.name, `attachment-${i}`)}`);
+      writeFileSync(path, buf);
+      const rec = { name: a.name, path, mimeType: a.mimeType || null, bytes: buf.byteLength, downloaded: true };
+      const text = asText(buf);
+      if (text != null && buf.byteLength <= 512 * 1024) rec.text = text;
+      out.push(rec);
+    } catch (err) {
+      out.push({ name: a.name, downloaded: false, note: err.message });
+    }
+  }
+  return { ok: true, card: card.name, dir, attachments: out };
 }
 
 // On-demand READ of the board — so the team lead can check a comment / the board
