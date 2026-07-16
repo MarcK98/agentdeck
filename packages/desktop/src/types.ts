@@ -83,9 +83,51 @@ export type Board =
   | { source: "none" };
 
 // A thread row joined with its project name (daemon listActiveThreads).
+// `running` is live process truth from the daemon, not event-derived.
 export interface ActiveThread extends Thread {
   project_name: string;
+  running: boolean;
 }
+
+// ── Per-thread context (daemon getThreadContext) — the Phase-3 isolation
+// panel: branch/worktree/PR + live process + cumulative cost.
+export interface ThreadGit {
+  branch: string;
+  dirty: number; // uncommitted paths in the worktree
+  ahead: number;
+  behind: number;
+  lastCommit: string | null; // "abc1234 subject"
+}
+
+export interface ThreadPr {
+  number: number;
+  url: string;
+  state: string; // OPEN | MERGED | CLOSED
+  checks: "passing" | "failing" | "pending" | null;
+}
+
+export interface ThreadContext {
+  threadId: number;
+  kind: Thread["kind"];
+  status: Thread["status"];
+  branch: string | null;
+  worktreePath: string | null;
+  git: ThreadGit | null;
+  pr: ThreadPr | null;
+  process:
+    | { running: true; pid: number; startedAt: number; model: string | null }
+    | { running: false };
+  cost: {
+    totalUsd: number;
+    turns: number;
+    lastContextTokens: number | null;
+    lastModel: string | null;
+  };
+}
+
+export type CleanupResult =
+  | { ok: true }
+  | { ok: false; reason: string; dirty?: number };
 
 export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
@@ -130,6 +172,8 @@ declare global {
         title?: string;
       }): Promise<Thread>;
       listActiveThreads(): Promise<ActiveThread[]>;
+      getThreadContext(threadId: number): Promise<ThreadContext>;
+      cleanupThread(threadId: number, force?: boolean): Promise<CleanupResult>;
       onEvent(fn: (ev: SpawnEvent) => void): () => void;
     };
   }

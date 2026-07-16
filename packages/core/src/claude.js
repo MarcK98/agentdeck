@@ -32,7 +32,14 @@ const queues = new Map();
 
 // Active runs, so the approval flow can pause the inactivity timer
 // while a permission prompt is waiting on a human.
-const activeRuns = new Map(); // sessionKey -> { pause, resume }
+const activeRuns = new Map(); // sessionKey -> { pause, resume, cancel, pid, startedAt, model }
+
+// Live process info for a session's in-flight run (the Spawn per-thread
+// process view). Null when nothing is running.
+export const getActiveRun = (sessionKey) => {
+  const run = activeRuns.get(sessionKey);
+  return run ? { pid: run.pid, startedAt: run.startedAt, model: run.model || null } : null;
+};
 
 export const pauseInactivity = (sessionKey) =>
   activeRuns.get(sessionKey)?.pause();
@@ -221,6 +228,9 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
     };
 
     activeRuns.set(sessionKey, {
+      pid: child.pid,
+      startedAt: Date.now(),
+      model,
       pause: () => {
         paused++;
         clearTimeout(timer);

@@ -8,9 +8,18 @@ import {
   cancelRun,
   resetSession,
   getLastStats,
+  getActiveRun,
   pauseInactivity,
   resumeInactivity,
 } from "../claude.js";
+import { threadUsage } from "../usage-log.js";
+import {
+  isGitRepo,
+  createWorktree,
+  removeWorktree,
+  worktreeStatus,
+  prStatus,
+} from "../worktrees.js";
 import { getOverrides, resolveProject } from "../projects.js";
 // Board access is READ-ONLY by design: only isEnabled/readBoard (stateless
 // Trello GETs). The daemon must never start the Trello poller/webhook or write
@@ -251,7 +260,14 @@ export function createDaemon() {
     // in the target project, running the same prompt the bridge's delegate
     // tool uses. Concurrent delegations are fine — askClaude serializes per
     // sessionKey and every ticket thread has its own key.
-    delegateTask: ({ projectId, task, model, effort, title }) => {
+    //
+    // Per-ticket isolation (Phase 3): when the project is a git repo, the
+    // ticket gets its own worktree + branch (see worktrees.js) and the run's
+    // cwd is that worktree — parallel tickets in one project never trample
+    // each other. Isolation failure (or a non-git project) falls back to
+    // running in the project dir, with a system row saying so; the delegation
+    // itself never fails over it.
+    delegateTask: async ({ projectId, task, model, effort, title }) => {
       const project = db.listProjects().find((p) => p.id === projectId);
       if (!project) throw new Error(`No such project: ${projectId}`);
       const text = String(task ?? "").trim();
@@ -259,23 +275,115 @@ export function createDaemon() {
 
       const line = text.split("\n")[0].trim();
       const derived = line.length > 48 ? `${line.slice(0, 47)}…` : line;
-      const thread = db.createThread({ projectId, kind: "ticket", title: title || derived || "Ticket" });
+      let thread = db.createThread({ projectId, kind: "ticket", title: title || derived || "Ticket" });
       emit("thread:created", thread);
 
       // The task opens the thread as its user turn, so the transcript reads
       // like any other conversation.
       db.addMessage({ threadId: thread.id, role: "user", text });
 
+      let wt = null;
+      if (await isGitRepo(project.dir)) {
+        try {
+          wt = await createWorktree({
+            repoDir: project.dir,
+            projectName: project.name,
+            threadId: thread.id,
+            title: thread.title,
+          });
+          thread = db.updateThread(thread.id, { branch: wt.branch, worktree_path: wt.path });
+          emit("thread:updated", thread);
+        } catch (err) {
+          log.warn(`Spawn daemon: worktree for thread ${thread.id} failed (${err.message}) — running in project dir`);
+          db.addMessage({
+            threadId: thread.id,
+            role: "system",
+            text: `Could not create an isolated worktree (${err.message}); running directly in ${project.dir}.`,
+          });
+        }
+      }
+
       // Same wording as teamlead.js onDelegate — the delegate contract is one
-      // prompt, wherever it's launched from.
-      const prompt = `You've been assigned a task by the team lead:\n\n${text}\n\nWork on it in this project. Commit/push or open a PR as appropriate. If you produce a document, report, export, or log Marc should see, share it with the mcp__approver__share_file tool (it uploads the file to this channel). When done or blocked, summarize the outcome in one short message.`;
+      // prompt, wherever it's launched from. Isolated tickets get told about
+      // their worktree so they commit to the ticket branch, not the mainline.
+      const isolationNote = wt
+        ? `\n\nYou are working in an isolated git worktree created for this ticket: ${wt.path} (branch ${wt.branch}, forked from ${wt.base}). Commit your work on this branch; push it and open a PR rather than committing to the base branch directly.`
+        : "";
+      const prompt = `You've been assigned a task by the team lead:\n\n${text}\n\nWork on it in this project. Commit/push or open a PR as appropriate. If you produce a document, report, export, or log Marc should see, share it with the mcp__approver__share_file tool (it uploads the file to this channel). When done or blocked, summarize the outcome in one short message.${isolationNote}`;
       launchTurn(thread, project, prompt, { model, effort, source: "spawn-delegate" });
       return thread;
     },
 
+    // Everything the context panel shows for one thread: isolation (branch /
+    // worktree / live git state), the PR (via gh, when one exists), the live
+    // process, and cumulative cost. Sub-parts are best-effort nulls — this
+    // never throws over a missing repo, remote, or gh.
+    getThreadContext: async (threadId) => {
+      const thread = db.getThread(threadId);
+      if (!thread) throw new Error(`No such thread: ${threadId}`);
+      const project = db.listProjects().find((p) => p.id === thread.project_id);
+      const run = getActiveRun(threadKey(threadId));
+      const stats = getLastStats(threadKey(threadId));
+      const u = stats?.usage || null;
+      const lastContextTokens = u
+        ? (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+        : null;
+      const dir = thread.worktree_path || project?.dir || null;
+      const usage = threadUsage(threadId);
+      return {
+        threadId,
+        kind: thread.kind,
+        status: thread.status,
+        branch: thread.branch,
+        worktreePath: thread.worktree_path,
+        git: thread.worktree_path ? await worktreeStatus(thread.worktree_path) : null,
+        pr: thread.branch && dir ? await prStatus(dir, thread.branch) : null,
+        process: run
+          ? { running: true, pid: run.pid, startedAt: run.startedAt, model: run.model }
+          : { running: false },
+        cost: {
+          totalUsd: usage.totalUsd,
+          turns: usage.turns,
+          lastContextTokens,
+          lastModel: stats?.model ?? null,
+        },
+      };
+    },
+
+    // Retire a finished ticket: remove its worktree checkout (branch + commits
+    // stay — cleanup reclaims disk, never work) and archive the thread.
+    // Refuses while a run is active, and refuses a dirty worktree unless
+    // force=true, so uncommitted work can't vanish on a misclick.
+    cleanupThread: async (threadId, force = false) => {
+      const thread = db.getThread(threadId);
+      if (!thread) throw new Error(`No such thread: ${threadId}`);
+      if (getActiveRun(threadKey(threadId))) return { ok: false, reason: "running" };
+      if (thread.worktree_path) {
+        const project = db.listProjects().find((p) => p.id === thread.project_id);
+        if (!project) throw new Error(`Thread ${threadId} has no project`);
+        const status = await worktreeStatus(thread.worktree_path);
+        if (status && status.dirty > 0 && !force) {
+          return { ok: false, reason: "dirty", dirty: status.dirty };
+        }
+        try {
+          await removeWorktree({ repoDir: project.dir, path: thread.worktree_path, force });
+        } catch (err) {
+          // Already gone (deleted by hand) is fine — anything else is real.
+          if (await worktreeStatus(thread.worktree_path)) {
+            return { ok: false, reason: err.message };
+          }
+        }
+      }
+      const t = db.updateThread(threadId, { worktree_path: null, status: "archived" });
+      emit("thread:updated", t);
+      return { ok: true };
+    },
+
     // Active threads across all projects, newest first (the workspace's
-    // "what's running" list).
-    listActiveThreads: () => db.listActiveThreads(),
+    // "what's running" list). `running` is live process truth — unlike the
+    // client's event-derived busy set, it survives an app restart.
+    listActiveThreads: () =>
+      db.listActiveThreads().map((t) => ({ ...t, running: Boolean(getActiveRun(threadKey(t.id))) })),
 
     // Answer a pending permission prompt (from the desktop's Allow/Deny).
     resolveApproval: (id, allow, updatedInput) => hub.resolve(id, allow, updatedInput),

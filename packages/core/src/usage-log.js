@@ -31,6 +31,8 @@ export function recordUsage({
       channelName: meta.channelName || null,
       // "chat" | "teamlead-tick" | "teamlead-delegate" | …
       source: meta.source || "chat",
+      // Spawn thread attribution (daemon runs) — drives per-thread cost.
+      threadId: meta.threadId ?? null,
       model: model || null,
       input_tokens: u.input_tokens || 0,
       output_tokens: u.output_tokens || 0,
@@ -67,4 +69,17 @@ export function readUsageEvents() {
     }
   }
   return out;
+}
+
+// Cumulative spend for one Spawn thread (records carrying its threadId).
+// Linear scan of the ledger — fine at this volume, and only on demand.
+export function threadUsage(threadId) {
+  let totalUsd = 0;
+  let turns = 0;
+  for (const r of readUsageEvents()) {
+    if (r.threadId !== threadId) continue;
+    turns++;
+    if (typeof r.cost_usd === "number") totalUsd += r.cost_usd;
+  }
+  return { totalUsd, turns };
 }

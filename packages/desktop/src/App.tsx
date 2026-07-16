@@ -7,6 +7,7 @@ import type {
   Project,
   ProjectSettings,
   Thread,
+  ThreadContext,
 } from "./types";
 
 // Spawn shell — Discord-shaped: projects rail / threads / active thread.
@@ -93,6 +94,178 @@ function ChatThread({
         </button>
       </div>
     </>
+  );
+}
+
+// ── ThreadContextPanel — the Phase-3 isolation panel for one thread: its
+// branch / worktree / live git state, the PR (state + checks), the live
+// process (pid, model, Stop), and cumulative cost. Refreshes itself on the
+// thread's turn lifecycle; ✕ cleanup retires a finished ticket's worktree
+// (branch and commits stay — see daemon cleanupThread).
+function ThreadContextPanel({ threadId }: { threadId: number }) {
+  const [ctx, setCtx] = useState<ThreadContext | null>(null);
+  // Cleanup hit a dirty worktree — ask before forcing.
+  const [dirtyCount, setDirtyCount] = useState<number | null>(null);
+
+  const refresh = useCallback(() => {
+    window.spawn
+      .getThreadContext(threadId)
+      .then(setCtx)
+      .catch(() => setCtx(null));
+  }, [threadId]);
+
+  useEffect(() => {
+    setCtx(null);
+    setDirtyCount(null);
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    return window.spawn.onEvent((ev) => {
+      if (
+        (ev.type === "turn:start" || ev.type === "turn:done") &&
+        ev.payload.threadId === threadId
+      ) {
+        refresh();
+      }
+      if (ev.type === "thread:updated" && ev.payload.id === threadId) refresh();
+    });
+  }, [threadId, refresh]);
+
+  const cleanup = async (force: boolean) => {
+    const r = await window.spawn.cleanupThread(threadId, force);
+    if (!r.ok && r.reason === "dirty") {
+      setDirtyCount(r.dirty ?? 0);
+      return;
+    }
+    setDirtyCount(null);
+    refresh();
+  };
+
+  if (!ctx) {
+    return (
+      <aside className="context">
+        <div className="pane-head">
+          <span>Context</span>
+        </div>
+        <div className="side-empty">Loading…</div>
+      </aside>
+    );
+  }
+
+  const shortPath = ctx.worktreePath
+    ? `…/${ctx.worktreePath.split("/").slice(-2).join("/")}`
+    : null;
+
+  return (
+    <aside className="context">
+      <div className="pane-head">
+        <span>Context</span>
+        <button title="Refresh" onClick={refresh}>
+          ↻
+        </button>
+      </div>
+
+      <div className="ctx-row">
+        <label>Isolation</label>
+        {ctx.branch ? (
+          <>
+            <div className="ctx-line">
+              <code>{ctx.branch}</code>
+            </div>
+            {shortPath && (
+              <div className="ctx-line dim" title={ctx.worktreePath ?? ""}>
+                {ctx.status === "archived" ? "worktree removed" : shortPath}
+              </div>
+            )}
+            {ctx.git && (
+              <div className="ctx-line dim">
+                {ctx.git.dirty > 0 ? `${ctx.git.dirty} uncommitted` : "clean"}
+                {ctx.git.ahead > 0 && ` · ↑${ctx.git.ahead}`}
+                {ctx.git.behind > 0 && ` · ↓${ctx.git.behind}`}
+              </div>
+            )}
+            {ctx.git?.lastCommit && (
+              <div className="ctx-line dim" title={ctx.git.lastCommit}>
+                {ctx.git.lastCommit}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="ctx-line dim">none — runs in the project dir</div>
+        )}
+      </div>
+
+      <div className="ctx-row">
+        <label>Pull request</label>
+        {ctx.pr ? (
+          <div className="ctx-line">
+            <a href={ctx.pr.url} target="_blank" rel="noreferrer">
+              #{ctx.pr.number}
+            </a>{" "}
+            <span className={`pr-state ${ctx.pr.state.toLowerCase()}`}>
+              {ctx.pr.state.toLowerCase()}
+            </span>
+            {ctx.pr.checks && (
+              <span className={`pr-checks ${ctx.pr.checks}`}> · checks {ctx.pr.checks}</span>
+            )}
+          </div>
+        ) : (
+          <div className="ctx-line dim">no PR yet</div>
+        )}
+      </div>
+
+      <div className="ctx-row">
+        <label>Process</label>
+        {ctx.process.running ? (
+          <div className="ctx-line">
+            <span className="dot in-progress" />
+            pid {ctx.process.pid}
+            {ctx.process.model ? ` · ${ctx.process.model}` : ""}
+            <button className="ctx-stop" onClick={() => window.spawn.cancelTurn(threadId)}>
+              Stop
+            </button>
+          </div>
+        ) : (
+          <div className="ctx-line dim">idle</div>
+        )}
+      </div>
+
+      <div className="ctx-row">
+        <label>Cost</label>
+        <div className="ctx-line">
+          ${ctx.cost.totalUsd.toFixed(4)} · {ctx.cost.turns} turn{ctx.cost.turns === 1 ? "" : "s"}
+        </div>
+        {ctx.cost.lastContextTokens != null && (
+          <div className="ctx-line dim">
+            last: {Math.round(ctx.cost.lastContextTokens / 1000)}k ctx
+            {ctx.cost.lastModel ? ` · ${ctx.cost.lastModel}` : ""}
+          </div>
+        )}
+      </div>
+
+      {ctx.worktreePath && !ctx.process.running && (
+        <div className="ctx-row">
+          {dirtyCount == null ? (
+            <button className="ctx-cleanup" onClick={() => cleanup(false)}>
+              Clean up worktree
+            </button>
+          ) : (
+            <>
+              <div className="ctx-line dim">{dirtyCount} uncommitted change(s) — discard?</div>
+              <div className="ctx-cleanup-confirm">
+                <button className="ctx-cleanup danger" onClick={() => cleanup(true)}>
+                  Force clean
+                </button>
+                <button className="ctx-cleanup" onClick={() => setDirtyCount(null)}>
+                  Keep
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </aside>
   );
 }
 
@@ -239,11 +412,20 @@ function TeamLeadWorkspace({
         ) : openThreadId == null ? (
           <div className="empty">Opening the console…</div>
         ) : (
-          <ChatThread
-            threadId={openThreadId}
-            busy={busyThreads.has(openThreadId)}
-            markBusy={markBusy}
-          />
+          <div className="console-body">
+            <div className="chat-main">
+              <ChatThread
+                threadId={openThreadId}
+                busy={busyThreads.has(openThreadId)}
+                markBusy={markBusy}
+              />
+            </div>
+            {/* Ticket threads carry the isolation panel; the console itself
+                (teamlead kind) doesn't need one in this cramped layout. */}
+            {active.find((t) => t.id === openThreadId)?.kind === "ticket" && (
+              <ThreadContextPanel threadId={openThreadId} />
+            )}
+          </div>
         )}
       </section>
 
@@ -301,8 +483,9 @@ function TeamLeadWorkspace({
             onClick={() => openThread(t.id, t.title)}
             title={`${t.project_name} · ${t.kind}`}
           >
-            <span className={`dot ${t.status}`} />
+            <span className={t.running ? "dot in-progress" : `dot ${t.status}`} />
             {t.project_name} · {t.title}
+            {t.branch && <span className="badge">{t.branch}</span>}
           </button>
         ))}
         {active.length === 0 && <div className="side-empty">Nothing active.</div>}
@@ -520,7 +703,16 @@ export default function App() {
             {threadId == null ? (
               <div className="empty">Pick a project, open a thread.</div>
             ) : (
-              <ChatThread threadId={threadId} busy={busyThreads.has(threadId)} markBusy={markBusy} />
+              <>
+                <div className="chat-main">
+                  <ChatThread
+                    threadId={threadId}
+                    busy={busyThreads.has(threadId)}
+                    markBusy={markBusy}
+                  />
+                </div>
+                <ThreadContextPanel threadId={threadId} />
+              </>
             )}
           </main>
         </>
