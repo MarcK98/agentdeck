@@ -102,6 +102,29 @@ body { font: 14px/1.45 -apple-system, "Segoe UI", sans-serif; color: var(--fg); 
 .delegate-knobs button:disabled { opacity: 0.5; cursor: default; }
 .side-empty { color: var(--fg-dim); font-size: 12px; padding: 4px 8px; }
 
+/* Live map (Phase 4: React Flow over team-lead → projects → threads) */
+.map { grid-column: 2 / 4; background: var(--bg-2); display: flex; flex-direction: column; height: 100vh; padding: 8px; }
+.map .pane-head button { width: auto; padding: 0 8px; height: 20px; }
+.map .empty { margin: auto; }
+.map-canvas { flex: 1; min-height: 0; border-radius: 8px; overflow: hidden; background: var(--bg-1); }
+.map-canvas .react-flow__background { background: var(--bg-1); }
+.map-node { background: var(--bg-2); border: 1px solid var(--bg-0); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--fg); cursor: pointer; min-width: 150px; }
+.map-node:hover { border-color: var(--accent); }
+.map-teamlead { background: var(--accent); color: #fff; font-weight: 600; }
+.map-project { font-weight: 600; }
+.map-thread { width: 220px; }
+.map-thread.running { border-color: #23a559; }
+.map-thread-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; }
+.map-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.map-badges .badge { margin-left: 0; }
+.badge.warn { color: #f0b232; }
+.badge.run { color: #23a559; }
+.badge.dim { color: var(--fg-dim); }
+.badge.pr { text-decoration: none; }
+.badge.pr.open { color: #23a559; }
+.badge.pr.merged { color: #a06af8; }
+.badge.pr.closed { color: #da373c; }
+
 /* Inline thread rename (double-click a title) */
 .rename { display: block; width: 100%; background: var(--bg-2); border: 1px solid var(--accent); border-radius: 4px; color: var(--fg); padding: 5px 7px; outline: none; font: inherit; }
 

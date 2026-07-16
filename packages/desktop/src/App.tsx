@@ -9,6 +9,7 @@ import type {
   Thread,
   ThreadContext,
 } from "./types";
+import MapView from "./MapView";
 
 // Spawn shell — Discord-shaped: projects rail / threads / active thread.
 // Phase 2 adds the team-lead workspace: a read-only board (Trello or
@@ -495,8 +496,9 @@ function TeamLeadWorkspace({
 }
 
 export default function App() {
-  // "project" = the classic rail/threads/chat; "teamlead" = the workspace.
-  const [view, setView] = useState<"project" | "teamlead">("project");
+  // "project" = the classic rail/threads/chat; "teamlead" = the workspace;
+  // "map" = the live React Flow graph (Phase 4).
+  const [view, setView] = useState<"project" | "teamlead" | "map">("project");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -519,6 +521,28 @@ export default function App() {
     setBusyThreads((prev) => new Set(prev).add(id));
   }, []);
 
+  // Jump-to-thread from the map: selecting a project resets threadId (the
+  // effect below), so a cross-project jump parks the target here and the
+  // effect picks it up after the thread list loads.
+  const jumpRef = useRef<number | null>(null);
+  const openFromMap = useCallback(
+    (pId: number, tId: number) => {
+      setView("project");
+      if (pId === projectId) {
+        setThreadId(tId);
+      } else {
+        jumpRef.current = tId;
+        setProjectId(pId);
+      }
+    },
+    [projectId]
+  );
+  const openProjectFromMap = useCallback((pId: number) => {
+    setView("project");
+    setProjectId(pId);
+  }, []);
+  const openTeamLeadFromMap = useCallback(() => setView("teamlead"), []);
+
   useEffect(() => {
     window.spawn.listProjects().then(setProjects);
   }, []);
@@ -526,7 +550,8 @@ export default function App() {
   useEffect(() => {
     if (projectId == null) return;
     window.spawn.listThreads(projectId).then(setThreads);
-    setThreadId(null);
+    setThreadId(jumpRef.current);
+    jumpRef.current = null;
     setSettings(null);
   }, [projectId]);
 
@@ -640,6 +665,12 @@ export default function App() {
         >
           🧭 Team Lead
         </button>
+        <button
+          className={view === "map" ? "item teamlead active" : "item teamlead"}
+          onClick={() => setView("map")}
+        >
+          🗺 Live Map
+        </button>
         {projects.map((p) => (
           <button
             key={p.id}
@@ -655,7 +686,13 @@ export default function App() {
         ))}
       </aside>
 
-      {view === "teamlead" ? (
+      {view === "map" ? (
+        <MapView
+          onOpenTeamLead={openTeamLeadFromMap}
+          onOpenProject={openProjectFromMap}
+          onOpenThread={openFromMap}
+        />
+      ) : view === "teamlead" ? (
         <TeamLeadWorkspace
           projects={projects}
           busyThreads={busyThreads}

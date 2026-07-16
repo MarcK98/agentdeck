@@ -61,6 +61,7 @@ ipcMain.handle("spawn:delegateTask", (_e, args) => rpc("delegateTask", args));
 ipcMain.handle("spawn:listActiveThreads", () => rpc("listActiveThreads"));
 ipcMain.handle("spawn:getThreadContext", (_e, threadId) => rpc("getThreadContext", threadId));
 ipcMain.handle("spawn:cleanupThread", (_e, threadId, force) => rpc("cleanupThread", threadId, force));
+ipcMain.handle("spawn:getMap", () => rpc("getMap"));
 
 app.whenReady().then(async () => {
   // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.

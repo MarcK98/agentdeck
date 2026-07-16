@@ -129,6 +129,31 @@ export type CleanupResult =
   | { ok: true }
   | { ok: false; reason: string; dirty?: number };
 
+// ── Live map (daemon getMap) — Phase 4. One thread node's worth of state:
+// getThreadContext-lite, joined across every active thread.
+export interface MapThread {
+  id: number;
+  projectId: number;
+  kind: Thread["kind"];
+  title: string;
+  status: Thread["status"];
+  branch: string | null;
+  worktreePath: string | null;
+  dirty: number | null;
+  running: boolean;
+  pid: number | null;
+  model: string | null;
+  costUsd: number;
+  turns: number;
+  pr: ThreadPr | null;
+}
+
+export interface MapData {
+  teamLeadProjectId: number | null;
+  projects: { id: number; name: string; dir: string }[];
+  threads: MapThread[];
+}
+
 export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
@@ -174,6 +199,7 @@ declare global {
       listActiveThreads(): Promise<ActiveThread[]>;
       getThreadContext(threadId: number): Promise<ThreadContext>;
       cleanupThread(threadId: number, force?: boolean): Promise<CleanupResult>;
+      getMap(): Promise<MapData>;
       onEvent(fn: (ev: SpawnEvent) => void): () => void;
     };
   }

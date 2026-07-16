@@ -385,6 +385,56 @@ export function createDaemon() {
     listActiveThreads: () =>
       db.listActiveThreads().map((t) => ({ ...t, running: Boolean(getActiveRun(threadKey(t.id))) })),
 
+    // Everything the live map draws, in one call: the team-lead project, the
+    // projects that currently have active threads, and every active thread
+    // with its isolation + process + cost state (a getThreadContext-lite per
+    // thread, fanned out in parallel). PR/git lookups are best-effort nulls,
+    // same as getThreadContext — the map renders whatever it gets.
+    getMap: async () => {
+      discoverProjects();
+      const projects = db.listProjects();
+      const tl = resolveTeamLeadProject();
+      const active = db.listActiveThreads();
+      const threads = await Promise.all(
+        active.map(async (t) => {
+          const dir = t.worktree_path || projects.find((p) => p.id === t.project_id)?.dir || null;
+          const [git, pr] = await Promise.all([
+            t.worktree_path ? worktreeStatus(t.worktree_path) : null,
+            t.branch && dir ? prStatus(dir, t.branch) : null,
+          ]);
+          const run = getActiveRun(threadKey(t.id));
+          const usage = threadUsage(t.id);
+          return {
+            id: t.id,
+            projectId: t.project_id,
+            kind: t.kind,
+            title: t.title,
+            status: t.status,
+            branch: t.branch,
+            worktreePath: t.worktree_path,
+            dirty: git?.dirty ?? null,
+            running: Boolean(run),
+            pid: run?.pid ?? null,
+            model: run?.model ?? null,
+            costUsd: usage.totalUsd,
+            turns: usage.turns,
+            pr,
+          };
+        })
+      );
+      // Only projects that are actually on the map (have a live thread), plus
+      // the team-lead's home — 25 idle project nodes would just be noise.
+      const onMap = new Set(threads.map((t) => t.projectId));
+      if (tl) onMap.add(tl.id);
+      return {
+        teamLeadProjectId: tl?.id ?? null,
+        projects: projects
+          .filter((p) => onMap.has(p.id))
+          .map(({ id, name, dir }) => ({ id, name, dir })),
+        threads,
+      };
+    },
+
     // Answer a pending permission prompt (from the desktop's Allow/Deny).
     resolveApproval: (id, allow, updatedInput) => hub.resolve(id, allow, updatedInput),
 
