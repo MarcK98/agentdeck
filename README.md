@@ -1,12 +1,17 @@
 # Spawn (claude-spawn monorepo)
 
-Local interface to Claude Code team-lead/agents — working toward **spawnmy.ai**.
+A **mastermind for Claude** — local orchestration interface to Claude Code
+team-lead/agents, working toward **spawnmy.ai**. Claude-specific by design:
+no multi-provider abstraction.
+
+Daemon: `npm run daemon` (auto-started by the desktop app if not running).
 
 ```
-packages/core     @spawn/core — orchestration: sessions, projects, team lead,
-                  approvals, usage, SQLite store, AgentProvider seam.
+packages/core     @spawn/core — the Spawn daemon (a separate background
+                  process owning Claude sessions, threads, SQLite store) plus
+                  orchestration: projects, team lead, approvals, usage.
                   Also still hosts the legacy Discord bridge (src/index.js).
-packages/desktop  @spawn/desktop — Electron + React app (Phase 0 shell).
+packages/desktop  @spawn/desktop — Electron + React client of the daemon.
 src/              compatibility shims only (keep `node src/index.js` working
                   for the running bridge until the Discord hard-cut).
 ```

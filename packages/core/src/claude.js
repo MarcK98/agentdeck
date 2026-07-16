@@ -5,7 +5,10 @@ import { config, dataPath } from "./config.js";
 import { log } from "./logger.js";
 import { recordUsage } from "./usage-log.js";
 
-const SESSIONS_FILE = dataPath("sessions.json");
+// Which sessions file this process owns. The bridge and the Spawn daemon are
+// SEPARATE processes sharing dataDir; whole-file writes would clobber each
+// other, so each process gets its own file (daemon sets SPAWN_SESSIONS_FILE).
+const SESSIONS_FILE = dataPath(process.env.SPAWN_SESSIONS_FILE || "sessions.json");
 
 // sessionKey (e.g. "discord:123456") -> claude session_id
 let sessions = {};

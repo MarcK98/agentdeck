@@ -1,19 +1,21 @@
 {
   "name": "@spawn/core",
   "version": "0.1.0",
-  "description": "Spawn core: Claude Code session orchestration, projects, team lead, approvals, usage — shared by the Discord bridge and the Spawn desktop app.",
+  "description": "Spawn core — a mastermind for Claude: session orchestration, projects, team lead, approvals, usage, SQLite store, and the Spawn daemon. Also hosts the legacy Discord bridge.",
   "type": "module",
   "main": "src/daemon/index.js",
   "exports": {
     ".": "./src/daemon/index.js",
+    "./daemon-server": "./src/daemon/server.js",
     "./bridge": "./src/index.js",
     "./db": "./src/db/index.js",
-    "./providers": "./src/providers/index.js",
-    "./config": "./src/config.js"
+    "./config": "./src/config.js",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "start": "node src/index.js",
-    "dashboard": "node src/dashboard.js"
+    "dashboard": "node src/dashboard.js",
+    "daemon": "node src/daemon/server.js"
   },
   "engines": {
     "node": ">=20"
@@ -25,6 +27,7 @@
     "better-sqlite3": "^12.2.0",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "ws": "^8.18.0"
   }
 }

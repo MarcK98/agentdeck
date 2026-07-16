@@ -1,15 +1,15 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { createDaemon } from "@spawn/core";
+import { ensureDaemon, rpc, subscribeEvents } from "./daemon-client.js";
 
-// Spawn desktop — Electron main. The daemon runs IN-PROCESS here for MVP
-// (decision #1); the renderer only ever talks through the preload IPC surface,
-// which mirrors the daemon API 1:1 so swapping to a remote daemon later is a
-// preload-level change, invisible to the UI.
+// Spawn desktop — a client of the Spawn daemon (its own background process,
+// see @spawn/core daemon/server.js). This process holds NO sessions and no
+// database; it renders state and relays daemon events to the window. The
+// renderer talks through the preload IPC surface, which mirrors the daemon
+// API 1:1.
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const daemon = createDaemon();
 
 let win = null;
 
@@ -26,10 +26,6 @@ function createWindow() {
     },
   });
 
-  daemon.events.on("event", (ev) => {
-    win?.webContents.send("spawn:event", ev);
-  });
-
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
@@ -37,21 +33,24 @@ function createWindow() {
   }
 }
 
-// IPC surface = daemon API, JSON in/out only (transport-shaped, decision #1).
-ipcMain.handle("spawn:listProjects", () => daemon.listProjects());
-ipcMain.handle("spawn:listThreads", (_e, projectId) => daemon.listThreads(projectId));
-ipcMain.handle("spawn:createThread", (_e, args) => daemon.createThread(args));
-ipcMain.handle("spawn:listMessages", (_e, threadId, opts) => daemon.listMessages(threadId, opts));
-ipcMain.handle("spawn:sendMessage", (_e, threadId, text) => daemon.sendMessage(threadId, text));
-ipcMain.handle("spawn:cancelTurn", (_e, threadId) => daemon.cancelTurn(threadId));
-ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => daemon.getProjectSettings(projectId));
+// IPC surface = daemon RPC, JSON in/out only.
+ipcMain.handle("spawn:listProjects", () => rpc("listProjects"));
+ipcMain.handle("spawn:listThreads", (_e, projectId) => rpc("listThreads", projectId));
+ipcMain.handle("spawn:createThread", (_e, args) => rpc("createThread", args));
+ipcMain.handle("spawn:listMessages", (_e, threadId, opts) => rpc("listMessages", threadId, opts));
+ipcMain.handle("spawn:sendMessage", (_e, threadId, text) => rpc("sendMessage", threadId, text));
+ipcMain.handle("spawn:cancelTurn", (_e, threadId) => rpc("cancelTurn", threadId));
+ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSettings", projectId));
 
-app.whenReady().then(() => {
-  // CI/agent smoke: prove the daemon boots and the window opens, then exit.
+app.whenReady().then(async () => {
+  // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.
   if (process.env.SPAWN_SMOKE) {
     try {
-      const projects = daemon.listProjects();
-      console.log(`SPAWN_SMOKE ok: ${projects.length} projects`);
+      const boot = await ensureDaemon();
+      const projects = await rpc("listProjects");
+      console.log(
+        `SPAWN_SMOKE ok: daemon ${boot.started ? "spawned" : "already up"}, ${projects.length} projects`
+      );
       app.exit(0);
     } catch (err) {
       console.error(`SPAWN_SMOKE failed: ${err.message}`);
@@ -59,6 +58,9 @@ app.whenReady().then(() => {
     }
     return;
   }
+
+  await ensureDaemon();
+  subscribeEvents((ev) => win?.webContents.send("spawn:event", ev));
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

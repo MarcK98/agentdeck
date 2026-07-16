@@ -1,7 +1,7 @@
 {
   "name": "spawn-monorepo",
   "version": "0.1.0",
-  "description": "Spawn (spawnmy.ai): local interface to Claude Code team-lead/agents. Monorepo: @spawn/core (orchestration + the legacy Discord bridge) and @spawn/desktop (Electron app).",
+  "description": "Spawn (spawnmy.ai) — a mastermind for Claude. Monorepo: @spawn/core (daemon + orchestration + legacy Discord bridge) and @spawn/desktop (Electron client).",
   "type": "module",
   "private": true,
   "workspaces": [
@@ -12,7 +12,8 @@
     "dev": "node packages/core/scripts/dev.js",
     "dev:plain": "node --watch src/index.js",
     "dashboard": "node packages/core/src/dashboard.js",
-    "desktop": "npm run dev -w @spawn/desktop"
+    "desktop": "npm run dev -w @spawn/desktop",
+    "daemon": "node packages/core/src/daemon/server.js"
   },
   "engines": {
     "node": ">=20"

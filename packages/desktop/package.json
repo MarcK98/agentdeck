@@ -1,23 +1,22 @@
 {
   "name": "@spawn/desktop",
   "version": "0.1.0",
-  "description": "Spawn desktop app — Electron shell over @spawn/core (in-process daemon).",
+  "description": "Spawn desktop — Electron client of the Spawn daemon (a mastermind for Claude).",
   "type": "module",
   "main": "electron/main.js",
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.js",
     "build": "vite build",
-    "smoke": "SPAWN_SMOKE=1 electron .",
-    "rebuild-native": "electron-rebuild -f -w better-sqlite3"
+    "smoke": "SPAWN_SMOKE=1 electron ."
   },
   "dependencies": {
     "@spawn/core": "*",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
