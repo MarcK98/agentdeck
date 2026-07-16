@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("spawn", {
   getProjectSettings: (projectId) => ipcRenderer.invoke("spawn:getProjectSettings", projectId),
   updateProjectSettings: (projectId, patch) =>
     ipcRenderer.invoke("spawn:updateProjectSettings", projectId, patch),
+  getBoard: () => ipcRenderer.invoke("spawn:getBoard"),
+  getTeamLeadProject: () => ipcRenderer.invoke("spawn:getTeamLeadProject"),
+  delegateTask: (args) => ipcRenderer.invoke("spawn:delegateTask", args),
+  listActiveThreads: () => ipcRenderer.invoke("spawn:listActiveThreads"),
   onEvent: (fn) => {
     const handler = (_e, ev) => fn(ev);
     ipcRenderer.on("spawn:event", handler);

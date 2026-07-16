@@ -50,6 +50,43 @@ export interface ApprovalRequest {
   input: Record<string, unknown>;
 }
 
+// The team-lead board (daemon getBoard) — read-only in this phase.
+// A Trello card as trello.js readBoard shapes it. `status` is one of the five
+// board statuses, a raw list name, or null; getBoard buckets non-standard ones
+// under todo but keeps the raw value here.
+export interface BoardCard {
+  key: string | null;
+  ref: string;
+  title: string;
+  desc: string;
+  status: string | null;
+  url: string;
+  attachments: { name: string | null; url: string | null }[];
+}
+
+export interface BoardColumn {
+  status: string; // todo | in-progress | blocked | in-review | done
+  cards: BoardCard[];
+}
+
+export interface BoardComment {
+  card?: string;
+  cardId?: string;
+  text?: string;
+  date?: string;
+  by?: string;
+}
+
+export type Board =
+  | { source: "trello"; columns: BoardColumn[]; comments: BoardComment[] }
+  | { source: "tasks-md"; text: string }
+  | { source: "none" };
+
+// A thread row joined with its project name (daemon listActiveThreads).
+export interface ActiveThread extends Thread {
+  project_name: string;
+}
+
 export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
@@ -83,6 +120,16 @@ declare global {
         projectId: number,
         patch: Partial<ProjectSettings>
       ): Promise<ProjectSettings>;
+      getBoard(): Promise<Board>;
+      getTeamLeadProject(): Promise<Project | null>;
+      delegateTask(args: {
+        projectId: number;
+        task: string;
+        model?: string;
+        effort?: string;
+        title?: string;
+      }): Promise<Thread>;
+      listActiveThreads(): Promise<ActiveThread[]>;
       onEvent(fn: (ev: SpawnEvent) => void): () => void;
     };
   }

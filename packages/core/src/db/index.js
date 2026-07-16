@@ -79,6 +79,16 @@ export const listThreads = (projectId) =>
   openDb()
     .prepare(`SELECT * FROM threads WHERE project_id = ? ORDER BY updated_at DESC`)
     .all(projectId);
+// Active threads across ALL projects (the team-lead workspace's live list),
+// each carrying its project name so the client needs no second lookup.
+export const listActiveThreads = () =>
+  openDb()
+    .prepare(
+      `SELECT t.*, p.name AS project_name FROM threads t
+       JOIN projects p ON p.id = t.project_id
+       WHERE t.status = 'active' ORDER BY t.updated_at DESC LIMIT 100`
+    )
+    .all();
 export const updateThread = (id, fields) => {
   const allowed = ["title", "status", "session_id", "branch", "worktree_path"];
   const sets = Object.keys(fields).filter((k) => allowed.includes(k));

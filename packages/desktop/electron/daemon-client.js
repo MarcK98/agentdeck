@@ -15,7 +15,7 @@ import { dataPath } from "@spawn/core/config";
 // files, which is the point — see server.js for the threat model.
 
 const require = createRequire(import.meta.url);
-const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8791;
+const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8810; // must match daemon/server.js
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const SERVER_JS = require.resolve("@spawn/core/package.json").replace(

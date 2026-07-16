@@ -37,7 +37,9 @@ const { createDaemon } = await import("./index.js");
 const { dataPath } = await import("../config.js");
 const { log } = await import("../logger.js");
 
-const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8791;
+// 8810/8811 — clear of the bridge's ports (approvals 8790, dashboard 8791,
+// Trello webhook 8792), which the Phase-1 defaults collided with.
+const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8810;
 const VERSION = "0.1.0";
 
 // Per-start shared secret. 0600 so only this user can read it; the desktop

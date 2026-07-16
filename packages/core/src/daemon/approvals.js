@@ -22,7 +22,9 @@ export function createApprovalHub({
   pauseInactivity,
   resumeInactivity,
   timeoutMs = 300000,
-  port = Number(process.env.SPAWN_DAEMON_APPROVAL_PORT) || 8792,
+  // 8811 — clear of the bridge's Trello webhook (8792), which the Phase-1
+  // default collided with.
+  port = Number(process.env.SPAWN_DAEMON_APPROVAL_PORT) || 8811,
 } = {}) {
   let nextId = 1;
   const pending = new Map(); // id -> { id, threadId, sessionKey, tool, input, respond, timer }

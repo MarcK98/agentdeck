@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { ensureDaemon, rpc, subscribeEvents } from "./daemon-client.js";
@@ -26,6 +26,13 @@ function createWindow() {
     },
   });
 
+  // External links (board card click-throughs) open in the OS browser —
+  // never as a new Electron window.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
+
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
@@ -48,6 +55,10 @@ ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSet
 ipcMain.handle("spawn:updateProjectSettings", (_e, projectId, patch) =>
   rpc("updateProjectSettings", projectId, patch)
 );
+ipcMain.handle("spawn:getBoard", () => rpc("getBoard"));
+ipcMain.handle("spawn:getTeamLeadProject", () => rpc("getTeamLeadProject"));
+ipcMain.handle("spawn:delegateTask", (_e, args) => rpc("delegateTask", args));
+ipcMain.handle("spawn:listActiveThreads", () => rpc("listActiveThreads"));
 
 app.whenReady().then(async () => {
   // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.
