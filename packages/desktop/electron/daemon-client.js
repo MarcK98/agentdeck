@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import WebSocket from "ws";
 import { dataPath } from "@spawn/core/config";
@@ -50,12 +50,17 @@ const health = async () => {
 
 export async function ensureDaemon() {
   if (await health()) return { started: false };
+  // A detached daemon has no console — append its stdout+stderr to a log file
+  // so crashes/warnings are diagnosable. (`npm run daemon` still logs to the
+  // console; this path only runs when the desktop app spawns the daemon.)
+  const logFd = openSync(dataPath("spawn-daemon.log"), "a");
   const child = spawn(nodeBin(), [SERVER_JS], {
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", logFd, logFd],
     env: process.env,
   });
   child.unref();
+  closeSync(logFd); // the child holds its own copy
   for (let i = 0; i < 25; i++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await health()) return { started: true, pid: child.pid };

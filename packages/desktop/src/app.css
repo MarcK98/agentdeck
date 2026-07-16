@@ -14,6 +14,10 @@ body { font: 14px/1.45 -apple-system, "Segoe UI", sans-serif; color: var(--fg); 
 
 .rail { background: var(--bg-0); padding: 12px 8px; overflow-y: auto; }
 .rail h1 { font-size: 15px; padding: 4px 8px 12px; color: var(--fg); }
+.rail-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.gear { background: none; border: 0; color: var(--fg-dim); font-size: 15px; cursor: pointer; padding: 2px 8px; }
+.gear:hover:enabled { color: var(--fg); }
+.gear:disabled { opacity: 0.35; cursor: default; }
 .threads { background: var(--bg-1); padding: 8px; overflow-y: auto; }
 .pane-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 8px; color: var(--fg-dim); font-size: 12px; text-transform: uppercase; }
 .pane-head button { background: var(--accent); color: #fff; border: 0; border-radius: 4px; width: 20px; height: 20px; cursor: pointer; }
@@ -40,3 +44,27 @@ body { font: 14px/1.45 -apple-system, "Segoe UI", sans-serif; color: var(--fg); 
 .composer textarea { flex: 1; resize: none; height: 44px; background: var(--bg-1); border: 0; border-radius: 8px; color: var(--fg); padding: 12px; outline: none; }
 .composer button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 0 16px; cursor: pointer; }
 .composer button:disabled { opacity: 0.5; cursor: default; }
+
+/* Inline thread rename (double-click a title) */
+.rename { display: block; width: 100%; background: var(--bg-2); border: 1px solid var(--accent); border-radius: 4px; color: var(--fg); padding: 5px 7px; outline: none; font: inherit; }
+
+/* Modal overlays (approval prompt, project settings) */
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.card { background: var(--bg-1); border-radius: 8px; padding: 20px; width: 420px; max-width: 90vw; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+.card h2 { font-size: 14px; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 12px; }
+.card p { margin-bottom: 10px; }
+.card pre { background: var(--bg-0); border-radius: 6px; padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow-y: auto; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.actions button { border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer; background: var(--bg-2); color: var(--fg); }
+.actions .allow { background: #23a559; color: #fff; }
+.actions .deny { background: #da373c; color: #fff; }
+
+/* Settings fields */
+.field { margin-bottom: 14px; }
+.field > label { display: block; font-size: 11px; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 6px; }
+.field select { width: 100%; background: var(--bg-0); border: 0; border-radius: 6px; color: var(--fg); padding: 8px; outline: none; }
+.segmented { display: inline-flex; background: var(--bg-0); border-radius: 6px; padding: 2px; }
+.segmented button { border: 0; border-radius: 5px; background: none; color: var(--fg-dim); padding: 6px 14px; cursor: pointer; }
+.segmented button.on { background: var(--accent); color: #fff; }
+.checks { display: flex; gap: 14px; flex-wrap: wrap; }
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); cursor: pointer; }

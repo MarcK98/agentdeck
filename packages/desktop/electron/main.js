@@ -37,10 +37,17 @@ function createWindow() {
 ipcMain.handle("spawn:listProjects", () => rpc("listProjects"));
 ipcMain.handle("spawn:listThreads", (_e, projectId) => rpc("listThreads", projectId));
 ipcMain.handle("spawn:createThread", (_e, args) => rpc("createThread", args));
+ipcMain.handle("spawn:renameThread", (_e, threadId, title) => rpc("renameThread", threadId, title));
 ipcMain.handle("spawn:listMessages", (_e, threadId, opts) => rpc("listMessages", threadId, opts));
 ipcMain.handle("spawn:sendMessage", (_e, threadId, text) => rpc("sendMessage", threadId, text));
 ipcMain.handle("spawn:cancelTurn", (_e, threadId) => rpc("cancelTurn", threadId));
+ipcMain.handle("spawn:resolveApproval", (_e, id, allow, updatedInput) =>
+  rpc("resolveApproval", id, allow, updatedInput)
+);
 ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSettings", projectId));
+ipcMain.handle("spawn:updateProjectSettings", (_e, projectId, patch) =>
+  rpc("updateProjectSettings", projectId, patch)
+);
 
 app.whenReady().then(async () => {
   // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.

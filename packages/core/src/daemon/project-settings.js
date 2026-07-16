@@ -1,12 +1,14 @@
-// Per-project settings + secrets (decisions #5 and #9) — Phase 0 seam.
+// Per-project settings + secrets (decisions #5 and #9).
 //
-// Shape is the contract; persistence lands with the settings page (Phase 2).
-// Two hard rules already enforced by the split below:
+// Settings persist in SQLite (project_settings, v2 migration); secrets do NOT.
+// Two hard rules enforced by the split below:
 //   - `settings` are client-visible and JSON-safe (fed to the settings page).
 //   - `secrets` are daemon-side ONLY: injected into agent runs as env/config,
 //     never returned by a daemon method, never in an event, never to a
 //     remote/mobile client. getProjectSettings() therefore returns settings
 //     WITHOUT secrets by construction, not by filtering.
+
+import * as db from "../db/index.js";
 
 const DEFAULTS = {
   approvalMode: "prompt", // "prompt" | "auto" — per project, no global default
@@ -16,17 +18,18 @@ const DEFAULTS = {
   skills: [], // skill names enabled for this project
 };
 
-const settingsByProject = new Map(); // projectId -> settings (in-memory, Phase 0)
+// Secrets stay in-memory on purpose: Phase 1 ships no secret-editing UI, and
+// they must never touch the settings table.
 const secretsByProject = new Map(); // projectId -> {KEY: value} — never leaves the daemon
 
 export function getProjectSettings(projectId) {
-  return { ...DEFAULTS, ...(settingsByProject.get(projectId) ?? {}) };
+  return { ...DEFAULTS, ...db.getProjectSettingsRow(projectId) };
 }
 
 export function updateProjectSettings(projectId, patch) {
   const clean = { ...patch };
   delete clean.secrets; // secrets have their own write path, never this one
-  settingsByProject.set(projectId, { ...getProjectSettings(projectId), ...clean });
+  db.upsertProjectSettings(projectId, { ...getProjectSettings(projectId), ...clean });
   return getProjectSettings(projectId);
 }
 

@@ -31,7 +31,7 @@ process.env.SPAWN_SESSIONS_FILE ??= "spawn-daemon-sessions.json";
 
 const { createServer } = await import("node:http");
 const { randomBytes, timingSafeEqual } = await import("node:crypto");
-const { writeFileSync, unlinkSync } = await import("node:fs");
+const { writeFileSync, readFileSync, unlinkSync } = await import("node:fs");
 const { WebSocketServer } = await import("ws");
 const { createDaemon } = await import("./index.js");
 const { dataPath } = await import("../config.js");
@@ -41,10 +41,12 @@ const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8791;
 const VERSION = "0.1.0";
 
 // Per-start shared secret. 0600 so only this user can read it; the desktop
-// client reads the file and sends it back as a header.
+// client reads the file and sends it back as a header. Written only AFTER a
+// successful listen (see below) — a second daemon losing the port race must
+// never clobber the live daemon's token.
 const TOKEN = randomBytes(32).toString("hex");
 const TOKEN_FILE = dataPath("spawn-daemon.token");
-writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
+const PID_FILE = dataPath("spawn-daemon.pid");
 
 // Only ever reachable as localhost — any other Host means DNS rebinding or a
 // misrouted request. Applied to both HTTP requests and the WS upgrade.
@@ -100,6 +102,21 @@ const server = createServer(async (req, res) => {
   }
 });
 
+// Single-instance: whoever wins the port bind is THE daemon. A loser exits
+// cleanly and must not touch the winner's token/pid files (`bound` guards
+// the shutdown cleanup; the token is only written after a successful bind).
+// Registered BEFORE the WebSocketServer attaches — ws re-emits server errors
+// on itself (and throws, unhandled), which would shadow this handler.
+let bound = false;
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    log.info(`[spawn-daemon] port ${PORT} busy — another daemon already running; exiting`);
+    process.exit(0);
+  }
+  throw err;
+});
+
 const wss = new WebSocketServer({
   server,
   path: "/events",
@@ -113,16 +130,30 @@ daemon.events.on("event", (ev) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
+  bound = true;
+  writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
+  writeFileSync(PID_FILE, String(process.pid), { mode: 0o644 });
   log.info(`[spawn-daemon] listening on 127.0.0.1:${PORT} (pid ${process.pid})`);
 });
 
 const shutdown = () => {
   log.info("[spawn-daemon] shutting down");
-  try {
-    unlinkSync(TOKEN_FILE);
-  } catch {
-    /* already gone */
+  if (bound) {
+    try {
+      unlinkSync(TOKEN_FILE);
+    } catch {
+      /* already gone */
+    }
+    try {
+      // Only remove the pid file if it's still ours (a newer daemon may own it).
+      if (readFileSync(PID_FILE, "utf8").trim() === String(process.pid)) {
+        unlinkSync(PID_FILE);
+      }
+    } catch {
+      /* already gone */
+    }
   }
+  daemon._approvalHub?.close();
   wss.close();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 1500).unref();

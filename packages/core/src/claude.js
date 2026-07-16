@@ -117,6 +117,11 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   const model = opts.model || modelOverrides.get(sessionKey) || config.claude.model;
   const effort = opts.effort || config.claude.effort;
   const cwd = cwdOverride || config.claude.cwd;
+  // Approval routing overrides (the Spawn daemon points prompts at its own
+  // hub; the bridge passes none of these, so its behavior is unchanged).
+  const approvals = opts.approvals ?? config.approvals.enabled;
+  const permissionMode = opts.permissionMode ?? config.claude.permissionMode;
+  const approvalPort = opts.approvalPort ?? config.approvals.port;
 
   // stream-json emits one JSON event per line as Claude works
   // (--verbose is required with -p + stream-json).
@@ -128,8 +133,8 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   // not on other channels' models that would reject it.
   const betas = opts.betas?.length ? opts.betas : config.claude.betas;
   if (betas.length) args.push("--betas", ...betas);
-  if (config.claude.permissionMode) {
-    args.push("--permission-mode", config.claude.permissionMode);
+  if (permissionMode) {
+    args.push("--permission-mode", permissionMode);
   }
   if (persistSessions && sessions[sessionKey]) {
     args.push("--resume", sessions[sessionKey]);
@@ -145,7 +150,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   // permission prompts to Discord) and, optionally, a browser server so agents
   // get Chrome access without switching to /terminal.
   const mcpServers = {};
-  if (config.approvals.enabled) {
+  if (approvals) {
     mcpServers.approver = {
       command: process.execPath, // this node binary
       args: [APPROVAL_MCP_PATH],
@@ -161,7 +166,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
     args.push("--mcp-config", JSON.stringify({ mcpServers }));
   }
   // The permission-prompt tool only exists when the approver server is loaded.
-  if (config.approvals.enabled) {
+  if (approvals) {
     args.push("--permission-prompt-tool", "mcp__approver__approve");
   }
 
@@ -175,7 +180,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
       env: {
         ...process.env,
         BRIDGE_SESSION_KEY: sessionKey,
-        BRIDGE_APPROVAL_PORT: String(config.approvals.port),
+        BRIDGE_APPROVAL_PORT: String(approvalPort),
         BRIDGE_APPROVAL_TIMEOUT_MS: String(config.approvals.timeoutMs),
       },
       stdio: ["ignore", "pipe", "pipe"],

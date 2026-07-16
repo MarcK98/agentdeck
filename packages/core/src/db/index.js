@@ -20,7 +20,15 @@ const require = createRequire(import.meta.url);
 const SCHEMA_PATH = fileURLToPath(new URL("./schema.sql", import.meta.url));
 
 // Append-only migrations. schema.sql is v1; add ["...sql..."] entries for v2+.
-const MIGRATIONS = [readFileSync(SCHEMA_PATH, "utf8")];
+const MIGRATIONS = [
+  readFileSync(SCHEMA_PATH, "utf8"),
+  // v2: persisted per-project settings (JSON blob). Client-visible settings
+  // ONLY — secrets never live in this table (see daemon/project-settings.js).
+  `CREATE TABLE IF NOT EXISTS project_settings (
+     project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+     data       TEXT NOT NULL DEFAULT '{}'
+   );`,
+];
 
 let db = null;
 
@@ -84,6 +92,8 @@ export const updateThread = (id, fields) => {
 };
 
 // ── Messages ─────────────────────────────────────────────────────────────────
+// Returns the full inserted row (not the rowid) so the daemon can ship it in a
+// stream event without a second query.
 export const addMessage = ({ threadId, role, text = "", toolName = null, toolInput = null, seq = 0 }) => {
   const d = openDb();
   const { lastInsertRowid } = d
@@ -95,12 +105,37 @@ export const addMessage = ({ threadId, role, text = "", toolName = null, toolInp
   d.prepare(
     `UPDATE threads SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
   ).run(threadId);
-  return lastInsertRowid;
+  return getMessage(lastInsertRowid);
 };
+export const getMessage = (id) =>
+  openDb().prepare(`SELECT * FROM messages WHERE id = ?`).get(id);
 export const listMessages = (threadId, { limit = 200, before = null } = {}) => {
   const d = openDb();
   const rows = before
     ? d.prepare(`SELECT * FROM messages WHERE thread_id = ? AND id < ? ORDER BY id DESC LIMIT ?`).all(threadId, before, limit)
     : d.prepare(`SELECT * FROM messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?`).all(threadId, limit);
   return rows.reverse();
+};
+
+// ── Project settings ─────────────────────────────────────────────────────────
+// One JSON blob per project (v2 migration). Secrets NEVER go here — they stay
+// in the daemon's in-memory map (project-settings.js) by construction.
+export const getProjectSettingsRow = (projectId) => {
+  const row = openDb()
+    .prepare(`SELECT data FROM project_settings WHERE project_id = ?`)
+    .get(projectId);
+  try {
+    return row ? JSON.parse(row.data) : {};
+  } catch {
+    return {}; // corrupted blob — fall back to defaults rather than crash
+  }
+};
+export const upsertProjectSettings = (projectId, obj) => {
+  openDb()
+    .prepare(
+      `INSERT INTO project_settings (project_id, data) VALUES (?, ?)
+       ON CONFLICT(project_id) DO UPDATE SET data = excluded.data`
+    )
+    .run(projectId, JSON.stringify(obj ?? {}));
+  return getProjectSettingsRow(projectId);
 };

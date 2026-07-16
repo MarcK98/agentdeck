@@ -7,10 +7,15 @@ contextBridge.exposeInMainWorld("spawn", {
   listProjects: () => ipcRenderer.invoke("spawn:listProjects"),
   listThreads: (projectId) => ipcRenderer.invoke("spawn:listThreads", projectId),
   createThread: (args) => ipcRenderer.invoke("spawn:createThread", args),
+  renameThread: (threadId, title) => ipcRenderer.invoke("spawn:renameThread", threadId, title),
   listMessages: (threadId, opts) => ipcRenderer.invoke("spawn:listMessages", threadId, opts),
   sendMessage: (threadId, text) => ipcRenderer.invoke("spawn:sendMessage", threadId, text),
   cancelTurn: (threadId) => ipcRenderer.invoke("spawn:cancelTurn", threadId),
+  resolveApproval: (id, allow, updatedInput) =>
+    ipcRenderer.invoke("spawn:resolveApproval", id, allow, updatedInput),
   getProjectSettings: (projectId) => ipcRenderer.invoke("spawn:getProjectSettings", projectId),
+  updateProjectSettings: (projectId, patch) =>
+    ipcRenderer.invoke("spawn:updateProjectSettings", projectId, patch),
   onEvent: (fn) => {
     const handler = (_e, ev) => fn(ev);
     ipcRenderer.on("spawn:event", handler);

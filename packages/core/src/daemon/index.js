@@ -8,10 +8,13 @@ import {
   cancelRun,
   resetSession,
   getLastStats,
+  pauseInactivity,
+  resumeInactivity,
 } from "../claude.js";
 import { getOverrides } from "../projects.js";
 import * as db from "../db/index.js";
 import { getProjectSettings, updateProjectSettings } from "./project-settings.js";
+import { createApprovalHub } from "./approvals.js";
 
 // The Spawn daemon — a mastermind for Claude. This is the ONE API clients talk
 // through; it runs as its OWN background process (server.js) and owns sessions,
@@ -37,6 +40,16 @@ const threadKey = (threadId) => `spawn:thread:${threadId}`;
 export function createDaemon() {
   const events = new EventEmitter();
   const emit = (type, payload) => events.emit("event", { type, payload });
+
+  // Approval hub: receives permission prompts from runs started in "prompt"
+  // mode (see approvals.js) and surfaces them as approval:* events; clients
+  // answer via resolveApproval below.
+  const hub = createApprovalHub({
+    emit,
+    pauseInactivity,
+    resumeInactivity,
+    timeoutMs: config.approvals.timeoutMs,
+  });
 
   // ── Projects: union of dirs under PROJECTS_ROOT and projects.json overrides,
   // mirrored into SQLite so threads can reference them.
@@ -67,6 +80,11 @@ export function createDaemon() {
   return {
     events,
 
+    // Not a method (server.js only exposes functions) — lets the transport
+    // close the hub's socket on shutdown without putting close() on the RPC
+    // surface.
+    _approvalHub: hub,
+
     listProjects: () => {
       discoverProjects();
       return db.listProjects();
@@ -80,21 +98,39 @@ export function createDaemon() {
     listMessages: (threadId, opts) => db.listMessages(threadId, opts),
 
     createThread: ({ projectId, title, kind = "chat", ticketKey = null }) => {
-      const thread = db.createThread({ projectId, kind, title, ticketKey });
+      // Untitled is fine — the first message auto-titles it (see sendMessage).
+      const thread = db.createThread({ projectId, kind, title: title || "New thread", ticketKey });
       emit("thread:created", thread);
       return thread;
     },
 
+    renameThread: (threadId, title) => {
+      const t = db.updateThread(threadId, { title });
+      emit("thread:updated", t);
+      return t;
+    },
+
     // Send one user turn into a thread; Claude's reply streams out as events:
-    //   turn:start {threadId} → turn:text {threadId,text}* / turn:tool
-    //   {threadId,tool}* → turn:done {threadId, ok, text, ...}
-    // Messages are persisted as they stream, so history survives restarts.
+    //   turn:start {threadId} → turn:text {threadId,message}* / turn:tool
+    //   {threadId,message}* → turn:done {threadId, ok, ...}
+    // `message` is the persisted row (same shape as listMessages rows), so
+    // clients append incrementally instead of re-pulling history.
     sendMessage: (threadId, text) => {
       const thread = db.getThread(threadId);
       if (!thread) throw new Error(`No such thread: ${threadId}`);
       const project = db.listProjects().find((p) => p.id === thread.project_id);
       if (!project) throw new Error(`Thread ${threadId} has no project`);
       const settings = getProjectSettings(project.id);
+
+      // Auto-title: a first message into a placeholder-titled thread names it
+      // (first line, clipped), so the thread list reads like an index.
+      const autoTitled =
+        !thread.title || thread.title === "New thread" || thread.title.startsWith("Thread ");
+      if (autoTitled && db.listMessages(threadId, { limit: 1 }).length === 0) {
+        const line = text.trim().split("\n")[0].trim();
+        const title = line.length > 48 ? `${line.slice(0, 47)}…` : line;
+        if (title) emit("thread:updated", db.updateThread(threadId, { title }));
+      }
 
       db.addMessage({ threadId, role: "user", text });
       emit("turn:start", { threadId });
@@ -105,17 +141,25 @@ export function createDaemon() {
         text,
         thread.worktree_path || project.dir,
         (t) => {
-          db.addMessage({ threadId, role: "assistant", text: t, seq: seq++ });
-          emit("turn:text", { threadId, text: t });
+          const message = db.addMessage({ threadId, role: "assistant", text: t, seq: seq++ });
+          emit("turn:text", { threadId, message });
         },
         {
           model: settings.defaultModel || undefined,
           // ticket threads are ephemeral (fresh context per ticket); chat and
           // teamlead threads resume across turns
           persistSessions: thread.kind !== "ticket",
+          // Approval routing (per-project): "prompt" surfaces permission
+          // prompts as approval:* events via the hub; "auto" runs unattended.
+          // Prompt mode pins permissionMode to "" — a CLAUDE_PERMISSION_MODE
+          // of bypassPermissions (the bridge's usual .env) would otherwise
+          // leak in and silently skip every prompt.
+          ...(settings.approvalMode === "auto"
+            ? { approvals: false, permissionMode: "bypassPermissions" }
+            : { approvals: true, approvalPort: hub.port, permissionMode: "" }),
           onProgress: ({ tool, input }) => {
-            db.addMessage({ threadId, role: "tool", toolName: tool, toolInput: input, seq: seq++ });
-            emit("turn:tool", { threadId, tool });
+            const message = db.addMessage({ threadId, role: "tool", toolName: tool, toolInput: input, seq: seq++ });
+            emit("turn:tool", { threadId, message });
           },
           meta: { source: "spawn-daemon", threadId },
         }
@@ -123,9 +167,11 @@ export function createDaemon() {
 
       done.then((res) => {
         // Final text arrives via onText already when streamed; store the result
-        // only if nothing streamed (e.g. an error string).
+        // only if nothing streamed (e.g. an error string) — and ship the row so
+        // clients (who no longer re-pull on turn:done) still see it.
         if (res.text && !res.streamed) {
-          db.addMessage({ threadId, role: res.ok ? "assistant" : "system", text: res.text, seq: seq++ });
+          const message = db.addMessage({ threadId, role: res.ok ? "assistant" : "system", text: res.text, seq: seq++ });
+          emit("turn:text", { threadId, message });
         }
         emit("turn:done", {
           threadId,
@@ -137,6 +183,9 @@ export function createDaemon() {
 
       return { threadId, started: true };
     },
+
+    // Answer a pending permission prompt (from the desktop's Allow/Deny).
+    resolveApproval: (id, allow, updatedInput) => hub.resolve(id, allow, updatedInput),
 
     cancelTurn: (threadId) => cancelRun(threadKey(threadId)),
     resetThreadSession: (threadId) => resetSession(threadKey(threadId)),
