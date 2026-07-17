@@ -22,11 +22,9 @@ import {
   prStatus,
 } from "../worktrees.js";
 import { getOverrides, resolveProject } from "../projects.js";
-// Board access is READ-ONLY by design: only isEnabled/readBoard (stateless
-// Trello GETs). The daemon must never start the Trello poller/webhook or write
-// cards — the Discord bridge owns board sync during the migration, and a
-// second writer would race it.
-import { isEnabled as trelloEnabled, readBoard } from "../trello.js";
+// No Trello here — the Orchestrate board is native (the tickets table is the
+// source of truth). The Discord bridge keeps its own Trello sync; the daemon
+// never touches it.
 import * as db from "../db/index.js";
 import { getProjectSettings, updateProjectSettings } from "./project-settings.js";
 import { createApprovalHub } from "./approvals.js";
@@ -238,6 +236,13 @@ export function createDaemon() {
       }
     );
 
+    // Board flow: a run starting/finishing moves the linked ticket. Manual
+    // column moves are respected — only the expected prior status advances.
+    const ticket = db.getTicketByThread(threadId);
+    if (ticket && ticket.status !== "in-progress" && ticket.status !== "done") {
+      emit("ticket:updated", db.updateTicket(ticket.id, { status: "in-progress" }));
+    }
+
     done.then((res) => {
       // Final text arrives via onText already when streamed; store the result
       // only if nothing streamed (e.g. an error string) — and ship the row so
@@ -245,6 +250,11 @@ export function createDaemon() {
       if (res.text && !res.streamed) {
         const message = db.addMessage({ threadId, role: res.ok ? "assistant" : "system", text: res.text, seq: seq++ });
         emit("turn:text", { threadId, message });
+      }
+      const k = db.getTicketByThread(threadId);
+      if (k && k.status === "in-progress") {
+        const status = res.ok ? "in-review" : res.cancelled ? "in-progress" : "blocked";
+        if (status !== k.status) emit("ticket:updated", db.updateTicket(k.id, { status }));
       }
       emit("turn:done", {
         threadId,
@@ -257,7 +267,7 @@ export function createDaemon() {
     return { threadId, started: true };
   };
 
-  return {
+  const daemonApi = {
     events,
 
     // Not a method (server.js only exposes functions) — lets the transport
@@ -331,38 +341,51 @@ export function createDaemon() {
       return launchTurn(thread, project, text);
     },
 
-    // The team-lead's board, read-only. Trello when wired (bucketed into the
-    // five configured columns), else the team-lead project's TASKS.md verbatim,
-    // else nothing — and never a throw, so the client can always render it.
-    getBoard: async () => {
-      if (trelloEnabled()) {
-        try {
-          const r = await readBoard({ limit: 20 });
-          if (r.ok) {
-            // Column order = config.trello.lists key order (todo → done).
-            // A card whose status is a raw list name (or null) still shows —
-            // filed under todo rather than dropped.
-            const columns = Object.keys(config.trello.lists).map((status) => ({ status, cards: [] }));
-            const byStatus = new Map(columns.map((c) => [c.status, c]));
-            for (const card of r.cards) {
-              (byStatus.get(card.status) ?? byStatus.get("todo")).cards.push(card);
-            }
-            return { source: "trello", columns, comments: r.comments };
-          }
-          log.warn(`Spawn daemon: board read failed (${r.error}) — falling back to TASKS.md`);
-        } catch (err) {
-          log.warn(`Spawn daemon: board read failed (${err.message}) — falling back to TASKS.md`);
-        }
-      }
-      const tl = resolveTeamLeadProject();
-      if (tl) {
-        try {
-          return { source: "tasks-md", text: readFileSync(join(tl.dir, "TASKS.md"), "utf8") };
-        } catch {
-          /* no TASKS.md */
-        }
-      }
-      return { source: "none" };
+    // ── The native board: tickets are the source of truth ─────────────────
+    listTickets: () =>
+      db.listTickets().map((k) => ({
+        ...k,
+        running: k.thread_id != null && Boolean(getActiveRun(threadKey(k.thread_id))),
+      })),
+
+    createTicket: ({ projectId, title, body = "", status = "todo" }) => {
+      const project = db.listProjects().find((p) => p.id === projectId);
+      if (!project) throw new Error(`No such project: ${projectId}`);
+      const text = String(title ?? "").trim();
+      if (!text) throw new Error("createTicket needs a title");
+      const ticket = db.createTicket({ projectId, title: text, body: String(body ?? ""), status });
+      emit("ticket:created", db.getTicket(ticket.id));
+      return db.getTicket(ticket.id);
+    },
+
+    updateTicket: (ticketId, patch) => {
+      const ticket = db.updateTicket(ticketId, patch);
+      if (!ticket) throw new Error(`No such ticket: ${ticketId}`);
+      emit("ticket:updated", ticket);
+      return ticket;
+    },
+
+    deleteTicket: (ticketId) => {
+      db.deleteTicket(ticketId);
+      emit("ticket:deleted", { id: ticketId });
+      return true;
+    },
+
+    // Launch a run for an existing (backlog) ticket: creates its thread,
+    // links it, moves it to in-progress (via launchTurn's board flow).
+    delegateTicket: (ticketId, { model, effort } = {}) => {
+      const ticket = db.getTicket(ticketId);
+      if (!ticket) throw new Error(`No such ticket: ${ticketId}`);
+      if (ticket.thread_id) throw new Error(`Ticket ${ticketId} already has a thread`);
+      const task = [ticket.title, ticket.body].filter(Boolean).join("\n\n");
+      return daemonApi.delegateTask({
+        projectId: ticket.project_id,
+        task,
+        model,
+        effort,
+        title: ticket.title,
+        ticketId,
+      });
     },
 
     getTeamLeadProject: () => resolveTeamLeadProject(),
@@ -378,7 +401,7 @@ export function createDaemon() {
     // each other. Isolation failure (or a non-git project) falls back to
     // running in the project dir, with a system row saying so; the delegation
     // itself never fails over it.
-    delegateTask: async ({ projectId, task, model, effort, title }) => {
+    delegateTask: async ({ projectId, task, model, effort, title, ticketId = null }) => {
       const project = db.listProjects().find((p) => p.id === projectId);
       if (!project) throw new Error(`No such project: ${projectId}`);
       const text = String(task ?? "").trim();
@@ -388,6 +411,16 @@ export function createDaemon() {
       const derived = line.length > 48 ? `${line.slice(0, 47)}…` : line;
       let thread = db.createThread({ projectId, kind: "ticket", title: title || derived || "Ticket" });
       emit("thread:created", thread);
+
+      // Board is the source of truth: every delegation is a ticket row.
+      // Freeform delegations (dock, palette) create one; delegateTicket links
+      // its existing backlog row instead.
+      if (ticketId != null) {
+        emit("ticket:updated", db.updateTicket(ticketId, { thread_id: thread.id }));
+      } else {
+        const k = db.createTicket({ projectId, title: thread.title, body: text, status: "todo" });
+        emit("ticket:created", db.updateTicket(k.id, { thread_id: thread.id }));
+      }
 
       // The task opens the thread as its user turn, so the transcript reads
       // like any other conversation.
@@ -660,4 +693,5 @@ export function createDaemon() {
     resetThreadSession: (threadId) => resetSession(threadKey(threadId)),
     lastTurnStats: (threadId) => getLastStats(threadKey(threadId)),
   };
+  return daemonApi;
 }

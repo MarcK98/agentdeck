@@ -1,21 +1,43 @@
-import { useCallback, useEffect, useState } from "react";
-import type { ActiveThread, Board, Project, Thread, UsageSummary } from "./types";
-import DelegateSheet from "./DelegateSheet";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ActiveThread, Project, Thread, Ticket, TicketStatus, UsageSummary } from "./types";
+import TicketSheet from "./TicketSheet";
 
-// Orchestrate — Mission Control's home (design 1a): the board as a kanban,
-// live Spawn runs pinned at the top of "in progress" (board cards are
-// Trello-owned and read-only during the bridge migration; Spawn's own live
-// tickets are a second, authoritative source and render as live cards), and
-// the delegate dock on the right with active runs + today's burn.
+// Orchestrate — the native board (source of truth: the tickets table). Cards
+// are tickets; drag between columns to change status; click to edit a
+// backlog ticket or jump into a delegated one's thread. Delegate dock on the
+// right, per design 1a.
 
+const COLUMNS: { key: TicketStatus; label: string }[] = [
+  { key: "todo", label: "To do" },
+  { key: "in-progress", label: "In progress" },
+  { key: "blocked", label: "Blocked" },
+  { key: "in-review", label: "In review" },
+  { key: "done", label: "Done" },
+];
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 const MODELS = ["haiku", "sonnet", "opus", "fable"];
 
-function LiveTicketCard({ t, onOpen }: { t: ActiveThread; onOpen: () => void }) {
+function TicketCard({
+  t,
+  onOpen,
+  onDragStart,
+}: {
+  t: Ticket;
+  onOpen: () => void;
+  onDragStart: () => void;
+}) {
   return (
-    <div className={`bcard ${t.running ? "live" : "paused"}`} onClick={onOpen}>
+    <div
+      className={`bcard ${t.running ? "live" : t.status === "blocked" ? "paused" : ""} ${
+        t.status === "done" ? "dim" : ""
+      }`}
+      style={{ cursor: "pointer" }}
+      draggable
+      onDragStart={onDragStart}
+      onClick={onOpen}
+    >
       <div className="title">
-        {t.running ? <span className="dot-live pulse" /> : <span className="dot-idle" />}
+        {t.running && <span className="dot-live pulse" />}
         {t.title}
       </div>
       <div className="tags">
@@ -30,9 +52,11 @@ function LiveTicketCard({ t, onOpen }: { t: ActiveThread; onOpen: () => void }) 
         )}
       </div>
       <div className="foot">
-        <span>{t.kind}</span>
+        <span className="mono" style={{ fontSize: 10.5 }}>
+          SPWN-{t.id}
+        </span>
         <span style={{ marginLeft: "auto" }} className={t.running ? "ok-c" : ""}>
-          {t.running ? "running…" : "idle"}
+          {t.running ? "running…" : t.thread_id != null ? "" : "backlog"}
         </span>
       </div>
     </div>
@@ -52,8 +76,10 @@ export default function OrchestrateView({
   onOpenThread: (projectId: number, threadId: number) => void;
   markBusy: (threadId: number) => void;
 }) {
-  const [board, setBoard] = useState<Board | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [sheet, setSheet] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const dragTicket = useRef<number | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<TicketStatus | null>(null);
   // Delegate dock state.
   const [task, setTask] = useState("");
   const [target, setTarget] = useState<number | "">("");
@@ -61,12 +87,39 @@ export default function OrchestrateView({
   const [effort, setEffort] = useState("");
   const [sending, setSending] = useState(false);
 
-  const refreshBoard = useCallback(() => {
-    window.spawn.getBoard().then(setBoard);
+  const refresh = useCallback(() => {
+    window.spawn.listTickets().then(setTickets).catch(() => {});
   }, []);
-  useEffect(refreshBoard, [refreshBoard]);
+  useEffect(refresh, [refresh]);
+  useEffect(() => {
+    return window.spawn.onEvent((ev) => {
+      if (
+        ev.type === "ticket:created" ||
+        ev.type === "ticket:updated" ||
+        ev.type === "ticket:deleted" ||
+        ev.type === "turn:start" ||
+        ev.type === "turn:done"
+      ) {
+        refresh();
+      }
+    });
+  }, [refresh]);
 
-  const liveTickets = active.filter((t) => t.kind === "ticket");
+  const dropOn = async (status: TicketStatus) => {
+    setDragOverCol(null);
+    const id = dragTicket.current;
+    dragTicket.current = null;
+    if (id == null) return;
+    const t = tickets.find((x) => x.id === id);
+    if (!t || t.status === status) return;
+    setTickets((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
+    await window.spawn.updateTicket(id, { status });
+  };
+
+  const openTicket = (t: Ticket) => {
+    if (t.thread_id != null) onOpenThread(t.project_id, t.thread_id);
+    else setSheet({ open: true, ticket: t });
+  };
 
   const delegate = async () => {
     const text = task.trim();
@@ -102,100 +155,64 @@ export default function OrchestrateView({
       <div className="board-wrap">
         <div className="view-head" style={{ padding: 0 }}>
           <h4>Board</h4>
-          <span className="sub">
-            {board?.source === "trello"
-              ? "Trello · read-only while the bridge owns sync"
-              : board?.source === "tasks-md"
-                ? "TASKS.md"
-                : board
-                  ? "no board configured"
-                  : "loading…"}
-          </span>
+          <span className="sub">source of truth — drag cards to move, click to open</span>
           <span className="spacer" />
-          <button className="btn btn-secondary small-btn" onClick={refreshBoard}>
-            <i className="ph ph-arrows-clockwise" /> Refresh
+          <button
+            className="btn btn-primary small-btn"
+            onClick={() => setSheet({ open: true, ticket: null })}
+          >
+            <i className="ph ph-plus" /> New ticket
           </button>
         </div>
 
-        {board?.source === "trello" ? (
-          <div className="board-cols">
-            {board.columns.map((col) => (
-              <div key={col.status} className="board-col">
-                <div className={`col-head ${col.status}`}>
-                  {col.status.replace("-", " ")}
-                  <span className="n">
-                    {col.cards.length + (col.status === "in-progress" ? liveTickets.length : 0)}
-                  </span>
+        <div className="board-cols">
+          {COLUMNS.map((col) => {
+            const colTickets = tickets.filter((t) => t.status === col.key);
+            return (
+              <div
+                key={col.key}
+                className={`board-col ${dragOverCol === col.key ? "drop-target" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverCol(col.key);
+                }}
+                onDragLeave={() => setDragOverCol((c) => (c === col.key ? null : c))}
+                onDrop={() => dropOn(col.key)}
+              >
+                <div className={`col-head ${col.key}`}>
+                  {col.label}
+                  <span className="n">{colTickets.length}</span>
                 </div>
-                {col.status === "in-progress" &&
-                  liveTickets.map((t) => (
-                    <LiveTicketCard key={t.id} t={t} onOpen={() => onOpenThread(t.project_id, t.id)} />
-                  ))}
-                {col.cards.map((c) => (
-                  <div key={c.ref} className="bcard">
-                    <div className="title">
-                      {c.url ? (
-                        <a href={c.url} target="_blank" rel="noreferrer">
-                          {c.title}
-                        </a>
-                      ) : (
-                        c.title
-                      )}
-                    </div>
-                    <div className="tags">
-                      {(c.key || c.ref) && (
-                        <span className="mono" style={{ fontSize: 10.5, color: "var(--color-neutral-500)" }}>
-                          {c.key ?? c.ref}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                {colTickets.map((t) => (
+                  <TicketCard
+                    key={t.id}
+                    t={t}
+                    onOpen={() => openTicket(t)}
+                    onDragStart={() => {
+                      dragTicket.current = t.id;
+                    }}
+                  />
                 ))}
-                {col.status === "todo" && (
-                  <button className="ghost-card" onClick={() => setSheetOpen(true)}>
+                {col.key === "todo" && (
+                  <button className="ghost-card" onClick={() => setSheet({ open: true, ticket: null })}>
                     <i className="ph ph-plus" /> New ticket
                   </button>
                 )}
               </div>
-            ))}
-          </div>
-        ) : board?.source === "tasks-md" ? (
-          <>
-            {liveTickets.length > 0 && (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {liveTickets.map((t) => (
-                  <div key={t.id} style={{ width: 260 }}>
-                    <LiveTicketCard t={t} onOpen={() => onOpenThread(t.project_id, t.id)} />
-                  </div>
-                ))}
-              </div>
-            )}
-            <pre className="board-tasks-md">{board.text}</pre>
-          </>
-        ) : board ? (
-          <div className="empty">No board — enable Trello or add a TASKS.md to the team-lead project.</div>
-        ) : (
-          <div className="empty">Loading board…</div>
-        )}
+            );
+          })}
+        </div>
       </div>
 
       <aside className="dock fade-l">
         <div className="dock-title">
           <i className="ph ph-paper-plane-tilt" />
           Delegate
-          <button
-            className="btn btn-ghost small-btn"
-            style={{ marginLeft: "auto" }}
-            title="Open the full new-ticket sheet (⌘N)"
-            onClick={() => setSheetOpen(true)}
-          >
-            <i className="ph ph-arrows-out-simple" />
-          </button>
         </div>
         <div className="delegate-box">
           <textarea
             value={task}
-            placeholder="Describe a task — pick a project, Spawn does the rest…"
+            placeholder="Describe a task — it lands on the board and runs immediately…"
             onChange={(e) => setTask(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -300,11 +317,15 @@ export default function OrchestrateView({
         </div>
       </aside>
 
-      {sheetOpen && (
-        <DelegateSheet
+      {sheet.open && (
+        <TicketSheet
           projects={projects}
           initialProjectId={target === "" ? null : target}
-          onClose={() => setSheetOpen(false)}
+          ticket={sheet.ticket}
+          onClose={() => {
+            setSheet({ open: false, ticket: null });
+            refresh();
+          }}
           onDelegated={onDelegated}
         />
       )}

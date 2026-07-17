@@ -16,7 +16,11 @@ contextBridge.exposeInMainWorld("spawn", {
   getProjectSettings: (projectId) => ipcRenderer.invoke("spawn:getProjectSettings", projectId),
   updateProjectSettings: (projectId, patch) =>
     ipcRenderer.invoke("spawn:updateProjectSettings", projectId, patch),
-  getBoard: () => ipcRenderer.invoke("spawn:getBoard"),
+  listTickets: () => ipcRenderer.invoke("spawn:listTickets"),
+  createTicket: (args) => ipcRenderer.invoke("spawn:createTicket", args),
+  updateTicket: (ticketId, patch) => ipcRenderer.invoke("spawn:updateTicket", ticketId, patch),
+  deleteTicket: (ticketId) => ipcRenderer.invoke("spawn:deleteTicket", ticketId),
+  delegateTicket: (ticketId, opts) => ipcRenderer.invoke("spawn:delegateTicket", ticketId, opts),
   getTeamLeadProject: () => ipcRenderer.invoke("spawn:getTeamLeadProject"),
   delegateTask: (args) => ipcRenderer.invoke("spawn:delegateTask", args),
   listActiveThreads: () => ipcRenderer.invoke("spawn:listActiveThreads"),

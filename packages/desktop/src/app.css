@@ -99,7 +99,8 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .orchestrate { display: grid; grid-template-columns: 1fr 336px; min-height: 0; flex: 1; }
 .board-wrap { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow: hidden; }
 .board-cols { flex: 1; display: grid; grid-auto-columns: minmax(220px, 1fr); grid-auto-flow: column; gap: 14px; min-height: 0; overflow-x: auto; }
-.board-col { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow-y: auto; }
+.board-col { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow-y: auto; border-radius: var(--radius-md); }
+.board-col.drop-target { background: color-mix(in srgb, var(--color-accent) 6%, transparent); outline: 1px dashed var(--color-accent-700); }
 .bcard { min-width: 0; }
 .bcard .title { min-width: 0; word-break: break-word; }
 .col-head { display: flex; align-items: center; gap: 8px; font: 500 11px var(--font-heading); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-500); padding-bottom: 8px; border-bottom: 1px solid transparent; position: sticky; top: 0; background: var(--color-bg); z-index: 1; }

@@ -88,37 +88,26 @@ export interface ApprovalRequest {
   input: Record<string, unknown>;
 }
 
-// The team-lead board (daemon getBoard) — read-only in this phase.
-// A Trello card as trello.js readBoard shapes it. `status` is one of the five
-// board statuses, a raw list name, or null; getBoard buckets non-standard ones
-// under todo but keeps the raw value here.
-export interface BoardCard {
-  key: string | null;
-  ref: string;
+// A native board ticket (daemon listTickets) — the source of truth. Backlog
+// tickets have no thread yet; delegation links one, and the daemon moves
+// status automatically (delegate → in-progress, run ok → in-review, run
+// failed → blocked). `running`/`branch` are joined live thread state.
+export type TicketStatus = "todo" | "in-progress" | "blocked" | "in-review" | "done";
+
+export interface Ticket {
+  id: number;
+  project_id: number;
+  thread_id: number | null;
   title: string;
-  desc: string;
-  status: string | null;
-  url: string;
-  attachments: { name: string | null; url: string | null }[];
+  body: string;
+  status: TicketStatus;
+  created_at: string;
+  updated_at: string;
+  project_name: string;
+  branch: string | null;
+  thread_status: Thread["status"] | null;
+  running: boolean;
 }
-
-export interface BoardColumn {
-  status: string; // todo | in-progress | blocked | in-review | done
-  cards: BoardCard[];
-}
-
-export interface BoardComment {
-  card?: string;
-  cardId?: string;
-  text?: string;
-  date?: string;
-  by?: string;
-}
-
-export type Board =
-  | { source: "trello"; columns: BoardColumn[]; comments: BoardComment[] }
-  | { source: "tasks-md"; text: string }
-  | { source: "none" };
 
 // A thread row joined with its project name (daemon listActiveThreads).
 // `running` is live process truth from the daemon, not event-derived.
@@ -230,6 +219,9 @@ export type SpawnEvent =
       type: "turn:done";
       payload: { threadId: number; ok: boolean; cancelled: boolean; contextTokens: number | null };
     }
+  | { type: "ticket:created"; payload: Ticket }
+  | { type: "ticket:updated"; payload: Ticket }
+  | { type: "ticket:deleted"; payload: { id: number } }
   | { type: "approval:request"; payload: ApprovalRequest }
   | { type: "approval:resolved"; payload: { id: number; threadId: number; allow: boolean } };
 
@@ -253,7 +245,16 @@ declare global {
         projectId: number,
         patch: Partial<ProjectSettings>
       ): Promise<ProjectSettings>;
-      getBoard(): Promise<Board>;
+      listTickets(): Promise<Ticket[]>;
+      createTicket(args: {
+        projectId: number;
+        title: string;
+        body?: string;
+        status?: TicketStatus;
+      }): Promise<Ticket>;
+      updateTicket(ticketId: number, patch: Partial<Pick<Ticket, "title" | "body" | "status">>): Promise<Ticket>;
+      deleteTicket(ticketId: number): Promise<boolean>;
+      delegateTicket(ticketId: number, opts?: { model?: string; effort?: string }): Promise<Thread>;
       getTeamLeadProject(): Promise<Project | null>;
       delegateTask(args: {
         projectId: number;

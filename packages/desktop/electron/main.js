@@ -60,7 +60,11 @@ ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSet
 ipcMain.handle("spawn:updateProjectSettings", (_e, projectId, patch) =>
   rpc("updateProjectSettings", projectId, patch)
 );
-ipcMain.handle("spawn:getBoard", () => rpc("getBoard"));
+ipcMain.handle("spawn:listTickets", () => rpc("listTickets"));
+ipcMain.handle("spawn:createTicket", (_e, args) => rpc("createTicket", args));
+ipcMain.handle("spawn:updateTicket", (_e, ticketId, patch) => rpc("updateTicket", ticketId, patch));
+ipcMain.handle("spawn:deleteTicket", (_e, ticketId) => rpc("deleteTicket", ticketId));
+ipcMain.handle("spawn:delegateTicket", (_e, ticketId, opts) => rpc("delegateTicket", ticketId, opts));
 ipcMain.handle("spawn:getTeamLeadProject", () => rpc("getTeamLeadProject"));
 ipcMain.handle("spawn:delegateTask", (_e, args) => rpc("delegateTask", args));
 ipcMain.handle("spawn:listActiveThreads", () => rpc("listActiveThreads"));

@@ -28,6 +28,22 @@ const MIGRATIONS = [
      project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
      data       TEXT NOT NULL DEFAULT '{}'
    );`,
+  // v3: native tickets — the Orchestrate board's source of truth (replaces
+  // Trello/TASKS.md board sources in the daemon). A ticket may exist without
+  // a thread (backlog); delegation links one.
+  `CREATE TABLE IF NOT EXISTS tickets (
+     id         INTEGER PRIMARY KEY,
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     thread_id  INTEGER REFERENCES threads(id) ON DELETE SET NULL,
+     title      TEXT NOT NULL,
+     body       TEXT NOT NULL DEFAULT '',
+     status     TEXT NOT NULL DEFAULT 'todo'
+                CHECK (status IN ('todo','in-progress','blocked','in-review','done')),
+     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_tickets_project ON tickets(project_id, status);
+   CREATE INDEX IF NOT EXISTS idx_tickets_thread  ON tickets(thread_id) WHERE thread_id IS NOT NULL;`,
 ];
 
 let db = null;
@@ -129,6 +145,52 @@ export const listMessages = (threadId, { limit = 200, before = null } = {}) => {
     ? d.prepare(`SELECT * FROM messages WHERE thread_id = ? AND id < ? ORDER BY id DESC LIMIT ?`).all(threadId, before, limit)
     : d.prepare(`SELECT * FROM messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?`).all(threadId, limit);
   return rows.reverse();
+};
+
+// ── Tickets ──────────────────────────────────────────────────────────────────
+// The board's rows. listTickets joins the project name and, when delegated,
+// the thread's branch/status so cards render without extra lookups.
+export const createTicket = ({ projectId, title, body = "", status = "todo" }) => {
+  const d = openDb();
+  const { lastInsertRowid } = d
+    .prepare(`INSERT INTO tickets (project_id, title, body, status) VALUES (?, ?, ?, ?)`)
+    .run(projectId, title, body, status);
+  return getTicket(lastInsertRowid);
+};
+export const getTicket = (id) =>
+  openDb()
+    .prepare(
+      `SELECT k.*, p.name AS project_name, t.branch, t.status AS thread_status
+       FROM tickets k JOIN projects p ON p.id = k.project_id
+       LEFT JOIN threads t ON t.id = k.thread_id WHERE k.id = ?`
+    )
+    .get(id);
+export const getTicketByThread = (threadId) =>
+  openDb().prepare(`SELECT * FROM tickets WHERE thread_id = ?`).get(threadId);
+export const listTickets = () =>
+  openDb()
+    .prepare(
+      `SELECT k.*, p.name AS project_name, t.branch, t.status AS thread_status
+       FROM tickets k JOIN projects p ON p.id = k.project_id
+       LEFT JOIN threads t ON t.id = k.thread_id
+       ORDER BY k.updated_at DESC LIMIT 500`
+    )
+    .all();
+export const updateTicket = (id, fields) => {
+  const allowed = ["title", "body", "status", "thread_id"];
+  const sets = Object.keys(fields).filter((k) => allowed.includes(k));
+  if (!sets.length) return getTicket(id);
+  openDb()
+    .prepare(
+      `UPDATE tickets SET ${sets.map((k) => `${k} = ?`).join(", ")},
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
+    )
+    .run(...sets.map((k) => fields[k]), id);
+  return getTicket(id);
+};
+export const deleteTicket = (id) => {
+  openDb().prepare(`DELETE FROM tickets WHERE id = ?`).run(id);
+  return true;
 };
 
 // ── Project settings ─────────────────────────────────────────────────────────

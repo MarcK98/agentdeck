@@ -7,7 +7,7 @@ import ApprovalsView from "./ApprovalsView";
 import UsageView from "./UsageView";
 import SettingsView from "./SettingsView";
 import Palette from "./Palette";
-import DelegateSheet from "./DelegateSheet";
+import TicketSheet from "./TicketSheet";
 
 // Spawn — Mission Control shell (design 1a): top bar (⌘K, today's tokens,
 // approvals bell), left nav (Orchestrate / Threads / Live map / Approvals /
@@ -396,7 +396,7 @@ export default function App() {
       )}
 
       {sheetOpen && (
-        <DelegateSheet
+        <TicketSheet
           projects={projects}
           initialProjectId={projectId}
           onClose={() => setSheetOpen(false)}

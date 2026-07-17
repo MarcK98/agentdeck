@@ -2,7 +2,7 @@ import type {
   ActiveThread,
   ApprovalDecision,
   ApprovalRequest,
-  Board,
+  Ticket,
   MapData,
   Message,
   Project,
@@ -118,35 +118,40 @@ const decisions: ApprovalDecision[] = [
   { id: 4, threadId: 12, tool: "Bash", input: { command: "git push --force" }, allow: false, at: Date.now() - 5400e3 },
 ];
 
-const board: Board = {
-  source: "trello",
-  comments: [],
-  columns: [
-    {
-      status: "todo",
-      cards: [
-        { key: "SPWN-41", ref: "c1", title: "Rate-limit the delegate tool per project", desc: "", status: "todo", url: "https://trello.com", attachments: [] },
-        { key: "SPWN-44", ref: "c2", title: "Usage export as CSV", desc: "", status: "todo", url: "https://trello.com", attachments: [] },
-        { key: "FAB-7", ref: "c3", title: "Dark-launch fable for the engine repo", desc: "", status: "todo", url: "https://trello.com", attachments: [] },
-      ],
-    },
-    { status: "in-progress", cards: [] },
-    { status: "blocked", cards: [] },
-    {
-      status: "in-review",
-      cards: [
-        { key: "SPWN-38", ref: "c4", title: "Approvals inbox v1", desc: "", status: "in-review", url: "https://trello.com", attachments: [] },
-      ],
-    },
-    {
-      status: "done",
-      cards: [
-        { key: "SPWN-30", ref: "c5", title: "Daemon auto-start from desktop app", desc: "", status: "done", url: "https://trello.com", attachments: [] },
-        { key: "SPWN-29", ref: "c6", title: "Per-thread busy state", desc: "", status: "done", url: "https://trello.com", attachments: [] },
-      ],
-    },
-  ],
-};
+const mkTicket = (
+  id: number,
+  projectId: number,
+  title: string,
+  status: Ticket["status"],
+  threadId: number | null = null,
+  branch: string | null = null,
+  running = false
+): Ticket => ({
+  id,
+  project_id: projectId,
+  thread_id: threadId,
+  title,
+  body: "",
+  status,
+  created_at: "2026-07-17T10:00:00Z",
+  updated_at: "2026-07-17T14:20:00Z",
+  project_name: projects.find((p) => p.id === projectId)?.name ?? "?",
+  branch,
+  thread_status: threadId ? "active" : null,
+  running,
+});
+
+let tickets: Ticket[] = [
+  mkTicket(41, 1, "Rate-limit the delegate tool per project", "todo"),
+  mkTicket(44, 1, "Usage export as CSV", "todo"),
+  mkTicket(7, 2, "Dark-launch fable for the engine repo", "todo"),
+  mkTicket(11, 1, "Worktree GC on daemon boot", "in-progress", 11, "ticket/11-worktree-gc", true),
+  mkTicket(12, 1, "Stream tool output into thread view", "in-progress", 12, "ticket/12-stream-tools", true),
+  mkTicket(13, 2, "Migrate sessions.json into SQLite", "blocked", 13, "ticket/13-sqlite-sessions"),
+  mkTicket(38, 1, "Approvals inbox v1", "in-review", 14, "ticket/38-approvals-inbox"),
+  mkTicket(30, 1, "Daemon auto-start from desktop app", "done"),
+  mkTicket(29, 1, "Per-thread busy state", "done"),
+];
 
 const usage: UsageSummary = {
   days: 1,
@@ -244,7 +249,28 @@ export function installMock() {
       settingsByProject.set(projectId, next);
       return next;
     },
-    getBoard: async () => board,
+    listTickets: async () => tickets,
+    createTicket: async ({ projectId, title, body, status }) => {
+      const t = mkTicket(Math.floor(Math.random() * 1000) + 100, projectId, title, status ?? "todo");
+      t.body = body ?? "";
+      tickets = [t, ...tickets];
+      return t;
+    },
+    updateTicket: async (ticketId, patch) => {
+      tickets = tickets.map((t) => (t.id === ticketId ? { ...t, ...patch } : t));
+      return tickets.find((t) => t.id === ticketId)!;
+    },
+    deleteTicket: async (ticketId) => {
+      tickets = tickets.filter((t) => t.id !== ticketId);
+      return true;
+    },
+    delegateTicket: async (ticketId) => {
+      const t = tickets.find((x) => x.id === ticketId)!;
+      tickets = tickets.map((x) =>
+        x.id === ticketId ? { ...x, status: "in-progress" as const, thread_id: 91, running: true } : x
+      );
+      return mkThread(91, t.project_id, "ticket", t.title, `ticket/91-mock`);
+    },
     getTeamLeadProject: async () => projects[3],
     delegateTask: async ({ projectId, task }) => mkThread(91, projectId, "ticket", task.split("\n")[0].slice(0, 40), "ticket/91-mock"),
     listActiveThreads: async () => activeThreads,

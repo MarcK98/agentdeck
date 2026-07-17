@@ -1,0 +1,223 @@
+import { useEffect, useState } from "react";
+import type { Project, ProjectSettings, Thread, Ticket, TicketStatus } from "./types";
+
+// Ticket sheet (design 3a) — create a backlog ticket, create-and-delegate in
+// one move, or edit an existing ticket (title/body/column, delegate, delete).
+// The board is the source of truth: everything here is a ticket row first.
+
+const MODELS = ["haiku", "sonnet", "opus", "fable"];
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+const COLUMNS: { key: TicketStatus; label: string }[] = [
+  { key: "todo", label: "To do" },
+  { key: "in-progress", label: "In progress" },
+  { key: "blocked", label: "Blocked" },
+  { key: "in-review", label: "In review" },
+  { key: "done", label: "Done" },
+];
+
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+export default function TicketSheet({
+  projects,
+  initialProjectId,
+  ticket = null,
+  onClose,
+  onDelegated,
+}: {
+  projects: Project[];
+  initialProjectId?: number | null;
+  ticket?: Ticket | null; // non-null = edit mode
+  onClose: () => void;
+  onDelegated: (t: Thread) => void;
+}) {
+  const editing = ticket != null;
+  const [title, setTitle] = useState(ticket?.title ?? "");
+  const [body, setBody] = useState(ticket?.body ?? "");
+  const [projectId, setProjectId] = useState<number | "">(ticket?.project_id ?? initialProjectId ?? "");
+  const [status, setStatus] = useState<TicketStatus>(ticket?.status ?? "todo");
+  const [model, setModel] = useState("");
+  const [effort, setEffort] = useState("");
+  const [settings, setSettings] = useState<ProjectSettings | null>(null);
+  const [busyAction, setBusyAction] = useState<"" | "create" | "delegate" | "delete">("");
+
+  useEffect(() => {
+    if (projectId === "") return setSettings(null);
+    window.spawn.getProjectSettings(projectId).then(setSettings).catch(() => setSettings(null));
+  }, [projectId]);
+
+  const allowed = settings?.allowedModels ?? MODELS.filter((m) => m !== "fable");
+  const branchPreview = title.trim() ? `ticket/<id>-${slugify(title.trim())}` : "ticket/<id>-<slug>";
+  const canDelegate = editing ? ticket.thread_id == null : true;
+
+  const save = async (): Promise<Ticket | null> => {
+    if (!title.trim() || projectId === "") return null;
+    if (editing) {
+      return window.spawn.updateTicket(ticket.id, { title: title.trim(), body, status });
+    }
+    return window.spawn.createTicket({ projectId, title: title.trim(), body, status });
+  };
+
+  const create = async () => {
+    setBusyAction("create");
+    try {
+      if (await save()) onClose();
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const delegate = async () => {
+    setBusyAction("delegate");
+    try {
+      const saved = await save();
+      if (!saved) return;
+      const thread = await window.spawn.delegateTicket(saved.id, {
+        model: model || undefined,
+        effort: effort || undefined,
+      });
+      onDelegated(thread);
+      onClose();
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const remove = async () => {
+    if (!editing) return;
+    setBusyAction("delete");
+    try {
+      await window.spawn.deleteTicket(ticket.id);
+      onClose();
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  return (
+    <div className="overlay center" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="s-head">
+          <i className={`ph ${editing ? "ph-pencil-simple" : "ph-plus-circle"}`} />
+          {editing ? `Ticket #${ticket.id}` : "New ticket"}
+          <button className="x" onClick={onClose}>
+            <i className="ph ph-x" />
+          </button>
+        </div>
+        <input
+          className="f-static"
+          style={{ fontSize: 14, fontWeight: 500 }}
+          autoFocus={!editing}
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <textarea
+          className="task"
+          value={body}
+          placeholder="Describe the task — the agent reads this verbatim when delegated. Paste logs, link files, reference PRs…"
+          onChange={(e) => setBody(e.target.value)}
+        />
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div className="f-label">Project</div>
+            <select
+              className="f-select"
+              disabled={editing}
+              value={projectId === "" ? "" : String(projectId)}
+              onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">pick a project…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="f-label">Column</div>
+            <select
+              className="f-select"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TicketStatus)}
+            >
+              {COLUMNS.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {canDelegate && (
+          <>
+            <div>
+              <div className="f-label">
+                Model · effort <span style={{ color: "var(--color-neutral-600)" }}>(when delegating)</span>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {MODELS.map((m) => (
+                  <span
+                    key={m}
+                    className={`tag pick ${model === m ? "tag-accent" : "tag-neutral"}`}
+                    style={allowed.includes(m) ? undefined : { opacity: 0.4 }}
+                    onClick={() => setModel(model === m ? "" : m)}
+                  >
+                    {m}
+                  </span>
+                ))}
+                <span style={{ width: 1, height: 18, background: "var(--color-neutral-800)", margin: "0 4px" }} />
+                {EFFORTS.map((x) => (
+                  <span
+                    key={x}
+                    className={`tag pick ${effort === x ? "tag-accent" : "tag-neutral"}`}
+                    onClick={() => setEffort(effort === x ? "" : x)}
+                  >
+                    {x}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="toggle-row" style={{ marginTop: 0 }}>
+              <span className={`toggle ${settings?.isolation !== false ? "on" : ""}`} style={{ cursor: "default" }} />
+              <span>{settings?.isolation !== false ? "Isolated in a worktree" : "Isolation off for this project"}</span>
+              <span className="hint mono">{settings?.isolation !== false ? branchPreview : ""}</span>
+            </div>
+          </>
+        )}
+        <div className="s-foot">
+          {editing && (
+            <button className="btn btn-ghost small-btn err-c" disabled={busyAction !== ""} onClick={remove}>
+              Delete
+            </button>
+          )}
+          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
+            <button
+              className="btn btn-ghost small-btn"
+              style={{ padding: "5px 14px", fontSize: 12 }}
+              disabled={!title.trim() || projectId === "" || busyAction !== ""}
+              onClick={create}
+            >
+              {editing ? "Save" : "Create"}
+            </button>
+            {canDelegate && (
+              <button
+                className="btn btn-primary small-btn"
+                style={{ padding: "5px 14px", fontSize: 12 }}
+                disabled={!title.trim() || projectId === "" || busyAction !== ""}
+                onClick={delegate}
+              >
+                {busyAction === "delegate" ? "Delegating…" : editing ? "Delegate ↵" : "Create & delegate ↵"}
+              </button>
+            )}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
