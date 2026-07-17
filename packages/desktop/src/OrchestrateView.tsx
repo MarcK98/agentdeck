@@ -276,6 +276,15 @@ export default function OrchestrateView({
                 <span className="t">{t.title}</span>
                 <span className="m" style={{ display: "block" }}>
                   {t.project_name} · {t.kind}
+                  {t.running && t.liveTokens != null && t.liveTokens > 0 && (
+                    <span className="ok-c">
+                      {" "}
+                      · {t.liveTokens >= 1e6
+                        ? `${(t.liveTokens / 1e6).toFixed(1)}M`
+                        : `${Math.round(t.liveTokens / 1e3)}k`}{" "}
+                      tok
+                    </span>
+                  )}
                 </span>
               </span>
               <i className="ph ph-caret-right" style={{ color: "var(--color-neutral-600)" }} />

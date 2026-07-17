@@ -14,6 +14,8 @@ export default function ContextRail({ threadId }: { threadId: number }) {
     dir: null,
     files: [],
   });
+  // Live in-flight tokens for this thread's current run (turn:usage stream).
+  const [live, setLive] = useState<number | null>(null);
 
   const refresh = useCallback(() => {
     window.spawn
@@ -34,7 +36,14 @@ export default function ContextRail({ threadId }: { threadId: number }) {
 
   useEffect(() => {
     return window.spawn.onEvent((ev) => {
-      if ((ev.type === "turn:start" || ev.type === "turn:done") && ev.payload.threadId === threadId) refresh();
+      if (ev.type === "turn:usage" && ev.payload.threadId === threadId) {
+        setLive(ev.payload.liveTokens);
+        return;
+      }
+      if ((ev.type === "turn:start" || ev.type === "turn:done") && ev.payload.threadId === threadId) {
+        if (ev.type === "turn:done") setLive(null);
+        refresh();
+      }
       if (ev.type === "deliverables:updated" && ev.payload.threadId === threadId) refresh();
       if (ev.type === "thread:updated" && ev.payload.id === threadId) refresh();
     });
@@ -65,6 +74,16 @@ export default function ContextRail({ threadId }: { threadId: number }) {
               running · pid {ctx.process.pid}
               {ctx.process.model ? ` · ${ctx.process.model}` : ""}
             </span>
+            {(live ?? ctx.process.liveTokens) > 0 && (
+              <span className="row ok-c">
+                <i className="ph ph-lightning" />
+                {(() => {
+                  const n = live ?? ctx.process.liveTokens;
+                  return n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : `${Math.round(n / 1e3)}k`;
+                })()}{" "}
+                tok this run
+              </span>
+            )}
             {ctx.cost.lastContextTokens != null && (
               <span className="row">
                 <i className="ph ph-gauge" />

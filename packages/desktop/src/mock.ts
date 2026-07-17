@@ -63,6 +63,7 @@ const activeThreads: ActiveThread[] = threads.map((t) => ({
   ...t,
   project_name: projects.find((p) => p.id === t.project_id)?.name ?? "?",
   running: t.id === 11 || t.id === 12,
+  liveTokens: t.id === 11 ? 312_000 : t.id === 12 ? 58_000 : null,
 }));
 
 const messages: Message[] = [
@@ -194,7 +195,9 @@ const ctxFor = (threadId: number): ThreadContext => {
       threadId === 12
         ? { number: 212, url: "https://github.com", state: "OPEN", checks: "passing" }
         : null,
-    process: running ? { running: true, pid: 48112, startedAt: Date.now() - 840e3, model: "opus" } : { running: false },
+    process: running
+      ? { running: true, pid: 48112, startedAt: Date.now() - 840e3, model: "opus", liveTokens: 312_000 }
+      : { running: false },
     cost: { totalUsd: 3.12, turns: 12, lastContextTokens: 84_000, lastModel: "opus" },
   };
 };

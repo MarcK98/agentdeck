@@ -52,6 +52,9 @@ export default function App() {
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
   const [toast, setToast] = useState<ApprovalRequest | null>(null);
   const [usageToday, setUsageToday] = useState<UsageSummary | null>(null);
+  // Live in-flight tokens per running thread (turn:usage events; cleared on
+  // turn:done). The top-bar chip shows the sum across all agents.
+  const [liveTokens, setLiveTokens] = useState<Map<number, number>>(new Map());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -128,9 +131,17 @@ export default function App() {
       if (ev.type === "turn:start") {
         setBusyThreads((prev) => new Set(prev).add(ev.payload.threadId));
       }
+      if (ev.type === "turn:usage") {
+        setLiveTokens((prev) => new Map(prev).set(ev.payload.threadId, ev.payload.liveTokens));
+      }
       if (ev.type === "turn:done") {
         setBusyThreads((prev) => {
           const next = new Set(prev);
+          next.delete(ev.payload.threadId);
+          return next;
+        });
+        setLiveTokens((prev) => {
+          const next = new Map(prev);
           next.delete(ev.payload.threadId);
           return next;
         });
@@ -189,6 +200,9 @@ export default function App() {
   for (const t of active) {
     if (t.running) runningByProject.set(t.project_id, (runningByProject.get(t.project_id) ?? 0) + 1);
   }
+  // Merge event-fresh live token counts over the polled active list.
+  const activeLive = active.map((t) => ({ ...t, liveTokens: liveTokens.get(t.id) ?? t.liveTokens }));
+  const totalLive = [...liveTokens.values()].reduce((a, b) => a + b, 0);
   const toastThread = toast ? (active.find((t) => t.id === toast.threadId) ?? null) : null;
 
   const answerToast = (allow: boolean) => {
@@ -212,6 +226,12 @@ export default function App() {
           </button>
         </div>
         <div className="topbar-right">
+          {totalLive > 0 && (
+            <span className="tag tag-accent tok-today" title="Tokens consumed by runs in flight right now (all agents)">
+              <span className="dot-live pulse" style={{ width: 6, height: 6 }} />
+              {fmtTok(totalLive)} in flight
+            </span>
+          )}
           <span className="tag tag-outline tok-today" title="Tokens across all projects today">
             <i className="ph ph-stack" />
             {usageToday ? `${fmtTok(usageToday.totalTokens)} tok today` : "— today"}
@@ -328,7 +348,7 @@ export default function App() {
         {view === "orchestrate" ? (
           <OrchestrateView
             projects={projects}
-            active={active}
+            active={activeLive}
             usage={usageToday}
             onOpenThread={openThread}
             markBusy={markBusy}
@@ -350,7 +370,7 @@ export default function App() {
         ) : view === "map" ? (
           <MapView onOpenTeamLead={openTeamLead} onOpenProject={openProject} onOpenThread={openThread} />
         ) : view === "approvals" ? (
-          <ApprovalsView active={active} onOpenThread={openThread} />
+          <ApprovalsView active={activeLive} onOpenThread={openThread} />
         ) : view === "usage" ? (
           <UsageView />
         ) : (

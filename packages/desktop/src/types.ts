@@ -114,6 +114,7 @@ export interface Ticket {
 export interface ActiveThread extends Thread {
   project_name: string;
   running: boolean;
+  liveTokens: number | null;
 }
 
 // ── Per-thread context (daemon getThreadContext) — the Phase-3 isolation
@@ -142,7 +143,7 @@ export interface ThreadContext {
   git: ThreadGit | null;
   pr: ThreadPr | null;
   process:
-    | { running: true; pid: number; startedAt: number; model: string | null }
+    | { running: true; pid: number; startedAt: number; model: string | null; liveTokens: number }
     | { running: false };
   cost: {
     totalUsd: number;
@@ -221,6 +222,7 @@ export type SpawnEvent =
   | { type: "thread:updated"; payload: Thread }
   | { type: "turn:start"; payload: { threadId: number } }
   | { type: "turn:delta"; payload: { threadId: number; text: string } }
+  | { type: "turn:usage"; payload: { threadId: number; liveTokens: number } }
   | { type: "turn:text"; payload: { threadId: number; message: Message } }
   | { type: "turn:tool"; payload: { threadId: number; message: Message } }
   | {

@@ -221,6 +221,8 @@ export function createDaemon() {
         // persisted — the complete message row (turn:text above) follows and
         // replaces the client's accumulated draft.
         onDelta: (text) => emit("turn:delta", { threadId, text }),
+        // Live in-flight token total for this run (one event per API call).
+        onUsage: (liveTokens) => emit("turn:usage", { threadId, liveTokens }),
         // An explicit per-turn model/effort (delegation right-sizing) beats the
         // project default — same precedence claude.js applies internally.
         model: opts.model || settings.defaultModel || undefined,
@@ -504,7 +506,7 @@ export function createDaemon() {
         git: thread.worktree_path ? await worktreeStatus(thread.worktree_path) : null,
         pr: thread.branch && dir ? await prStatus(dir, thread.branch) : null,
         process: run
-          ? { running: true, pid: run.pid, startedAt: run.startedAt, model: run.model }
+          ? { running: true, pid: run.pid, startedAt: run.startedAt, model: run.model, liveTokens: run.liveTokens }
           : { running: false },
         cost: {
           totalUsd: usage.totalUsd,
@@ -548,7 +550,10 @@ export function createDaemon() {
     // "what's running" list). `running` is live process truth — unlike the
     // client's event-derived busy set, it survives an app restart.
     listActiveThreads: () =>
-      db.listActiveThreads().map((t) => ({ ...t, running: Boolean(getActiveRun(threadKey(t.id))) })),
+      db.listActiveThreads().map((t) => {
+        const run = getActiveRun(threadKey(t.id));
+        return { ...t, running: Boolean(run), liveTokens: run?.liveTokens ?? null };
+      }),
 
     // Everything the live map draws, in one call: the team-lead project, the
     // projects that currently have active threads, and every active thread

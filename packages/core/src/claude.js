@@ -38,7 +38,9 @@ const activeRuns = new Map(); // sessionKey -> { pause, resume, cancel, pid, sta
 // process view). Null when nothing is running.
 export const getActiveRun = (sessionKey) => {
   const run = activeRuns.get(sessionKey);
-  return run ? { pid: run.pid, startedAt: run.startedAt, model: run.model || null } : null;
+  return run
+    ? { pid: run.pid, startedAt: run.startedAt, model: run.model || null, liveTokens: run.liveTokens ?? 0 }
+    : null;
 };
 
 export const pauseInactivity = (sessionKey) =>
@@ -286,6 +288,25 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
       }
 
       if (ev.type === "assistant") {
+        // Live burn: every assistant message is one API call whose usage we
+        // can bill live — input + output + cache reads/writes so far this run.
+        const u = ev.message?.usage;
+        if (u) {
+          const step =
+            (u.input_tokens || 0) +
+            (u.output_tokens || 0) +
+            (u.cache_read_input_tokens || 0) +
+            (u.cache_creation_input_tokens || 0);
+          const run = activeRuns.get(sessionKey);
+          if (run) run.liveTokens = (run.liveTokens ?? 0) + step;
+          if (step && opts.onUsage) {
+            try {
+              opts.onUsage(run?.liveTokens ?? step);
+            } catch (err) {
+              log.warn("[claude] onUsage handler failed:", err.message);
+            }
+          }
+        }
         const blocks = ev.message?.content ?? [];
         // A tool the assistant is about to run — its result arrives later as a
         // "user" tool_result event. Track the gap so the timer can be lenient,
