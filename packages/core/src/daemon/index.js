@@ -207,6 +207,19 @@ export function createDaemon() {
     const outDir = deliverablesDirForThread(thread, project);
     const deliverablesNote = `## Output files\nWhen this task asks for a non-code deliverable (a PDF, spreadsheet, presentation, report, export, or any file that IS the requested output rather than a code change), save it under ${outDir} — you already have write access there, and everything in it is versioned automatically. Code changes still belong in the repo.`;
 
+    // Team-lead runs see the board — OPEN tickets only. Done is deliberately
+    // absent from the lead's context: the Done column is the archive, not
+    // working memory.
+    let boardNote = null;
+    if (thread.kind === "teamlead") {
+      const open = db.listTickets().filter((k) => k.status !== "done");
+      const lines = open.slice(0, 60).map((k) => {
+        const run = k.thread_id != null && getActiveRun(threadKey(k.thread_id)) ? " · running" : "";
+        return `- SPWN-${k.id} [${k.status}] ${k.project_name}: ${k.title}${k.branch ? ` (${k.branch})` : ""}${run}`;
+      });
+      boardNote = `## Board (open tickets)\n${lines.length ? lines.join("\n") : "No open tickets."}${open.length > 60 ? `\n…and ${open.length - 60} more.` : ""}\nCompleted tickets are archived in the board's Done column and intentionally omitted here.`;
+    }
+
     let seq = 0;
     const done = askClaude(
       threadKey(threadId),
@@ -235,7 +248,9 @@ export function createDaemon() {
         disallowedTools: (settings.disabledSkills ?? []).map((s) => `Skill(${s})`),
         // Rules / memory / connections + the deliverables note, as a
         // system-prompt suffix.
-        appendSystemPrompt: [contextBlockFor(settings), deliverablesNote].filter(Boolean).join("\n\n"),
+        appendSystemPrompt: [contextBlockFor(settings), boardNote, deliverablesNote]
+          .filter(Boolean)
+          .join("\n\n"),
         // Write access to the output dir without a permission prompt.
         addDirs: [outDir],
         // Approval routing (per-project): "prompt" surfaces permission
@@ -384,6 +399,18 @@ export function createDaemon() {
     updateTicket: (ticketId, patch) => {
       const ticket = db.updateTicket(ticketId, patch);
       if (!ticket) throw new Error(`No such ticket: ${ticketId}`);
+      // Done is done: retire the linked thread so the ticket vanishes from
+      // every live surface (active runs, map, lead context) — the board's
+      // Done column keeps the row as the archive. Dragging back out of Done
+      // resurrects the thread.
+      if (patch.status && ticket.thread_id) {
+        const thread = db.getThread(ticket.thread_id);
+        if (patch.status === "done" && thread?.status === "active") {
+          emit("thread:updated", db.updateThread(ticket.thread_id, { status: "done" }));
+        } else if (patch.status !== "done" && thread?.status === "done") {
+          emit("thread:updated", db.updateThread(ticket.thread_id, { status: "active" }));
+        }
+      }
       emit("ticket:updated", ticket);
       return ticket;
     },
