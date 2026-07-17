@@ -1,831 +1,333 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  ActiveThread,
-  ApprovalRequest,
-  Board,
-  Message,
-  Project,
-  ProjectSettings,
-  Thread,
-  ThreadContext,
-} from "./types";
+import type { ActiveThread, ApprovalRequest, Project, UsageSummary } from "./types";
+import OrchestrateView from "./OrchestrateView";
+import ThreadsView from "./ThreadsView";
 import MapView from "./MapView";
+import ApprovalsView from "./ApprovalsView";
+import UsageView from "./UsageView";
+import SettingsView from "./SettingsView";
+import Palette from "./Palette";
+import DelegateSheet from "./DelegateSheet";
 
-// Spawn shell — Discord-shaped: projects rail / threads / active thread.
-// Phase 2 adds the team-lead workspace: a read-only board (Trello or
-// TASKS.md), a team-lead console (a normal chat thread), and a delegate
-// panel that fans ticket threads out across projects.
+// Spawn — Mission Control shell (design 1a): top bar (⌘K, today's tokens,
+// approvals bell), left nav (Orchestrate / Threads / Live map / Approvals /
+// Usage / Settings + projects), views right. Approvals surface as a
+// non-blocking toast + inbox, never a blocking modal.
 
-// The full model menu; a project opts in per-model (fable is opt-in only).
-const MODELS = ["haiku", "sonnet", "opus", "fable"];
-// Delegate right-sizing knobs — the same options the bridge's delegate tool takes.
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+type View = "orchestrate" | "threads" | "map" | "approvals" | "usage" | "settings";
 
-// ── ChatThread — message list + composer + streaming for ONE thread. Used by
-// the project chat and the team-lead console alike, so the stream handling
-// lives once. Busy state stays in App (per-thread, survives switching views).
-function ChatThread({
-  threadId,
-  busy,
-  markBusy,
-}: {
-  threadId: number;
-  busy: boolean;
-  markBusy: (threadId: number) => void;
-}) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+const NAV: { view: View; label: string; icon: string }[] = [
+  { view: "orchestrate", label: "Orchestrate", icon: "ph-kanban" },
+  { view: "threads", label: "Threads", icon: "ph-chats-circle" },
+  { view: "map", label: "Live map", icon: "ph-graph" },
+  { view: "approvals", label: "Approvals", icon: "ph-tray" },
+  { view: "usage", label: "Usage", icon: "ph-chart-line-up" },
+];
 
-  useEffect(() => {
-    setMessages([]);
-    window.spawn.listMessages(threadId).then(setMessages);
-  }, [threadId]);
-
-  useEffect(() => {
-    return window.spawn.onEvent((ev) => {
-      if (ev.type !== "turn:text" && ev.type !== "turn:tool") return;
-      if (ev.payload.threadId !== threadId) return;
-      // The event ships the persisted row — append it; dedupe by id in case
-      // of a double-deliver.
-      const msg = ev.payload.message;
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-    });
-  }, [threadId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const send = async () => {
-    const text = draft.trim();
-    if (!text || busy) return;
-    setDraft("");
-    markBusy(threadId);
-    await window.spawn.sendMessage(threadId, text);
-    // One pull to pick up the persisted user row; streamed rows arrive as events.
-    setMessages(await window.spawn.listMessages(threadId));
-  };
-
-  return (
-    <>
-      <div className="messages">
-        {messages.map((m) => (
-          <div key={m.id} className={`msg ${m.role}`}>
-            {m.role === "tool" ? <code>⚙ {m.tool_name}</code> : <pre>{m.text}</pre>}
-          </div>
-        ))}
-        {busy && <div className="msg system">…working…</div>}
-        <div ref={bottomRef} />
-      </div>
-      <div className="composer">
-        <textarea
-          value={draft}
-          placeholder="Message the agent…"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-        />
-        <button onClick={send} disabled={busy || !draft.trim()}>
-          Send
-        </button>
-      </div>
-    </>
-  );
-}
-
-// ── ThreadContextPanel — the Phase-3 isolation panel for one thread: its
-// branch / worktree / live git state, the PR (state + checks), the live
-// process (pid, model, Stop), and cumulative cost. Refreshes itself on the
-// thread's turn lifecycle; ✕ cleanup retires a finished ticket's worktree
-// (branch and commits stay — see daemon cleanupThread).
-function ThreadContextPanel({ threadId }: { threadId: number }) {
-  const [ctx, setCtx] = useState<ThreadContext | null>(null);
-  // Cleanup hit a dirty worktree — ask before forcing.
-  const [dirtyCount, setDirtyCount] = useState<number | null>(null);
-
-  const refresh = useCallback(() => {
-    window.spawn
-      .getThreadContext(threadId)
-      .then(setCtx)
-      .catch(() => setCtx(null));
-  }, [threadId]);
-
-  useEffect(() => {
-    setCtx(null);
-    setDirtyCount(null);
-    refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    return window.spawn.onEvent((ev) => {
-      if (
-        (ev.type === "turn:start" || ev.type === "turn:done") &&
-        ev.payload.threadId === threadId
-      ) {
-        refresh();
-      }
-      if (ev.type === "thread:updated" && ev.payload.id === threadId) refresh();
-    });
-  }, [threadId, refresh]);
-
-  const cleanup = async (force: boolean) => {
-    const r = await window.spawn.cleanupThread(threadId, force);
-    if (!r.ok && r.reason === "dirty") {
-      setDirtyCount(r.dirty ?? 0);
-      return;
-    }
-    setDirtyCount(null);
-    refresh();
-  };
-
-  if (!ctx) {
-    return (
-      <aside className="context">
-        <div className="pane-head">
-          <span>Context</span>
-        </div>
-        <div className="side-empty">Loading…</div>
-      </aside>
-    );
-  }
-
-  const shortPath = ctx.worktreePath
-    ? `…/${ctx.worktreePath.split("/").slice(-2).join("/")}`
-    : null;
-
-  return (
-    <aside className="context">
-      <div className="pane-head">
-        <span>Context</span>
-        <button title="Refresh" onClick={refresh}>
-          ↻
-        </button>
-      </div>
-
-      <div className="ctx-row">
-        <label>Isolation</label>
-        {ctx.branch ? (
-          <>
-            <div className="ctx-line">
-              <code>{ctx.branch}</code>
-            </div>
-            {shortPath && (
-              <div className="ctx-line dim" title={ctx.worktreePath ?? ""}>
-                {ctx.status === "archived" ? "worktree removed" : shortPath}
-              </div>
-            )}
-            {ctx.git && (
-              <div className="ctx-line dim">
-                {ctx.git.dirty > 0 ? `${ctx.git.dirty} uncommitted` : "clean"}
-                {ctx.git.ahead > 0 && ` · ↑${ctx.git.ahead}`}
-                {ctx.git.behind > 0 && ` · ↓${ctx.git.behind}`}
-              </div>
-            )}
-            {ctx.git?.lastCommit && (
-              <div className="ctx-line dim" title={ctx.git.lastCommit}>
-                {ctx.git.lastCommit}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="ctx-line dim">none — runs in the project dir</div>
-        )}
-      </div>
-
-      <div className="ctx-row">
-        <label>Pull request</label>
-        {ctx.pr ? (
-          <div className="ctx-line">
-            <a href={ctx.pr.url} target="_blank" rel="noreferrer">
-              #{ctx.pr.number}
-            </a>{" "}
-            <span className={`pr-state ${ctx.pr.state.toLowerCase()}`}>
-              {ctx.pr.state.toLowerCase()}
-            </span>
-            {ctx.pr.checks && (
-              <span className={`pr-checks ${ctx.pr.checks}`}> · checks {ctx.pr.checks}</span>
-            )}
-          </div>
-        ) : (
-          <div className="ctx-line dim">no PR yet</div>
-        )}
-      </div>
-
-      <div className="ctx-row">
-        <label>Process</label>
-        {ctx.process.running ? (
-          <div className="ctx-line">
-            <span className="dot in-progress" />
-            pid {ctx.process.pid}
-            {ctx.process.model ? ` · ${ctx.process.model}` : ""}
-            <button className="ctx-stop" onClick={() => window.spawn.cancelTurn(threadId)}>
-              Stop
-            </button>
-          </div>
-        ) : (
-          <div className="ctx-line dim">idle</div>
-        )}
-      </div>
-
-      <div className="ctx-row">
-        <label>Cost</label>
-        <div className="ctx-line">
-          ${ctx.cost.totalUsd.toFixed(4)} · {ctx.cost.turns} turn{ctx.cost.turns === 1 ? "" : "s"}
-        </div>
-        {ctx.cost.lastContextTokens != null && (
-          <div className="ctx-line dim">
-            last: {Math.round(ctx.cost.lastContextTokens / 1000)}k ctx
-            {ctx.cost.lastModel ? ` · ${ctx.cost.lastModel}` : ""}
-          </div>
-        )}
-      </div>
-
-      {ctx.worktreePath && !ctx.process.running && (
-        <div className="ctx-row">
-          {dirtyCount == null ? (
-            <button className="ctx-cleanup" onClick={() => cleanup(false)}>
-              Clean up worktree
-            </button>
-          ) : (
-            <>
-              <div className="ctx-line dim">{dirtyCount} uncommitted change(s) — discard?</div>
-              <div className="ctx-cleanup-confirm">
-                <button className="ctx-cleanup danger" onClick={() => cleanup(true)}>
-                  Force clean
-                </button>
-                <button className="ctx-cleanup" onClick={() => setDirtyCount(null)}>
-                  Keep
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </aside>
-  );
-}
-
-// ── BoardView — the team-lead board, read-only (no drag, no edit). Trello
-// columns when wired, TASKS.md verbatim as the fallback, a hint otherwise.
-function BoardView() {
-  const [board, setBoard] = useState<Board | null>(null);
-
-  const refresh = useCallback(() => {
-    window.spawn.getBoard().then(setBoard);
-  }, []);
-  useEffect(refresh, [refresh]);
-
-  return (
-    <section className="board">
-      <div className="pane-head">
-        <span>Board</span>
-        <button title="Refresh board" onClick={refresh}>
-          ↻
-        </button>
-      </div>
-      {!board ? (
-        <div className="empty">Loading board…</div>
-      ) : board.source === "trello" ? (
-        <div className="board-columns">
-          {board.columns.map((col) => (
-            <div key={col.status} className="board-col">
-              <h3>{col.status}</h3>
-              {col.cards.map((c) => (
-                <div key={c.ref} className="board-card">
-                  <span className={`dot ${col.status}`} />
-                  {c.url ? (
-                    <a href={c.url} target="_blank" rel="noreferrer">
-                      {c.title}
-                    </a>
-                  ) : (
-                    <span>{c.title}</span>
-                  )}
-                  {(c.key || c.ref) && <span className="badge">{c.key ?? c.ref}</span>}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ) : board.source === "tasks-md" ? (
-        <pre className="board-tasks">{board.text}</pre>
-      ) : (
-        <div className="empty">No board — enable Trello or add a TASKS.md to the team-lead project.</div>
-      )}
-    </section>
-  );
-}
-
-// ── TeamLeadWorkspace — board + team-lead console + delegate/active panel.
-function TeamLeadWorkspace({
-  projects,
-  busyThreads,
-  markBusy,
-  refreshTick,
-}: {
-  projects: Project[];
-  busyThreads: Set<number>;
-  markBusy: (threadId: number) => void;
-  refreshTick: number;
-}) {
-  // undefined = still resolving; null = TEAMLEAD_CHANNEL unset/unresolvable.
-  const [tlProject, setTlProject] = useState<Project | null | undefined>(undefined);
-  const [consoleThreadId, setConsoleThreadId] = useState<number | null>(null);
-  // What the console area currently shows: the team-lead thread, or a ticket
-  // thread opened from the delegate form / active list.
-  const [openThreadId, setOpenThreadId] = useState<number | null>(null);
-  const [openTitle, setOpenTitle] = useState("Team-lead console");
-  const [active, setActive] = useState<ActiveThread[]>([]);
-  // Delegate form.
-  const [target, setTarget] = useState<number | "">("");
-  const [task, setTask] = useState("");
-  const [model, setModel] = useState("");
-  const [effort, setEffort] = useState("");
-
-  useEffect(() => {
-    let stale = false;
-    window.spawn.getTeamLeadProject().then(async (p) => {
-      if (stale) return;
-      setTlProject(p);
-      if (!p) return;
-      // The console is the project's teamlead-kind thread — create-or-open.
-      const threads = await window.spawn.listThreads(p.id);
-      const existing = threads.find((t) => t.kind === "teamlead");
-      const t =
-        existing ??
-        (await window.spawn.createThread({ projectId: p.id, title: "Team-lead console", kind: "teamlead" }));
-      if (stale) return;
-      setConsoleThreadId(t.id);
-      setOpenThreadId((cur) => cur ?? t.id);
-    });
-    return () => {
-      stale = true;
-    };
-  }, []);
-
-  // Live list of active threads; refreshTick bumps on thread:created /
-  // thread:updated / turn:done, so the panel tracks the daemon.
-  useEffect(() => {
-    window.spawn.listActiveThreads().then(setActive);
-  }, [refreshTick]);
-
-  const openThread = (id: number, title: string) => {
-    setOpenThreadId(id);
-    setOpenTitle(id === consoleThreadId ? "Team-lead console" : title);
-  };
-
-  const delegate = async () => {
-    const text = task.trim();
-    if (!text || target === "") return;
-    setTask("");
-    const t = await window.spawn.delegateTask({
-      projectId: target,
-      task: text,
-      model: model || undefined,
-      effort: effort || undefined,
-    });
-    markBusy(t.id);
-    openThread(t.id, t.title);
-    setActive(await window.spawn.listActiveThreads());
-  };
-
-  return (
-    <main className="workspace">
-      <BoardView />
-
-      <section className="console">
-        <div className="pane-head">
-          <span>{openTitle}</span>
-          {openThreadId !== consoleThreadId && consoleThreadId != null && (
-            <button onClick={() => openThread(consoleThreadId, "Team-lead console")}>
-              ← console
-            </button>
-          )}
-        </div>
-        {tlProject === undefined ? (
-          <div className="empty">Loading…</div>
-        ) : tlProject === null ? (
-          <div className="empty">Set TEAMLEAD_CHANNEL to enable the team-lead workspace.</div>
-        ) : openThreadId == null ? (
-          <div className="empty">Opening the console…</div>
-        ) : (
-          <div className="console-body">
-            <div className="chat-main">
-              <ChatThread
-                threadId={openThreadId}
-                busy={busyThreads.has(openThreadId)}
-                markBusy={markBusy}
-              />
-            </div>
-            {/* Ticket threads carry the isolation panel; the console itself
-                (teamlead kind) doesn't need one in this cramped layout. */}
-            {active.find((t) => t.id === openThreadId)?.kind === "ticket" && (
-              <ThreadContextPanel threadId={openThreadId} />
-            )}
-          </div>
-        )}
-      </section>
-
-      <aside className="side">
-        <div className="pane-head">
-          <span>Delegate</span>
-        </div>
-        <div className="delegate">
-          <select
-            value={target === "" ? "" : String(target)}
-            onChange={(e) => setTarget(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">project…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <textarea
-            value={task}
-            placeholder="Task for the delegate…"
-            onChange={(e) => setTask(e.target.value)}
-          />
-          <div className="delegate-knobs">
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">model</option>
-              {MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select value={effort} onChange={(e) => setEffort(e.target.value)}>
-              <option value="">effort</option>
-              {EFFORTS.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
-            <button onClick={delegate} disabled={!task.trim() || target === ""}>
-              Delegate
-            </button>
-          </div>
-        </div>
-
-        <div className="pane-head">
-          <span>Active threads</span>
-        </div>
-        {active.map((t) => (
-          <button
-            key={t.id}
-            className={t.id === openThreadId ? "item active" : "item"}
-            onClick={() => openThread(t.id, t.title)}
-            title={`${t.project_name} · ${t.kind}`}
-          >
-            <span className={t.running ? "dot in-progress" : `dot ${t.status}`} />
-            {t.project_name} · {t.title}
-            {t.branch && <span className="badge">{t.branch}</span>}
-          </button>
-        ))}
-        {active.length === 0 && <div className="side-empty">Nothing active.</div>}
-      </aside>
-    </main>
-  );
-}
+const fmtTok = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 
 export default function App() {
-  // "project" = the classic rail/threads/chat; "teamlead" = the workspace;
-  // "map" = the live React Flow graph (Phase 4).
-  const [view, setView] = useState<"project" | "teamlead" | "map">("project");
+  const [view, setView] = useState<View>("orchestrate");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
-  const [threads, setThreads] = useState<Thread[]>([]);
   const [threadId, setThreadId] = useState<number | null>(null);
-  // Which threads have a turn in flight — per-thread, so streaming in one
-  // thread never shows a phantom "working" or locks the composer in another.
+  const [teamLeadProjectId, setTeamLeadProjectId] = useState<number | null>(null);
+  const [active, setActive] = useState<ActiveThread[]>([]);
   const [busyThreads, setBusyThreads] = useState<Set<number>>(new Set());
-  // Pending permission prompt — global, so a background thread's prompt still
-  // reaches the user.
-  const [approval, setApproval] = useState<ApprovalRequest | null>(null);
-  // Inline thread rename (double-click a title).
-  const [renamingId, setRenamingId] = useState<number | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
-  // Settings panel for the selected project; non-null = open.
-  const [settings, setSettings] = useState<ProjectSettings | null>(null);
-  // Bumped on thread lifecycle events so the workspace's lists re-pull.
+  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
+  const [toast, setToast] = useState<ApprovalRequest | null>(null);
+  const [usageToday, setUsageToday] = useState<UsageSummary | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  // Cross-view jump: set thread after the Threads view loads its list.
+  const jumpRef = useRef<number | null>(null);
 
   const markBusy = useCallback((id: number) => {
     setBusyThreads((prev) => new Set(prev).add(id));
   }, []);
 
-  // Jump-to-thread from the map: selecting a project resets threadId (the
-  // effect below), so a cross-project jump parks the target here and the
-  // effect picks it up after the thread list loads.
-  const jumpRef = useRef<number | null>(null);
-  const openFromMap = useCallback(
-    (pId: number, tId: number) => {
-      setView("project");
-      if (pId === projectId) {
-        setThreadId(tId);
-      } else {
-        jumpRef.current = tId;
-        setProjectId(pId);
-      }
-    },
-    [projectId]
-  );
-  const openProjectFromMap = useCallback((pId: number) => {
-    setView("project");
-    setProjectId(pId);
+  const refreshShared = useCallback(() => {
+    window.spawn.listActiveThreads().then(setActive).catch(() => {});
+    window.spawn.listApprovals().then(setPendingApprovals).catch(() => {});
+    window.spawn.getUsage(1).then(setUsageToday).catch(() => {});
   }, []);
-  const openTeamLeadFromMap = useCallback(() => setView("teamlead"), []);
 
   useEffect(() => {
     window.spawn.listProjects().then(setProjects);
-  }, []);
-
-  useEffect(() => {
-    if (projectId == null) return;
-    window.spawn.listThreads(projectId).then(setThreads);
-    setThreadId(jumpRef.current);
-    jumpRef.current = null;
-    setSettings(null);
-  }, [projectId]);
+    window.spawn
+      .getTeamLeadProject()
+      .then((p) => setTeamLeadProjectId(p?.id ?? null))
+      .catch(() => {});
+    refreshShared();
+  }, [refreshShared]);
 
   useEffect(() => {
     return window.spawn.onEvent((ev) => {
-      if (ev.type === "thread:created" || ev.type === "thread:updated" || ev.type === "turn:done") {
+      if (
+        ev.type === "thread:created" ||
+        ev.type === "thread:updated" ||
+        ev.type === "turn:start" ||
+        ev.type === "turn:done"
+      ) {
         setRefreshTick((n) => n + 1);
-      }
-      if (ev.type === "thread:created") {
-        // A ticket delegated into the open project shows up in its pane too.
-        if (ev.payload.project_id === projectId) {
-          setThreads((prev) => (prev.some((t) => t.id === ev.payload.id) ? prev : [ev.payload, ...prev]));
-        }
-        return;
-      }
-      if (ev.type === "thread:updated") {
-        setThreads((prev) => prev.map((t) => (t.id === ev.payload.id ? ev.payload : t)));
-        return;
+        refreshShared();
       }
       if (ev.type === "turn:start") {
         setBusyThreads((prev) => new Set(prev).add(ev.payload.threadId));
-        return;
-      }
-      if (ev.type === "approval:request") {
-        setApproval(ev.payload);
-        return;
-      }
-      if (ev.type === "approval:resolved") {
-        setApproval((cur) => (cur?.id === ev.payload.id ? null : cur));
-        return;
       }
       if (ev.type === "turn:done") {
-        // A finished turn can't still be waiting on an approval.
-        setApproval((cur) => (cur?.threadId === ev.payload.threadId ? null : cur));
         setBusyThreads((prev) => {
           const next = new Set(prev);
           next.delete(ev.payload.threadId);
           return next;
         });
+        setToast((cur) => (cur?.threadId === ev.payload.threadId ? null : cur));
+      }
+      if (ev.type === "approval:request") {
+        setPendingApprovals((prev) => (prev.some((p) => p.id === ev.payload.id) ? prev : [...prev, ev.payload]));
+        setToast(ev.payload);
+      }
+      if (ev.type === "approval:resolved") {
+        setPendingApprovals((prev) => prev.filter((p) => p.id !== ev.payload.id));
+        setToast((cur) => (cur?.id === ev.payload.id ? null : cur));
       }
     });
-  }, [projectId]);
+  }, [refreshShared]);
 
-  const openThread = async () => {
-    if (projectId == null) return;
-    // Untitled — the daemon defaults it and the first message auto-titles it.
-    const t = await window.spawn.createThread({ projectId, title: "" });
-    setThreads((prev) => (prev.some((x) => x.id === t.id) ? prev : [t, ...prev]));
-    setThreadId(t.id);
-  };
+  // ⌘K palette, ⌘N delegate sheet.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setSheetOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  const startRename = (t: Thread) => {
-    setRenamingId(t.id);
-    setRenameDraft(t.title);
-  };
+  const openThread = useCallback(
+    (pId: number, tId: number) => {
+      setView("threads");
+      if (pId === projectId) {
+        setThreadId(tId);
+      } else {
+        jumpRef.current = tId;
+        setProjectId(pId);
+        setThreadId(tId);
+      }
+    },
+    [projectId]
+  );
+  const openProject = useCallback((pId: number) => {
+    setView("threads");
+    setProjectId(pId);
+    setThreadId(null);
+  }, []);
+  const openTeamLead = useCallback(() => {
+    if (teamLeadProjectId != null) openProject(teamLeadProjectId);
+    else setView("threads");
+  }, [teamLeadProjectId, openProject]);
 
-  const commitRename = async (id: number) => {
-    const title = renameDraft.trim();
-    setRenamingId(null);
-    if (!title) return;
-    const t = await window.spawn.renameThread(id, title);
-    setThreads((prev) => prev.map((x) => (x.id === t.id ? t : x)));
-  };
+  const runningByProject = new Map<number, number>();
+  for (const t of active) {
+    if (t.running) runningByProject.set(t.project_id, (runningByProject.get(t.project_id) ?? 0) + 1);
+  }
+  const toastThread = toast ? (active.find((t) => t.id === toast.threadId) ?? null) : null;
 
-  const answerApproval = (allow: boolean) => {
-    if (!approval) return;
-    window.spawn.resolveApproval(approval.id, allow);
-    setApproval(null);
-  };
-
-  const openSettings = async () => {
-    if (projectId == null) return;
-    setSettings(await window.spawn.getProjectSettings(projectId));
-  };
-
-  const patchSettings = async (patch: Partial<ProjectSettings>) => {
-    if (projectId == null) return;
-    setSettings(await window.spawn.updateProjectSettings(projectId, patch));
-  };
-
-  const toggleModel = (m: string) => {
-    if (!settings) return;
-    const allowed = settings.allowedModels.includes(m)
-      ? settings.allowedModels.filter((x) => x !== m)
-      : [...settings.allowedModels, m];
-    const patch: Partial<ProjectSettings> = { allowedModels: allowed };
-    // Don't leave a default pointing at a model this project no longer allows.
-    if (settings.defaultModel && !allowed.includes(settings.defaultModel)) {
-      patch.defaultModel = "";
-    }
-    patchSettings(patch);
+  const answerToast = (allow: boolean) => {
+    if (!toast) return;
+    window.spawn.resolveApproval(toast.id, allow);
+    setToast(null);
   };
 
   return (
     <div className="shell">
-      <aside className="rail">
-        <div className="rail-head">
-          <h1>Spawn</h1>
-          <button
-            className="gear"
-            title="Project settings"
-            onClick={openSettings}
-            disabled={projectId == null || view !== "project"}
-          >
-            ⚙
+      <header className="topbar fade-b">
+        <div className="brand">
+          <i className="ph-fill ph-broadcast" />
+          Spawn
+        </div>
+        <div className="palette-trigger">
+          <button onClick={() => setPaletteOpen(true)}>
+            <i className="ph ph-magnifying-glass" />
+            Jump to thread, delegate, run a command…
+            <span className="kbd">⌘K</span>
           </button>
         </div>
-        <button
-          className={view === "teamlead" ? "item teamlead active" : "item teamlead"}
-          onClick={() => setView("teamlead")}
-        >
-          🧭 Team Lead
-        </button>
-        <button
-          className={view === "map" ? "item teamlead active" : "item teamlead"}
-          onClick={() => setView("map")}
-        >
-          🗺 Live Map
-        </button>
-        {projects.map((p) => (
-          <button
-            key={p.id}
-            className={view === "project" && p.id === projectId ? "item active" : "item"}
-            onClick={() => {
-              setProjectId(p.id);
-              setView("project");
-            }}
-            title={p.dir}
-          >
-            {p.name}
+        <div className="topbar-right">
+          <span className="tag tag-outline tok-today" title="Tokens across all projects today">
+            <i className="ph ph-stack" />
+            {usageToday ? `${fmtTok(usageToday.totalTokens)} tok today` : "— today"}
+          </span>
+          <button className="inbox-bell" title="Approvals inbox" onClick={() => setView("approvals")}>
+            <i className="ph ph-tray" />
+            {pendingApprovals.length > 0 && <span className="count">{pendingApprovals.length}</span>}
           </button>
-        ))}
-      </aside>
+        </div>
+      </header>
 
-      {view === "map" ? (
-        <MapView
-          onOpenTeamLead={openTeamLeadFromMap}
-          onOpenProject={openProjectFromMap}
-          onOpenThread={openFromMap}
-        />
-      ) : view === "teamlead" ? (
-        <TeamLeadWorkspace
-          projects={projects}
-          busyThreads={busyThreads}
-          markBusy={markBusy}
-          refreshTick={refreshTick}
-        />
-      ) : (
-        <>
-          <aside className="threads">
-            <div className="pane-head">
-              <span>Threads</span>
-              <button onClick={openThread} disabled={projectId == null}>
-                +
-              </button>
-            </div>
-            {threads.map((t) =>
-              t.id === renamingId ? (
-                <input
-                  key={t.id}
-                  className="rename"
-                  value={renameDraft}
-                  autoFocus
-                  onChange={(e) => setRenameDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") commitRename(t.id);
-                    else if (e.key === "Escape") setRenamingId(null);
-                  }}
-                  onBlur={() => setRenamingId(null)}
-                />
-              ) : (
-                <button
-                  key={t.id}
-                  className={t.id === threadId ? "item active" : "item"}
-                  onClick={() => setThreadId(t.id)}
-                  onDoubleClick={() => startRename(t)}
-                >
-                  <span className={`dot ${t.status}`} />
-                  {t.title}
-                </button>
-              )
-            )}
-          </aside>
+      <div className="content">
+        <nav className="sidenav fade-r">
+          {NAV.map((n) => (
+            <button
+              key={n.view}
+              className={`nav-item ${view === n.view ? "active" : ""}`}
+              onClick={() => setView(n.view)}
+            >
+              <i className={`ph ${n.icon}`} />
+              {n.label}
+              {n.view === "threads" && active.length > 0 && <span className="meta">{active.length}</span>}
+              {n.view === "approvals" && pendingApprovals.length > 0 && (
+                <span className="tag tag-accent" style={{ marginLeft: "auto", padding: "0 7px", fontSize: 10.5 }}>
+                  {pendingApprovals.length}
+                </span>
+              )}
+            </button>
+          ))}
 
-          <main className="chat">
-            {threadId == null ? (
-              <div className="empty">Pick a project, open a thread.</div>
-            ) : (
-              <>
-                <div className="chat-main">
-                  <ChatThread
-                    threadId={threadId}
-                    busy={busyThreads.has(threadId)}
-                    markBusy={markBusy}
-                  />
-                </div>
-                <ThreadContextPanel threadId={threadId} />
-              </>
-            )}
-          </main>
-        </>
-      )}
+          <div className="nav-head">Projects</div>
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              className={`nav-project ${view === "threads" && p.id === projectId ? "active" : ""}`}
+              title={p.dir}
+              onClick={() => openProject(p.id)}
+            >
+              <span
+                className="chip"
+                style={p.id === teamLeadProjectId ? { background: "var(--color-accent-500)" } : undefined}
+              />
+              <span className="name">{p.name}</span>
+              {(runningByProject.get(p.id) ?? 0) > 0 && (
+                <span className="run-count">● {runningByProject.get(p.id)}</span>
+              )}
+            </button>
+          ))}
 
-      {settings && (
-        <div className="overlay" onClick={() => setSettings(null)}>
-          <div className="card" onClick={(e) => e.stopPropagation()}>
-            <h2>Project settings</h2>
-            <div className="field">
-              <label>Approvals</label>
-              <div className="segmented">
-                {(["prompt", "auto"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    className={settings.approvalMode === mode ? "on" : ""}
-                    onClick={() => patchSettings({ approvalMode: mode })}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="field">
-              <label>Default model</label>
-              <select
-                value={settings.defaultModel}
-                onChange={(e) => patchSettings({ defaultModel: e.target.value })}
-              >
-                <option value="">harness default</option>
-                {settings.allowedModels.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Allowed models</label>
-              <div className="checks">
-                {MODELS.map((m) => (
-                  <label key={m} className="check">
-                    <input
-                      type="checkbox"
-                      checked={settings.allowedModels.includes(m)}
-                      onChange={() => toggleModel(m)}
-                    />
-                    {m}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="actions">
-              <button onClick={() => setSettings(null)}>Close</button>
-            </div>
+          <div className="nav-bottom">
+            <button
+              className={`nav-item ${view === "settings" ? "active" : ""}`}
+              onClick={() => setView("settings")}
+            >
+              <i className="ph ph-gear-six" />
+              Settings
+            </button>
           </div>
-        </div>
+        </nav>
+
+        {view === "orchestrate" ? (
+          <OrchestrateView
+            projects={projects}
+            active={active}
+            usage={usageToday}
+            onOpenThread={openThread}
+            markBusy={markBusy}
+          />
+        ) : view === "threads" ? (
+          <ThreadsView
+            projectId={projectId}
+            projects={projects}
+            threadId={threadId ?? jumpRef.current}
+            setThreadId={(id) => {
+              jumpRef.current = null;
+              setThreadId(id);
+            }}
+            busyThreads={busyThreads}
+            markBusy={markBusy}
+            teamLeadProjectId={teamLeadProjectId}
+            refreshTick={refreshTick}
+          />
+        ) : view === "map" ? (
+          <MapView onOpenTeamLead={openTeamLead} onOpenProject={openProject} onOpenThread={openThread} />
+        ) : view === "approvals" ? (
+          <ApprovalsView active={active} onOpenThread={openThread} />
+        ) : view === "usage" ? (
+          <UsageView />
+        ) : (
+          <SettingsView projects={projects} initialProjectId={projectId} />
+        )}
+      </div>
+
+      {paletteOpen && (
+        <Palette
+          projects={projects}
+          active={active}
+          actions={[
+            {
+              id: "delegate",
+              label: "Delegate a task…",
+              kind: "action",
+              icon: "ph-paper-plane-tilt",
+              run: () => setSheetOpen(true),
+            },
+            ...(teamLeadProjectId != null
+              ? [
+                  {
+                    id: "teamlead",
+                    label: "Team-lead console",
+                    kind: "console",
+                    icon: "ph-compass",
+                    run: openTeamLead,
+                  },
+                ]
+              : []),
+            ...NAV.map((n) => ({
+              id: `view-${n.view}`,
+              label: n.label,
+              kind: "view",
+              icon: n.icon,
+              run: () => setView(n.view),
+            })),
+          ]}
+          onOpenThread={openThread}
+          onOpenProject={openProject}
+          onClose={() => setPaletteOpen(false)}
+        />
       )}
 
-      {approval && (
-        <div className="overlay">
-          <div className="card approval">
-            <h2>Permission request</h2>
-            <p>
-              Thread {approval.threadId ?? "?"} wants to run{" "}
-              <code>{approval.tool}</code>
-            </p>
-            <pre>{JSON.stringify(approval.input, null, 2)}</pre>
-            <div className="actions">
-              <button className="deny" onClick={() => answerApproval(false)}>
-                Deny
-              </button>
-              <button className="allow" onClick={() => answerApproval(true)}>
-                Allow
-              </button>
-            </div>
+      {sheetOpen && (
+        <DelegateSheet
+          projects={projects}
+          initialProjectId={projectId}
+          onClose={() => setSheetOpen(false)}
+          onDelegated={(t) => {
+            markBusy(t.id);
+            openThread(t.project_id, t.id);
+          }}
+        />
+      )}
+
+      {toast && view !== "approvals" && (
+        <div className="toast">
+          <div className="head">
+            <i className="ph-fill ph-hand-palm" />
+            {toast.tool} wants to run
+          </div>
+          <div className="body">
+            {toastThread ? `${toastThread.title} · ${toastThread.project_name}` : `thread ${toast.threadId ?? "?"}`}
+          </div>
+          <div className="acts">
+            <button className="btn btn-primary small-btn" onClick={() => answerToast(true)}>
+              Allow
+            </button>
+            <button className="btn btn-ghost small-btn" onClick={() => answerToast(false)}>
+              Deny
+            </button>
+            <button
+              className="btn btn-ghost small-btn"
+              style={{ marginLeft: "auto" }}
+              onClick={() => {
+                setView("approvals");
+                setToast(null);
+              }}
+            >
+              Open inbox
+            </button>
           </div>
         </div>
       )}

@@ -12,7 +12,7 @@ import {
   pauseInactivity,
   resumeInactivity,
 } from "../claude.js";
-import { threadUsage } from "../usage-log.js";
+import { threadUsage, readUsageEvents } from "../usage-log.js";
 import {
   isGitRepo,
   createWorktree,
@@ -64,6 +64,9 @@ export function createDaemon() {
     resumeInactivity,
     timeoutMs: config.approvals.timeoutMs,
   });
+
+  // Recent approval decisions, newest first (bounded; see listDecisions).
+  const decisions = [];
 
   // ── Projects: union of dirs under PROJECTS_ROOT and projects.json overrides,
   // mirrored into SQLite so threads can reference them.
@@ -126,7 +129,7 @@ export function createDaemon() {
         // An explicit per-turn model/effort (delegation right-sizing) beats the
         // project default — same precedence claude.js applies internally.
         model: opts.model || settings.defaultModel || undefined,
-        effort: opts.effort || undefined,
+        effort: opts.effort || settings.defaultEffort || undefined,
         // ticket threads are ephemeral (fresh context per ticket); chat and
         // teamlead threads resume across turns
         persistSessions: thread.kind !== "ticket",
@@ -283,7 +286,7 @@ export function createDaemon() {
       db.addMessage({ threadId: thread.id, role: "user", text });
 
       let wt = null;
-      if (await isGitRepo(project.dir)) {
+      if (getProjectSettings(project.id).isolation !== false && (await isGitRepo(project.dir))) {
         try {
           wt = await createWorktree({
             repoDir: project.dir,
@@ -435,8 +438,115 @@ export function createDaemon() {
       };
     },
 
+    // The pending permission queue (the Approvals inbox) — client-shaped,
+    // straight from the hub.
+    listApprovals: () => hub.pending(),
+
+    // Recent decisions, newest first (the inbox's "decided today" trail).
+    // In-memory by design: it's a glanceable audit line, not durable history.
+    listDecisions: () => [...decisions],
+
     // Answer a pending permission prompt (from the desktop's Allow/Deny).
-    resolveApproval: (id, allow, updatedInput) => hub.resolve(id, allow, updatedInput),
+    resolveApproval: (id, allow, updatedInput) => {
+      const entry = hub.pending().find((p) => p.id === id);
+      const settled = hub.resolve(id, allow, updatedInput);
+      if (settled && entry) {
+        decisions.unshift({ ...entry, allow: Boolean(allow), at: Date.now() });
+        if (decisions.length > 50) decisions.pop();
+      }
+      return settled;
+    },
+
+    // Usage rollup for the Usage view, from the append-only ledger. `days`
+    // bounds the window (1 = today-ish: last 24h). Everything here is
+    // aggregation over readUsageEvents — no new state.
+    getUsage: (days = 1) => {
+      const cutoff = Date.now() - days * 86_400_000;
+      const events = readUsageEvents().filter((r) => (r.ts ?? 0) >= cutoff);
+      const tok = (r) =>
+        (r.input_tokens || 0) +
+        (r.output_tokens || 0) +
+        (r.cache_read_input_tokens || 0) +
+        (r.cache_creation_input_tokens || 0);
+
+      const projects = db.listProjects();
+      const projectName = (r) => {
+        const m = /^spawn:thread:(\d+)$/.exec(r.sessionKey ?? "");
+        if (m) {
+          const t = db.getThread(Number(m[1]));
+          const p = t && projects.find((x) => x.id === t.project_id);
+          if (p) return p.name;
+        }
+        return r.channelName || "other";
+      };
+
+      let totalTokens = 0;
+      let totalCost = 0;
+      let turns = 0;
+      const threadIds = new Set();
+      const byModel = new Map();
+      const byProject = new Map();
+      // Series buckets: hourly for a 1-day window, daily beyond.
+      const bucketMs = days <= 1 ? 3_600_000 : 86_400_000;
+      const series = new Map();
+      for (const r of events) {
+        const t = tok(r);
+        totalTokens += t;
+        if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
+        turns++;
+        if (r.threadId != null) threadIds.add(r.threadId);
+        const model = r.model || "unknown";
+        byModel.set(model, (byModel.get(model) || 0) + t);
+        const proj = projectName(r);
+        const p = byProject.get(proj) || { tokens: 0, turns: 0, threads: new Set() };
+        p.tokens += t;
+        p.turns++;
+        if (r.threadId != null) p.threads.add(r.threadId);
+        byProject.set(proj, p);
+        const bucket = Math.floor((r.ts ?? 0) / bucketMs) * bucketMs;
+        series.set(bucket, (series.get(bucket) || 0) + t);
+      }
+
+      // Live sessions: active threads with a known context size, running first.
+      const sessions = db
+        .listActiveThreads()
+        .map((t) => {
+          const stats = getLastStats(threadKey(t.id));
+          const u = stats?.usage;
+          const contextTokens = u
+            ? (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+            : null;
+          return {
+            threadId: t.id,
+            title: t.title,
+            project: t.project_name,
+            kind: t.kind,
+            running: Boolean(getActiveRun(threadKey(t.id))),
+            model: stats?.model ?? null,
+            contextTokens,
+          };
+        })
+        .filter((s) => s.running || s.contextTokens != null)
+        .sort((a, b) => Number(b.running) - Number(a.running));
+
+      return {
+        days,
+        totalTokens,
+        totalCost,
+        turns,
+        threads: threadIds.size,
+        byModel: [...byModel]
+          .map(([model, tokens]) => ({ model, tokens }))
+          .sort((a, b) => b.tokens - a.tokens),
+        byProject: [...byProject]
+          .map(([project, p]) => ({ project, tokens: p.tokens, turns: p.turns, threads: p.threads.size }))
+          .sort((a, b) => b.tokens - a.tokens),
+        series: [...series]
+          .map(([ts, tokens]) => ({ ts, tokens }))
+          .sort((a, b) => a.ts - b.ts),
+        sessions,
+      };
+    },
 
     cancelTurn: (threadId) => cancelRun(threadKey(threadId)),
     resetThreadSession: (threadId) => resetSession(threadKey(threadId)),

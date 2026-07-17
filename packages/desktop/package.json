@@ -11,6 +11,8 @@
     "smoke": "SPAWN_SMOKE=1 electron ."
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@phosphor-icons/web": "^2.1.2",
     "@spawn/core": "*",
     "@xyflow/react": "^12.11.2",
     "react": "^18.3.1",

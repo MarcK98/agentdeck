@@ -38,6 +38,8 @@ export interface ProjectSettings {
   approvalMode: "prompt" | "auto";
   allowedModels: string[];
   defaultModel: string;
+  defaultEffort: string;
+  isolation: boolean;
   mcps: string[];
   skills: string[];
 }
@@ -154,6 +156,33 @@ export interface MapData {
   threads: MapThread[];
 }
 
+// A settled approval, newest first (daemon listDecisions — in-memory trail).
+export interface ApprovalDecision extends ApprovalRequest {
+  allow: boolean;
+  at: number;
+}
+
+// Usage rollup (daemon getUsage).
+export interface UsageSummary {
+  days: number;
+  totalTokens: number;
+  totalCost: number;
+  turns: number;
+  threads: number;
+  byModel: { model: string; tokens: number }[];
+  byProject: { project: string; tokens: number; turns: number; threads: number }[];
+  series: { ts: number; tokens: number }[];
+  sessions: {
+    threadId: number;
+    title: string;
+    project: string;
+    kind: Thread["kind"];
+    running: boolean;
+    model: string | null;
+    contextTokens: number | null;
+  }[];
+}
+
 export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
@@ -200,6 +229,10 @@ declare global {
       getThreadContext(threadId: number): Promise<ThreadContext>;
       cleanupThread(threadId: number, force?: boolean): Promise<CleanupResult>;
       getMap(): Promise<MapData>;
+      listApprovals(): Promise<ApprovalRequest[]>;
+      listDecisions(): Promise<ApprovalDecision[]>;
+      getUsage(days?: number): Promise<UsageSummary>;
+      resetThreadSession(threadId: number): Promise<boolean>;
       onEvent(fn: (ev: SpawnEvent) => void): () => void;
     };
   }

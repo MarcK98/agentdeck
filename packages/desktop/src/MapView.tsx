@@ -13,30 +13,27 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { MapData, MapThread } from "./types";
 
-// Live map (Phase 4) — React Flow over the Phase 2-3 model: team-lead →
-// projects → active threads, with each thread node wearing its isolation /
-// process / PR / cost state as live badges. Data is one getMap() pull;
-// it re-pulls on thread lifecycle events plus a slow interval (PR checks and
-// git state drift outside daemon events). Click a thread → jump to it.
+// Live map — React Flow over team-lead → projects → active threads, restyled
+// to Nocturne (design 1c's node language: section-indigo lead node, surface
+// cards with pulse dots and badge rows). Same data/refresh contract as
+// before: getMap on thread lifecycle events + a slow poll for PR/git drift.
 
 const POLL_MS = 20_000;
-
-// Column layout: simple layered graph, no layout lib — three fixed columns,
-// threads stacked per project, each project centered on its thread block.
-const COL_X = { teamlead: 0, project: 240, thread: 500 } as const;
-const THREAD_H = 96;
+const COL_X = { teamlead: 0, project: 260, thread: 540 } as const;
+const THREAD_H = 104;
 const PROJECT_H = 44;
 const GAP = 14;
 const BLOCK_GAP = 28;
 
-type TeamLeadNodeData = { label: string; onOpen: () => void };
-type ProjectNodeData = { name: string; dir: string; isTeamLead: boolean; onOpen: () => void };
+type TeamLeadNodeData = { label: string; liveCount: number; onOpen: () => void };
+type ProjectNodeData = { name: string; dir: string; isTeamLead: boolean; liveCount: number; onOpen: () => void };
 type ThreadNodeData = { thread: MapThread; onOpen: () => void };
 
 function TeamLeadNodeView({ data }: NodeProps<Node<TeamLeadNodeData, "teamlead">>) {
   return (
     <div className="map-node map-teamlead" onClick={data.onOpen}>
-      🧭 {data.label}
+      <i className="ph ph-compass" />
+      {data.label}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -46,8 +43,13 @@ function ProjectNodeView({ data }: NodeProps<Node<ProjectNodeData, "project">>) 
   return (
     <div className="map-node map-project" onClick={data.onOpen} title={data.dir}>
       <Handle type="target" position={Position.Left} />
+      <span className="chip" style={{ background: "var(--color-accent-500)" }} />
       {data.name}
-      {data.isTeamLead && <span className="badge">team lead</span>}
+      {data.liveCount > 0 && (
+        <span className="ok-c" style={{ marginLeft: "auto", fontSize: 10.5 }}>
+          ● {data.liveCount}
+        </span>
+      )}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -58,37 +60,40 @@ function ThreadNodeView({ data }: NodeProps<Node<ThreadNodeData, "thread">>) {
   return (
     <div className={`map-node map-thread ${t.running ? "running" : ""}`} onClick={data.onOpen}>
       <Handle type="target" position={Position.Left} />
-      <div className="map-thread-title">
-        <span className={t.running ? "dot in-progress" : `dot ${t.status}`} />
-        {t.title}
+      <div className="t">
+        {t.running ? <span className="dot-live pulse" /> : <span className="dot-idle" />}
+        <span className="ell">{t.title}</span>
       </div>
-      <div className="map-badges">
-        <span className="badge">{t.kind}</span>
+      <div className="tags">
         {t.branch && (
-          <span className="badge" title={t.worktreePath ?? ""}>
-            ⎇ {t.branch.replace(/^ticket\//, "")}
+          <span className="tag tag-outline" title={t.worktreePath ?? ""}>
+            <i className="ph ph-git-branch" style={{ marginRight: 3 }} />
+            {t.branch.replace(/^ticket\//, "")}
           </span>
         )}
-        {t.dirty != null && t.dirty > 0 && <span className="badge warn">±{t.dirty}</span>}
-        {t.running && <span className="badge run">pid {t.pid}</span>}
-        {t.model && t.running && <span className="badge">{t.model}</span>}
+        {t.running && t.model && <span className="tag tag-accent">{t.model}</span>}
+        {t.dirty != null && t.dirty > 0 && <span className="tag tag-neutral warn-c">±{t.dirty}</span>}
+        {t.turns > 0 && <span className="tag tag-neutral">${t.costUsd.toFixed(2)}</span>}
       </div>
-      <div className="map-badges">
+      <div className="tags">
         {t.pr ? (
           <a
-            className={`badge pr ${t.pr.state.toLowerCase()}`}
+            className={`tag tag-outline ${t.pr.state === "OPEN" ? "ok-c" : t.pr.state === "MERGED" ? "" : "err-c"}`}
             href={t.pr.url}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
           >
-            PR #{t.pr.number} {t.pr.state.toLowerCase()}
+            <i className="ph ph-git-pull-request" style={{ marginRight: 3 }} />#{t.pr.number}{" "}
+            {t.pr.state.toLowerCase()}
             {t.pr.checks ? ` · ${t.pr.checks}` : ""}
           </a>
         ) : (
-          <span className="badge dim">no PR</span>
+          <span style={{ fontSize: 10.5, color: "var(--color-neutral-600)" }}>no PR</span>
         )}
-        {t.turns > 0 && <span className="badge dim">${t.costUsd.toFixed(2)}</span>}
+        {t.running && (
+          <span style={{ fontSize: 10.5, color: "oklch(0.72 0.1 150)", marginLeft: "auto" }}>pid {t.pid}</span>
+        )}
       </div>
     </div>
   );
@@ -100,8 +105,6 @@ const nodeTypes: NodeTypes = {
   thread: ThreadNodeView,
 };
 
-// Pure data → graph. Exported for tests; no React Flow types leak out of the
-// node/edge shells.
 export function buildGraph(
   map: MapData,
   handlers: {
@@ -129,6 +132,7 @@ export function buildGraph(
         source: `p${p.id}`,
         target: `t${t.id}`,
         animated: t.running,
+        style: t.running ? { stroke: "oklch(0.55 0.07 150)" } : { stroke: "var(--color-neutral-800)" },
       });
       y += THREAD_H + GAP;
     }
@@ -141,6 +145,7 @@ export function buildGraph(
         name: p.name,
         dir: p.dir,
         isTeamLead: p.id === map.teamLeadProjectId,
+        liveCount: threads.filter((t) => t.running).length,
         onOpen: () => handlers.onOpenProject(p.id),
       },
     });
@@ -150,19 +155,23 @@ export function buildGraph(
         source: "tl",
         target: `p${p.id}`,
         animated: threads.some((t) => t.running),
+        style: { stroke: "var(--color-accent-700)" },
       });
     }
     y = Math.max(y, blockStart + blockH + GAP) + BLOCK_GAP - GAP;
   }
 
   if (map.teamLeadProjectId != null) {
-    const tlName =
-      map.projects.find((p) => p.id === map.teamLeadProjectId)?.name ?? "Team lead";
+    const tlName = map.projects.find((p) => p.id === map.teamLeadProjectId)?.name ?? "Team lead";
     nodes.push({
       id: "tl",
       type: "teamlead",
       position: { x: COL_X.teamlead, y: Math.max(y - BLOCK_GAP, PROJECT_H) / 2 - PROJECT_H / 2 },
-      data: { label: tlName, onOpen: handlers.onOpenTeamLead },
+      data: {
+        label: tlName,
+        liveCount: map.threads.filter((t) => t.running).length,
+        onOpen: handlers.onOpenTeamLead,
+      },
     });
   }
 
@@ -186,7 +195,6 @@ export default function MapView({
 
   useEffect(() => {
     refresh();
-    // PR checks / git state change outside daemon events — slow background poll.
     const timer = setInterval(refresh, POLL_MS);
     return () => clearInterval(timer);
   }, [refresh]);
@@ -210,11 +218,13 @@ export default function MapView({
   );
 
   return (
-    <main className="map">
-      <div className="pane-head">
-        <span>Live map</span>
-        <button title="Refresh map" onClick={refresh}>
-          ↻
+    <div className="map-view">
+      <div className="view-head" style={{ padding: 0 }}>
+        <h4>Live map</h4>
+        <span className="sub">team lead → projects → running threads · click a node to jump</span>
+        <span className="spacer" />
+        <button className="btn btn-secondary small-btn" onClick={refresh}>
+          <i className="ph ph-arrows-clockwise" /> Refresh
         </button>
       </div>
       {!graph ? (
@@ -233,11 +243,11 @@ export default function MapView({
             nodesConnectable={false}
             colorMode="dark"
           >
-            <Background gap={24} />
+            <Background gap={26} />
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
       )}
-    </main>
+    </div>
   );
 }

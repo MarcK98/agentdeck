@@ -17,3 +17,4 @@ spawn-daemon.token
 spawn-daemon-sessions.json
 # Per-ticket git worktrees (default SPAWN_WORKTREES_DIR under the data dir)
 worktrees/
+spawn-daemon.pid

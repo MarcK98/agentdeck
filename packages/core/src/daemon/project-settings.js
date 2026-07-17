@@ -14,6 +14,8 @@ const DEFAULTS = {
   approvalMode: "prompt", // "prompt" | "auto" — per project, no global default
   allowedModels: ["haiku", "sonnet", "opus"], // fable requires explicit opt-in
   defaultModel: "", // empty = harness default
+  defaultEffort: "", // empty = harness default; per-run opts still win
+  isolation: true, // worktree-per-ticket for delegations into git projects
   mcps: [], // MCP server names enabled for this project
   skills: [], // skill names enabled for this project
 };

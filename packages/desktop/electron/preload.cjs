@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld("spawn", {
   getThreadContext: (threadId) => ipcRenderer.invoke("spawn:getThreadContext", threadId),
   cleanupThread: (threadId, force) => ipcRenderer.invoke("spawn:cleanupThread", threadId, force),
   getMap: () => ipcRenderer.invoke("spawn:getMap"),
+  listApprovals: () => ipcRenderer.invoke("spawn:listApprovals"),
+  listDecisions: () => ipcRenderer.invoke("spawn:listDecisions"),
+  getUsage: (days) => ipcRenderer.invoke("spawn:getUsage", days),
+  resetThreadSession: (threadId) => ipcRenderer.invoke("spawn:resetThreadSession", threadId),
   onEvent: (fn) => {
     const handler = (_e, ev) => fn(ev);
     ipcRenderer.on("spawn:event", handler);
