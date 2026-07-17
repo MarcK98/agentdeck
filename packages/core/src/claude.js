@@ -133,6 +133,10 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   // stream-json emits one JSON event per line as Claude works
   // (--verbose is required with -p + stream-json).
   const args = ["-p", prompt, "--output-format", "stream-json", "--verbose"];
+  // Token-level deltas (typewriter streaming) only when the caller wants them
+  // — the flag adds stream_event lines on top of the normal events, so
+  // callers without onDelta (the bridge) see an unchanged stream.
+  if (opts.onDelta) args.push("--include-partial-messages");
   if (model) args.push("--model", model);
   if (effort) args.push("--effort", effort);
   // Beta headers. A per-run opts.betas (the team lead's Sonnet-1M window) wins
@@ -290,6 +294,24 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
             onText(text);
           } catch (err) {
             log.warn("[claude] onText handler failed:", err.message);
+          }
+        }
+      } else if (ev.type === "stream_event") {
+        // Partial-message deltas (--include-partial-messages). Only assistant
+        // text is relayed — thinking/input_json deltas stay internal. The
+        // complete "assistant" event still follows and remains the source of
+        // truth for persistence.
+        const inner = ev.event;
+        if (
+          inner?.type === "content_block_delta" &&
+          inner.delta?.type === "text_delta" &&
+          inner.delta.text &&
+          opts.onDelta
+        ) {
+          try {
+            opts.onDelta(inner.delta.text);
+          } catch (err) {
+            log.warn("[claude] onDelta handler failed:", err.message);
           }
         }
       } else if (ev.type === "user") {

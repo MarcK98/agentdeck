@@ -36,17 +36,31 @@ export default function ChatThread({
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  // In-flight assistant text, accumulated token-by-token from turn:delta.
+  // The persisted row (turn:text) supersedes it, so it's cleared there —
+  // never appended, which keeps the transcript free of duplicates.
+  const [live, setLive] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages([]);
+    setLive("");
     window.spawn.listMessages(threadId).then(setMessages);
   }, [threadId]);
 
   useEffect(() => {
     return window.spawn.onEvent((ev) => {
+      if (ev.type === "turn:delta") {
+        if (ev.payload.threadId === threadId) setLive((prev) => prev + ev.payload.text);
+        return;
+      }
+      if (ev.type === "turn:done") {
+        if (ev.payload.threadId === threadId) setLive("");
+        return;
+      }
       if (ev.type !== "turn:text" && ev.type !== "turn:tool") return;
       if (ev.payload.threadId !== threadId) return;
+      if (ev.type === "turn:text") setLive("");
       const msg = ev.payload.message;
       setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
     });
@@ -54,7 +68,7 @@ export default function ChatThread({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, live]);
 
   const send = async () => {
     const text = draft.trim();
@@ -82,7 +96,16 @@ export default function ChatThread({
             </div>
           )
         )}
-        {busy && (
+        {live && (
+          <div className="msg assistant">
+            <div className="who">agent</div>
+            <pre>
+              {live}
+              <span className="caret" />
+            </pre>
+          </div>
+        )}
+        {busy && !live && (
           <div className="working">
             <span className="dot-live pulse" />
             working…

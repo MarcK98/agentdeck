@@ -187,6 +187,7 @@ export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
   | { type: "turn:start"; payload: { threadId: number } }
+  | { type: "turn:delta"; payload: { threadId: number; text: string } }
   | { type: "turn:text"; payload: { threadId: number; message: Message } }
   | { type: "turn:tool"; payload: { threadId: number; message: Message } }
   | {

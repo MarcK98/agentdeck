@@ -126,6 +126,10 @@ export function createDaemon() {
         emit("turn:text", { threadId, message });
       },
       {
+        // Typewriter stream: token deltas as ephemeral events. Never
+        // persisted — the complete message row (turn:text above) follows and
+        // replaces the client's accumulated draft.
+        onDelta: (text) => emit("turn:delta", { threadId, text }),
         // An explicit per-turn model/effort (delegation right-sizing) beats the
         // project default — same precedence claude.js applies internally.
         model: opts.model || settings.defaultModel || undefined,
