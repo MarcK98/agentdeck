@@ -229,6 +229,10 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .panel .p-title i { color: var(--color-neutral-500); }
 .f-label { font-size: 11px; color: var(--color-neutral-500); margin-bottom: 4px; }
 .f-static { background: var(--color-neutral-900); border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); padding: 7px 11px; font-size: 12.5px; }
+/* .f-static doubles as an input class — never inherit the UA's black text. */
+input.f-static { color: var(--color-text); font-family: inherit; outline: none; caret-color: var(--color-accent); }
+input.f-static::placeholder { color: var(--color-neutral-600); }
+input.f-static:focus { border-color: var(--color-accent-700); }
 .f-static.mono { font-size: 12px; color: var(--color-neutral-300); }
 .f-row { display: flex; gap: 14px; margin-top: 12px; }
 .f-row > div { flex: 1; min-width: 0; }
