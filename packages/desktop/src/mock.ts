@@ -22,6 +22,13 @@ const projects: Project[] = [
   { id: 2, name: "fable-engine", dir: "~/dev/fable-engine", created_at: "" },
   { id: 3, name: "site-refresh", dir: "~/dev/site-refresh", created_at: "" },
   { id: 4, name: "team-lead", dir: "~/dev/team-lead", created_at: "" },
+  // Filler so the rail's project scrollview is exercised in browser QA.
+  ...Array.from({ length: 14 }, (_, i) => ({
+    id: 20 + i,
+    name: `project-${String.fromCharCode(97 + i)}`,
+    dir: `~/dev/project-${String.fromCharCode(97 + i)}`,
+    created_at: "",
+  })),
 ];
 
 const mkThread = (

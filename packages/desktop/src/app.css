@@ -38,14 +38,24 @@ body.mac-electron .topbar { padding-left: 84px; }
 .inbox-bell .count { position: absolute; top: -4px; right: -7px; font: 600 9px var(--font-heading); background: var(--color-accent); color: #161826; border-radius: 8px; padding: 1px 5px; }
 
 /* ── Side nav ────────────────────────────────────────────────────────────── */
-.sidenav { padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sidenav { padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
 .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; border-radius: var(--radius-md); background: none; color: var(--color-neutral-400); font: 400 13px var(--font-body); cursor: pointer; text-align: left; width: 100%; }
 .nav-item i { font-size: 16px; }
 .nav-item:hover { color: var(--color-neutral-200); background: color-mix(in srgb, var(--color-text) 5%, transparent); }
 .nav-item.active { background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-300); font-weight: 500; box-shadow: inset 2px 0 0 var(--color-accent); }
 .nav-item .meta { margin-left: auto; font-size: 11px; color: var(--color-neutral-600); }
-.nav-head { margin: 20px 12px 6px; font: 500 10px var(--font-heading); letter-spacing: 0.09em; text-transform: uppercase; color: var(--color-neutral-600); }
-.nav-project { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border: 0; border-radius: var(--radius-md); background: none; color: var(--color-neutral-300); font-size: 12.5px; cursor: pointer; text-align: left; width: 100%; overflow: hidden; }
+.nav-head { display: flex; align-items: center; margin: 20px 12px 6px; font: 500 10px var(--font-heading); letter-spacing: 0.09em; text-transform: uppercase; color: var(--color-neutral-600); flex: none; }
+.nav-edit { margin-left: auto; background: none; border: 0; color: var(--color-neutral-600); cursor: pointer; font-size: 13px; padding: 0 2px; }
+.nav-edit:hover, .nav-edit.on { color: var(--color-accent-300); }
+/* The projects list is its own scrollview: fixed row spacing regardless of
+   window height, nav above and Settings below stay put. */
+.nav-projects { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-bottom: 6px; }
+.nav-project { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 12px; border: 0; border-radius: var(--radius-md); background: none; color: var(--color-neutral-300); font-size: 13.5px; cursor: pointer; text-align: left; width: 100%; overflow: hidden; }
+.nav-project .grip { color: var(--color-neutral-600); font-size: 14px; flex: none; cursor: grab; }
+.nav-project .eye { margin-left: auto; color: var(--color-neutral-500); font-size: 14px; flex: none; cursor: pointer; padding: 0 2px; }
+.nav-project .eye:hover { color: var(--color-text); }
+.nav-project.hidden-p { opacity: 0.4; }
+.nav-hidden-note { flex: none; font-size: 10.5px; color: var(--color-neutral-600); padding: 4px 12px; }
 .nav-project:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
 .nav-project.active { background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-200); box-shadow: inset 2px 0 0 var(--color-accent); }
 .nav-project .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

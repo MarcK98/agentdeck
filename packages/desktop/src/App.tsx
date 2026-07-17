@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveThread, ApprovalRequest, Project, UsageSummary } from "./types";
 import OrchestrateView from "./OrchestrateView";
 import ThreadsView from "./ThreadsView";
@@ -26,6 +26,21 @@ const NAV: { view: View; label: string; icon: string }[] = [
 
 const fmtTok = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 
+// Rail project prefs (order + hidden) — pure UI state, kept client-side.
+interface ProjectPrefs {
+  order: number[];
+  hidden: number[];
+}
+const PREFS_KEY = "spawn.projectPrefs";
+const loadPrefs = (): ProjectPrefs => {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "");
+    return { order: Array.isArray(p.order) ? p.order : [], hidden: Array.isArray(p.hidden) ? p.hidden : [] };
+  } catch {
+    return { order: [], hidden: [] };
+  }
+};
+
 export default function App() {
   const [view, setView] = useState<View>("orchestrate");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -42,6 +57,43 @@ export default function App() {
   const [refreshTick, setRefreshTick] = useState(0);
   // Cross-view jump: set thread after the Threads view loads its list.
   const jumpRef = useRef<number | null>(null);
+  // Rail projects: custom order + hidden set, with a manage mode for
+  // drag-reordering and eye-toggling. Persisted in localStorage.
+  const [prefs, setPrefsState] = useState<ProjectPrefs>(loadPrefs);
+  const [manageProjects, setManageProjects] = useState(false);
+  const dragFrom = useRef<number | null>(null);
+  const savePrefs = useCallback((p: ProjectPrefs) => {
+    setPrefsState(p);
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    } catch {
+      /* storage full/unavailable — order just won't persist */
+    }
+  }, []);
+
+  const orderedProjects = useMemo(() => {
+    const idx = new Map(prefs.order.map((id, i) => [id, i]));
+    return [...projects].sort(
+      (a, b) => (idx.get(a.id) ?? 1e9) - (idx.get(b.id) ?? 1e9) || a.name.localeCompare(b.name)
+    );
+  }, [projects, prefs.order]);
+  const railProjects = manageProjects
+    ? orderedProjects
+    : orderedProjects.filter((p) => !prefs.hidden.includes(p.id));
+
+  const moveProject = (from: number, to: number) => {
+    if (from === to) return;
+    const ids = orderedProjects.map((p) => p.id);
+    const [id] = ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    savePrefs({ ...prefs, order: ids });
+  };
+  const toggleHidden = (id: number) => {
+    savePrefs({
+      ...prefs,
+      hidden: prefs.hidden.includes(id) ? prefs.hidden.filter((x) => x !== id) : [...prefs.hidden, id],
+    });
+  };
 
   const markBusy = useCallback((id: number) => {
     setBusyThreads((prev) => new Set(prev).add(id));
@@ -190,24 +242,77 @@ export default function App() {
             </button>
           ))}
 
-          <div className="nav-head">Projects</div>
-          {projects.map((p) => (
+          <div className="nav-head">
+            Projects
             <button
-              key={p.id}
-              className={`nav-project ${view === "threads" && p.id === projectId ? "active" : ""}`}
-              title={p.dir}
-              onClick={() => openProject(p.id)}
+              className={`nav-edit ${manageProjects ? "on" : ""}`}
+              title={manageProjects ? "Done — save order & visibility" : "Reorder / hide projects"}
+              onClick={() => setManageProjects((m) => !m)}
             >
-              <span
-                className="chip"
-                style={p.id === teamLeadProjectId ? { background: "var(--color-accent-500)" } : undefined}
-              />
-              <span className="name">{p.name}</span>
-              {(runningByProject.get(p.id) ?? 0) > 0 && (
-                <span className="run-count">● {runningByProject.get(p.id)}</span>
-              )}
+              <i className={`ph ${manageProjects ? "ph-check" : "ph-sliders-horizontal"}`} />
             </button>
-          ))}
+          </div>
+          <div className="nav-projects">
+            {railProjects.map((p, i) => {
+              const hidden = prefs.hidden.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  className={`nav-project ${view === "threads" && p.id === projectId ? "active" : ""} ${
+                    manageProjects && hidden ? "hidden-p" : ""
+                  }`}
+                  title={p.dir}
+                  draggable={manageProjects}
+                  onDragStart={() => {
+                    dragFrom.current = i;
+                  }}
+                  onDragOver={(e) => {
+                    if (!manageProjects || dragFrom.current == null) return;
+                    e.preventDefault();
+                    if (dragFrom.current !== i) {
+                      moveProject(dragFrom.current, i);
+                      dragFrom.current = i;
+                    }
+                  }}
+                  onDragEnd={() => {
+                    dragFrom.current = null;
+                  }}
+                  onClick={() => {
+                    if (!manageProjects) openProject(p.id);
+                  }}
+                >
+                  {manageProjects ? (
+                    <i className="ph ph-dots-six-vertical grip" />
+                  ) : (
+                    <span
+                      className="chip"
+                      style={p.id === teamLeadProjectId ? { background: "var(--color-accent-500)" } : undefined}
+                    />
+                  )}
+                  <span className="name">{p.name}</span>
+                  {manageProjects ? (
+                    <span
+                      className="eye"
+                      title={hidden ? "Show in sidebar" : "Hide from sidebar"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHidden(p.id);
+                      }}
+                    >
+                      <i className={`ph ${hidden ? "ph-eye-slash" : "ph-eye"}`} />
+                    </span>
+                  ) : (
+                    (runningByProject.get(p.id) ?? 0) > 0 && (
+                      <span className="run-count">● {runningByProject.get(p.id)}</span>
+                    )
+                  )}
+                </button>
+              );
+            })}
+            {!manageProjects && prefs.hidden.length > 0 && (
+              <div className="nav-hidden-note">{prefs.hidden.length} hidden</div>
+            )}
+          </div>
 
           <div className="nav-bottom">
             <button
