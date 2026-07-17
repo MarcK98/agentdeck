@@ -76,6 +76,10 @@ ipcMain.handle("spawn:listDecisions", () => rpc("listDecisions"));
 ipcMain.handle("spawn:getUsage", (_e, days) => rpc("getUsage", days));
 ipcMain.handle("spawn:resetThreadSession", (_e, threadId) => rpc("resetThreadSession", threadId));
 ipcMain.handle("spawn:listSkills", (_e, projectId) => rpc("listSkills", projectId));
+ipcMain.handle("spawn:listDeliverables", (_e, threadId) => rpc("listDeliverables", threadId));
+// Finder integration — local shell, not daemon RPC.
+ipcMain.handle("spawn:openDir", (_e, dir) => shell.openPath(dir));
+ipcMain.handle("spawn:revealFile", (_e, p) => shell.showItemInFolder(p));
 
 app.whenReady().then(async () => {
   // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.

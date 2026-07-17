@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ThreadContext } from "./types";
+import type { DeliverableFile, ThreadContext } from "./types";
+
+const fmtSize = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} kB` : `${n} B`;
 
 // The 3b right rail: Run / Isolation / Pull request sections over
 // getThreadContext, with Stop, Reset session, and worktree cleanup.
@@ -7,12 +10,20 @@ import type { ThreadContext } from "./types";
 export default function ContextRail({ threadId }: { threadId: number }) {
   const [ctx, setCtx] = useState<ThreadContext | null>(null);
   const [dirtyCount, setDirtyCount] = useState<number | null>(null);
+  const [outputs, setOutputs] = useState<{ dir: string | null; files: DeliverableFile[] }>({
+    dir: null,
+    files: [],
+  });
 
   const refresh = useCallback(() => {
     window.spawn
       .getThreadContext(threadId)
       .then(setCtx)
       .catch(() => setCtx(null));
+    window.spawn
+      .listDeliverables(threadId)
+      .then(setOutputs)
+      .catch(() => setOutputs({ dir: null, files: [] }));
   }, [threadId]);
 
   useEffect(() => {
@@ -24,6 +35,7 @@ export default function ContextRail({ threadId }: { threadId: number }) {
   useEffect(() => {
     return window.spawn.onEvent((ev) => {
       if ((ev.type === "turn:start" || ev.type === "turn:done") && ev.payload.threadId === threadId) refresh();
+      if (ev.type === "deliverables:updated" && ev.payload.threadId === threadId) refresh();
       if (ev.type === "thread:updated" && ev.payload.id === threadId) refresh();
     });
   }, [threadId, refresh]);
@@ -146,6 +158,33 @@ export default function ContextRail({ threadId }: { threadId: number }) {
           </span>
         )}
       </div>
+
+      {outputs.files.length > 0 && (
+        <div className="rail-sect">
+          <span className="h">Outputs</span>
+          {outputs.files.slice(0, 8).map((f) => (
+            <button
+              key={f.path}
+              className="row out-file"
+              title={`${f.name} · ${fmtSize(f.size)} — reveal in Finder`}
+              onClick={() => window.spawn.revealFile(f.path)}
+            >
+              <i className="ph ph-file-arrow-down" />
+              <span className="ell">{f.name}</span>
+              <span style={{ marginLeft: "auto", flex: "none", color: "var(--color-neutral-600)", fontSize: 10.5 }}>
+                {fmtSize(f.size)}
+              </span>
+            </button>
+          ))}
+          {outputs.dir && (
+            <span className="btns">
+              <button className="btn btn-ghost small-btn" onClick={() => window.spawn.openDir(outputs.dir!)}>
+                <i className="ph ph-folder-open" /> Open folder
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="rail-sect">
         <span className="h">Pull request</span>

@@ -21,6 +21,7 @@ import {
   worktreeStatus,
   prStatus,
 } from "../worktrees.js";
+import { dirFor as deliverablesDirFor, commitAll as commitDeliverables, listFiles as listDeliverableFiles } from "../deliverables.js";
 import { getOverrides, resolveProject } from "../projects.js";
 // No Trello here — the Orchestrate board is native (the tickets table is the
 // source of truth). The Discord bridge keeps its own Trello sync; the daemon
@@ -189,10 +190,22 @@ export function createDaemon() {
   // clients append incrementally instead of re-pulling history. Callers insert
   // their own prompting rows first (sendMessage: the user's text; delegateTask:
   // the task) — promptText is what actually goes to Claude.
+  // Where this thread's non-code outputs go (see deliverables.js).
+  const deliverablesDirForThread = (thread, project) =>
+    deliverablesDirFor({
+      projectName: project.name,
+      ticketId: db.getTicketByThread(thread.id)?.id ?? null,
+    });
+
   const launchTurn = (thread, project, promptText, opts = {}) => {
     const threadId = thread.id;
     const settings = getProjectSettings(project.id);
     emit("turn:start", { threadId });
+
+    // Deliverables: give the run a managed output dir (pre-created, permitted
+    // via --add-dir) and tell it what belongs there.
+    const outDir = deliverablesDirForThread(thread, project);
+    const deliverablesNote = `## Output files\nWhen this task asks for a non-code deliverable (a PDF, spreadsheet, presentation, report, export, or any file that IS the requested output rather than a code change), save it under ${outDir} — you already have write access there, and everything in it is versioned automatically. Code changes still belong in the repo.`;
 
     let seq = 0;
     const done = askClaude(
@@ -218,8 +231,11 @@ export function createDaemon() {
         // Per-project MCP servers + skill denials (settings page).
         mcpServers: mcpServersFor(settings),
         disallowedTools: (settings.disabledSkills ?? []).map((s) => `Skill(${s})`),
-        // Rules / memory / connections, as a system-prompt suffix.
-        appendSystemPrompt: contextBlockFor(settings),
+        // Rules / memory / connections + the deliverables note, as a
+        // system-prompt suffix.
+        appendSystemPrompt: [contextBlockFor(settings), deliverablesNote].filter(Boolean).join("\n\n"),
+        // Write access to the output dir without a permission prompt.
+        addDirs: [outDir],
         // Approval routing (per-project): "prompt" surfaces permission
         // prompts as approval:* events via the hub; "auto" runs unattended.
         // Prompt mode pins permissionMode to "" — a CLAUDE_PERMISSION_MODE
@@ -256,6 +272,11 @@ export function createDaemon() {
         const status = res.ok ? "in-review" : res.cancelled ? "in-progress" : "blocked";
         if (status !== k.status) emit("ticket:updated", db.updateTicket(k.id, { status }));
       }
+      // Version any new/changed output files (repo-wide snapshot; the message
+      // names the run that triggered it). Fire-and-forget by design.
+      commitDeliverables(`${project.name}${k ? ` SPWN-${k.id}` : ""}: ${thread.title}`).then((files) => {
+        if (files.length) emit("deliverables:updated", { threadId, files });
+      });
       emit("turn:done", {
         threadId,
         ok: res.ok,
@@ -687,6 +708,16 @@ export function createDaemon() {
           .sort((a, b) => a.ts - b.ts),
         sessions,
       };
+    },
+
+    // Output files for one thread's deliverables dir (context rail).
+    listDeliverables: (threadId) => {
+      const thread = db.getThread(threadId);
+      if (!thread) throw new Error(`No such thread: ${threadId}`);
+      const project = db.listProjects().find((p) => p.id === thread.project_id);
+      if (!project) return { dir: null, files: [] };
+      const dir = deliverablesDirForThread(thread, project);
+      return { dir, files: listDeliverableFiles(dir) };
     },
 
     cancelTurn: (threadId) => cancelRun(threadKey(threadId)),

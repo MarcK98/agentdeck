@@ -152,6 +152,14 @@ export interface ThreadContext {
   };
 }
 
+// One agent-produced output file (daemon listDeliverables).
+export interface DeliverableFile {
+  path: string; // absolute
+  name: string; // relative to the thread's deliverables dir
+  size: number;
+  mtime: number;
+}
+
 export type CleanupResult =
   | { ok: true }
   | { ok: false; reason: string; dirty?: number };
@@ -222,6 +230,7 @@ export type SpawnEvent =
   | { type: "ticket:created"; payload: Ticket }
   | { type: "ticket:updated"; payload: Ticket }
   | { type: "ticket:deleted"; payload: { id: number } }
+  | { type: "deliverables:updated"; payload: { threadId: number; files: string[] } }
   | { type: "approval:request"; payload: ApprovalRequest }
   | { type: "approval:resolved"; payload: { id: number; threadId: number; allow: boolean } };
 
@@ -272,6 +281,9 @@ declare global {
       getUsage(days?: number): Promise<UsageSummary>;
       resetThreadSession(threadId: number): Promise<boolean>;
       listSkills(projectId: number): Promise<SkillInfo[]>;
+      listDeliverables(threadId: number): Promise<{ dir: string | null; files: DeliverableFile[] }>;
+      openDir(dir: string): Promise<void>;
+      revealFile(path: string): Promise<void>;
       onEvent(fn: (ev: SpawnEvent) => void): () => void;
     };
   }

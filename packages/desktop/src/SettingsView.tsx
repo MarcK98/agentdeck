@@ -176,7 +176,14 @@ export default function SettingsView({
                 <div className="f-label" style={{ marginTop: 12 }}>
                   Working directory
                 </div>
-                <div className="f-static mono">{project.dir}</div>
+                <button
+                  className="f-static mono dir-open"
+                  title="Open in Finder"
+                  onClick={() => window.spawn.openDir(project.dir)}
+                >
+                  <span className="ell">{project.dir}</span>
+                  <i className="ph ph-arrow-square-out" />
+                </button>
                 <div className="note">
                   Projects are directories under PROJECTS_ROOT (plus projects.json overrides) — rename or
                   move them on disk.

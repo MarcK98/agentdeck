@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld("spawn", {
   getUsage: (days) => ipcRenderer.invoke("spawn:getUsage", days),
   resetThreadSession: (threadId) => ipcRenderer.invoke("spawn:resetThreadSession", threadId),
   listSkills: (projectId) => ipcRenderer.invoke("spawn:listSkills", projectId),
+  listDeliverables: (threadId) => ipcRenderer.invoke("spawn:listDeliverables", threadId),
+  openDir: (dir) => ipcRenderer.invoke("spawn:openDir", dir),
+  revealFile: (p) => ipcRenderer.invoke("spawn:revealFile", p),
   onEvent: (fn) => {
     const handler = (_e, ev) => fn(ev);
     ipcRenderer.on("spawn:event", handler);

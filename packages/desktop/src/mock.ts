@@ -290,6 +290,18 @@ export function installMock() {
         { name: "pdf-reader", scope: "user" as const, description: "Read PDFs", enabled: !disabled.has("pdf-reader") },
       ];
     },
+    listDeliverables: async (threadId) =>
+      threadId === 11
+        ? {
+            dir: "~/dev/deliverables/spawnmy-ai/SPWN-11",
+            files: [
+              { path: "/tmp/report.pdf", name: "gc-analysis.pdf", size: 482_000, mtime: Date.now() },
+              { path: "/tmp/data.xlsx", name: "worktree-audit.xlsx", size: 61_000, mtime: Date.now() - 3600e3 },
+            ],
+          }
+        : { dir: null, files: [] },
+    openDir: async () => {},
+    revealFile: async () => {},
     onEvent: () => () => {},
   };
 }

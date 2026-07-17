@@ -182,6 +182,9 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .rail-sect .row i { color: var(--color-neutral-500); flex: none; }
 .rail-sect .row .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-sect .btns { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+button.row.out-file { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--color-neutral-300); font-size: 11.5px; width: 100%; font-family: inherit; }
+button.row.out-file:hover { color: var(--color-accent-300); }
+button.row.out-file:hover i { color: var(--color-accent-300); }
 
 /* ── Approvals view ──────────────────────────────────────────────────────── */
 .approvals-body { padding: 20px 28px; display: grid; grid-template-columns: 1fr 340px; gap: 24px; min-height: 0; overflow-y: auto; align-content: start; flex: 1; }
@@ -233,6 +236,11 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 input.f-static { color: var(--color-text); font-family: inherit; outline: none; caret-color: var(--color-accent); }
 input.f-static::placeholder { color: var(--color-neutral-600); }
 input.f-static:focus { border-color: var(--color-accent-700); }
+button.f-static.dir-open { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: var(--color-neutral-300); cursor: pointer; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+button.f-static.dir-open .ell { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.f-static.dir-open i { color: var(--color-neutral-500); flex: none; }
+button.f-static.dir-open:hover { border-color: var(--color-accent-700); }
+button.f-static.dir-open:hover i { color: var(--color-accent-300); }
 .f-static.mono { font-size: 12px; color: var(--color-neutral-300); }
 .f-row { display: flex; gap: 14px; margin-top: 12px; }
 .f-row > div { flex: 1; min-width: 0; }
