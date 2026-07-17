@@ -192,6 +192,12 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
     args.push("--disallowedTools", ...opts.disallowedTools);
   }
 
+  // Per-run system-prompt suffix (the daemon's per-project rules / memory /
+  // connections block). Absent for callers that don't set it (the bridge).
+  if (opts.appendSystemPrompt) {
+    args.push("--append-system-prompt", opts.appendSystemPrompt);
+  }
+
   args.push(...extraArgs);
 
   log.info(`[claude] run (${sessionKey}) in ${cwd}:`, prompt.slice(0, 80));

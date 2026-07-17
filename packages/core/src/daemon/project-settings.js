@@ -25,6 +25,18 @@ const DEFAULTS = {
   // --disallowedTools "Skill(name)"). Everything discovered is allowed by
   // default; this is the unchecked set in the settings UI.
   disabledSkills: [],
+  // Standing instructions for every run in this project (how to behave).
+  // Injected via --append-system-prompt; independent of the repo's CLAUDE.md.
+  rules: "",
+  // Durable project facts/context agents should always know (what's true).
+  // Injected alongside rules.
+  memory: "",
+  // The project's wiring: accounts, cloud projects, deploy targets.
+  // {id, type, label, value, url?, secretEnv?, notes?} — `value` is the
+  // non-secret identifier (email, project id, app name). Secret material
+  // NEVER lives here; `secretEnv` just names the daemon env var that carries
+  // the token, so agents know which one to use.
+  connections: [],
 };
 
 // Secrets stay in-memory on purpose: Phase 1 ships no secret-editing UI, and

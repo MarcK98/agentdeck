@@ -1,5 +1,28 @@
 import { useEffect, useState } from "react";
-import type { McpServerDef, Project, ProjectSettings, SkillInfo } from "./types";
+import type { Connection, McpServerDef, Project, ProjectSettings, SkillInfo } from "./types";
+
+// Connection catalog: developer-infra types with icons and value hints.
+// "other" keeps it open-ended.
+export const CONNECTION_TYPES: { key: string; label: string; icon: string; hint: string }[] = [
+  { key: "google-account", label: "Google account", icon: "ph-google-logo", hint: "email" },
+  { key: "apple-account", label: "Apple account", icon: "ph-apple-logo", hint: "Apple ID email" },
+  { key: "github", label: "GitHub", icon: "ph-github-logo", hint: "org/user or repo" },
+  { key: "gcp", label: "Google Cloud", icon: "ph-cloud", hint: "project id" },
+  { key: "firebase", label: "Firebase", icon: "ph-fire", hint: "project id" },
+  { key: "supabase", label: "Supabase", icon: "ph-database", hint: "project ref" },
+  { key: "vercel", label: "Vercel", icon: "ph-triangle", hint: "project / team" },
+  { key: "netlify", label: "Netlify", icon: "ph-globe-hemisphere-west", hint: "site name" },
+  { key: "heroku", label: "Heroku", icon: "ph-hexagon", hint: "app name" },
+  { key: "aws", label: "AWS", icon: "ph-cloud-arrow-up", hint: "account / profile" },
+  { key: "digitalocean", label: "DigitalOcean", icon: "ph-drop", hint: "app / droplet" },
+  { key: "stripe", label: "Stripe", icon: "ph-credit-card", hint: "account" },
+  { key: "sentry", label: "Sentry", icon: "ph-bug", hint: "org/project" },
+  { key: "database", label: "Database", icon: "ph-database", hint: "host / name" },
+  { key: "domain", label: "Domain", icon: "ph-globe", hint: "domain name" },
+  { key: "other", label: "Other", icon: "ph-plug", hint: "identifier" },
+];
+const connMeta = (type: string) =>
+  CONNECTION_TYPES.find((t) => t.key === type) ?? CONNECTION_TYPES[CONNECTION_TYPES.length - 1];
 
 // Settings as a full screen (design 2a): project sub-nav left, panels right.
 // Only real, daemon-backed settings render as editable; future sections
@@ -23,6 +46,15 @@ export default function SettingsView({
   // Add-MCP-server form.
   const [mcpName, setMcpName] = useState("");
   const [mcpTarget, setMcpTarget] = useState("");
+  // Rules/memory drafts — saved on blur or ⌘S, so typing doesn't spam the DB.
+  const [rulesDraft, setRulesDraft] = useState("");
+  const [memoryDraft, setMemoryDraft] = useState("");
+  // Add-connection form.
+  const [connType, setConnType] = useState("google-account");
+  const [connLabel, setConnLabel] = useState("");
+  const [connValue, setConnValue] = useState("");
+  const [connUrl, setConnUrl] = useState("");
+  const [connEnv, setConnEnv] = useState("");
 
   const project = projects.find((p) => p.id === projectId) ?? null;
 
@@ -30,7 +62,11 @@ export default function SettingsView({
     if (projectId == null) return;
     setSettings(null);
     setSkills([]);
-    window.spawn.getProjectSettings(projectId).then(setSettings);
+    window.spawn.getProjectSettings(projectId).then((s) => {
+      setSettings(s);
+      setRulesDraft(s.rules ?? "");
+      setMemoryDraft(s.memory ?? "");
+    });
     window.spawn.listSkills(projectId).then(setSkills).catch(() => setSkills([]));
   }, [projectId]);
 
@@ -69,6 +105,27 @@ export default function SettingsView({
       : settings.disabledSkills.filter((x) => x !== s.name);
     await patch({ disabledSkills: disabled });
     setSkills(await window.spawn.listSkills(projectId));
+  };
+
+  const addConnection = () => {
+    if (!settings || !connValue.trim()) return;
+    const conn: Connection = {
+      id: `${connType}-${Date.now().toString(36)}`,
+      type: connType,
+      label: connLabel.trim(),
+      value: connValue.trim(),
+      url: connUrl.trim() || undefined,
+      secretEnv: connEnv.trim() || undefined,
+    };
+    patch({ connections: [...settings.connections, conn] });
+    setConnLabel("");
+    setConnValue("");
+    setConnUrl("");
+    setConnEnv("");
+  };
+  const removeConnection = (id: string) => {
+    if (!settings) return;
+    patch({ connections: settings.connections.filter((c) => c.id !== id) });
   };
 
   const toggleModel = (m: string) => {
@@ -316,6 +373,138 @@ export default function SettingsView({
                 <div className="note">
                   Unchecked skills are denied to agents in this project (via a Skill(name) tool rule).
                   Everything else stays available.
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="p-title">
+                  <i className="ph ph-scroll" />
+                  Rules
+                  <span className="p-hint">how agents behave here</span>
+                </div>
+                <textarea
+                  className="blob"
+                  value={rulesDraft}
+                  placeholder={"Standing instructions for every run in this project.\ne.g. Always open a PR, never push to main. Run npm test before committing. Ask before touching migrations."}
+                  onChange={(e) => setRulesDraft(e.target.value)}
+                  onBlur={() => {
+                    if (rulesDraft !== settings.rules) patch({ rules: rulesDraft });
+                  }}
+                />
+                <div className="note">
+                  Injected into every run's system prompt — on top of the repo's own CLAUDE.md.
+                  Saves when you click away.
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="p-title">
+                  <i className="ph ph-brain" />
+                  Memory
+                  <span className="p-hint">what's durably true here</span>
+                </div>
+                <textarea
+                  className="blob"
+                  value={memoryDraft}
+                  placeholder={"Project facts agents should always know.\ne.g. Staging is at staging.foo.dev. The iOS build needs Xcode 16. Marc reviews all schema changes."}
+                  onChange={(e) => setMemoryDraft(e.target.value)}
+                  onBlur={() => {
+                    if (memoryDraft !== settings.memory) patch({ memory: memoryDraft });
+                  }}
+                />
+                <div className="note">Injected alongside the rules. Saves when you click away.</div>
+              </div>
+
+              <div className="panel full">
+                <div className="p-title">
+                  <i className="ph ph-plugs" />
+                  Connections
+                  <span className="p-hint">accounts, cloud projects & deploy targets this project is wired to</span>
+                </div>
+                <div className="conn-grid">
+                  {settings.connections.map((c) => {
+                    const meta = connMeta(c.type);
+                    return (
+                      <div key={c.id} className="conn-card" title={c.notes ?? ""}>
+                        <i className={`ph ${meta.icon} conn-icon`} />
+                        <div className="body">
+                          <div className="t">
+                            {meta.label}
+                            {c.label && <span className="lbl"> · {c.label}</span>}
+                          </div>
+                          <div className="v mono">{c.value}</div>
+                          <div className="meta">
+                            {c.url && (
+                              <a href={c.url} target="_blank" rel="noreferrer">
+                                console <i className="ph ph-arrow-square-out" />
+                              </a>
+                            )}
+                            {c.secretEnv && (
+                              <span className="tag tag-neutral" title="Env var holding this connection's credentials — the token itself is never stored">
+                                env: {c.secretEnv}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button className="mcp-x" title="Remove" onClick={() => removeConnection(c.id)}>
+                          <i className="ph ph-x" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {settings.connections.length === 0 && (
+                    <div className="note" style={{ marginTop: 0, gridColumn: "1 / -1" }}>
+                      Nothing wired yet. Connections are shown to agents on every run — deploy targets,
+                      accounts, and cloud projects they must use instead of guessing.
+                    </div>
+                  )}
+                </div>
+                <div className="conn-add">
+                  <select className="f-select" style={{ width: 160 }} value={connType} onChange={(e) => setConnType(e.target.value)}>
+                    {CONNECTION_TYPES.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="f-static"
+                    style={{ width: 120 }}
+                    placeholder="label (prod, staging…)"
+                    value={connLabel}
+                    onChange={(e) => setConnLabel(e.target.value)}
+                  />
+                  <input
+                    className="f-static mono"
+                    style={{ flex: 1, minWidth: 90 }}
+                    placeholder={connMeta(connType).hint}
+                    value={connValue}
+                    onChange={(e) => setConnValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addConnection();
+                    }}
+                  />
+                  <input
+                    className="f-static mono"
+                    style={{ width: 170 }}
+                    placeholder="console url (optional)"
+                    value={connUrl}
+                    onChange={(e) => setConnUrl(e.target.value)}
+                  />
+                  <input
+                    className="f-static mono"
+                    style={{ width: 140 }}
+                    placeholder="token env var (opt.)"
+                    value={connEnv}
+                    onChange={(e) => setConnEnv(e.target.value)}
+                  />
+                  <button className="btn btn-ghost small-btn" disabled={!connValue.trim()} onClick={addConnection}>
+                    <i className="ph ph-plus" /> Add
+                  </button>
+                </div>
+                <div className="note">
+                  Identifiers only — emails, project ids, app names. Tokens never live here: point the
+                  env field at the daemon env var that carries them.
                 </div>
               </div>
             </>

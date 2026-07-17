@@ -44,6 +44,20 @@ export interface McpServerDef {
   enabled: boolean;
 }
 
+// One per-project connection: an account, cloud project, or deploy target
+// this project is wired to. `value` is the non-secret identifier (email,
+// project id, app name); `secretEnv` names the daemon env var carrying its
+// token — the token itself is never stored.
+export interface Connection {
+  id: string;
+  type: string; // key into CONNECTION_TYPES, or free-form
+  label: string;
+  value: string;
+  url?: string;
+  secretEnv?: string;
+  notes?: string;
+}
+
 export interface ProjectSettings {
   approvalMode: "prompt" | "auto";
   allowedModels: string[];
@@ -52,6 +66,9 @@ export interface ProjectSettings {
   isolation: boolean;
   mcpServers: McpServerDef[];
   disabledSkills: string[];
+  rules: string;
+  memory: string;
+  connections: Connection[];
 }
 
 // A discovered skill (project .claude/skills or user ~/.claude/skills),

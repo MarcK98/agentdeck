@@ -206,6 +206,15 @@ const defaultSettings = (): ProjectSettings => ({
     { name: "sentry", transport: "http", url: "https://mcp.sentry.dev", enabled: false },
   ],
   disabledSkills: ["deck-builder"],
+  rules: "Always open a PR — never push to main.\nRun npm test before committing.",
+  memory: "Staging lives at staging.spawnmy.dev. Marc reviews all schema changes.",
+  connections: [
+    { id: "c1", type: "google-account", label: "prod", value: "marc@spawnmy.ai", url: "https://console.cloud.google.com" },
+    { id: "c2", type: "firebase", label: "prod", value: "spawnmy-prod", url: "https://console.firebase.google.com", secretEnv: "FIREBASE_TOKEN" },
+    { id: "c3", type: "supabase", label: "", value: "xyzabc123ref", secretEnv: "SUPABASE_ACCESS_TOKEN" },
+    { id: "c4", type: "vercel", label: "web", value: "spawnmy-web", url: "https://vercel.com/spawnmy" },
+    { id: "c5", type: "heroku", label: "api", value: "spawnmy-api" },
+  ],
 });
 
 const map: MapData = {

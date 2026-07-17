@@ -155,6 +155,35 @@ export function createDaemon() {
     return out;
   };
 
+  // The per-project context block injected into every run's system prompt:
+  // rules (how to behave), memory (what's true), connections (what this
+  // project is wired to). Empty settings → null → no flag at all. Bounded so
+  // a runaway blob can't eat the context window.
+  const contextBlockFor = (settings) => {
+    const parts = [];
+    if (settings.rules?.trim()) {
+      parts.push(`## Project rules\n${settings.rules.trim()}`);
+    }
+    if (settings.memory?.trim()) {
+      parts.push(`## Project memory\n${settings.memory.trim()}`);
+    }
+    const conns = (settings.connections ?? []).filter((c) => c?.type && c?.value);
+    if (conns.length) {
+      const lines = conns.map((c) => {
+        let line = `- ${c.type}${c.label ? ` (${c.label})` : ""}: ${c.value}`;
+        if (c.url) line += ` — ${c.url}`;
+        if (c.secretEnv) line += ` — credentials in the ${c.secretEnv} env var`;
+        if (c.notes) line += ` — ${c.notes}`;
+        return line;
+      });
+      parts.push(
+        `## Project connections\nThis project's accounts and infrastructure. Use these — never guess at or create parallel ones:\n${lines.join("\n")}`
+      );
+    }
+    if (!parts.length) return null;
+    return parts.join("\n\n").slice(0, 8000);
+  };
+
   // Launch one Claude turn in a thread and stream it out as events:
   //   turn:start {threadId} → turn:text {threadId,message}* / turn:tool
   //   {threadId,message}* → turn:done {threadId, ok, ...}
@@ -191,6 +220,8 @@ export function createDaemon() {
         // Per-project MCP servers + skill denials (settings page).
         mcpServers: mcpServersFor(settings),
         disallowedTools: (settings.disabledSkills ?? []).map((s) => `Skill(${s})`),
+        // Rules / memory / connections, as a system-prompt suffix.
+        appendSystemPrompt: contextBlockFor(settings),
         // Approval routing (per-project): "prompt" surfaces permission
         // prompts as approval:* events via the hub; "auto" runs unattended.
         // Prompt mode pins permissionMode to "" — a CLAUDE_PERMISSION_MODE
