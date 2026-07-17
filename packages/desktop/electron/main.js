@@ -18,7 +18,12 @@ function createWindow() {
     width: 1280,
     height: 840,
     title: "Spawn",
-    backgroundColor: "#1e1f22",
+    // Nocturne ground (--color-bg) — also paints the pre-load flash.
+    backgroundColor: "#161826",
+    // No native (white) title bar: traffic lights float over the app's own
+    // dark top bar, which is a drag region (see .topbar in app.css).
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {
       preload: join(__dirname, "preload.cjs"),
       contextIsolation: true,

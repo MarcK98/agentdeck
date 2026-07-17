@@ -18,7 +18,12 @@ body { font-size: 13px; overflow: hidden; }
 .pulse { animation: pulse 1.6s infinite; }
 
 /* ── Top bar ─────────────────────────────────────────────────────────────── */
-.topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; }
+/* The window has no native title bar (titleBarStyle: hiddenInset) — this bar
+   IS the title bar: draggable, with interactive children opted back out. */
+.topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; -webkit-app-region: drag; }
+.topbar button, .topbar a, .topbar select, .topbar input { -webkit-app-region: no-drag; }
+/* Electron on macOS: clear the floating traffic lights. */
+body.mac-electron .topbar { padding-left: 84px; }
 .brand { display: flex; align-items: center; gap: 9px; width: 200px; font: 500 15px var(--font-heading); letter-spacing: -0.01em; }
 .brand i { color: var(--color-accent); font-size: 19px; }
 .palette-trigger { flex: 1; display: flex; justify-content: center; }
