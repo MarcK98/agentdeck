@@ -54,11 +54,15 @@ export function closeDb() {
 // ── Projects ─────────────────────────────────────────────────────────────────
 export const upsertProject = (name, dir) => {
   const d = openDb();
+  // Both name and dir are UNIQUE — handle a hit on either (a renamed dir, or
+  // a second name for an already-known dir) instead of throwing, so one odd
+  // mapping can never wedge project discovery.
   d.prepare(
     `INSERT INTO projects (name, dir) VALUES (?, ?)
-     ON CONFLICT(name) DO UPDATE SET dir = excluded.dir`
+     ON CONFLICT(name) DO UPDATE SET dir = excluded.dir
+     ON CONFLICT(dir) DO NOTHING`
   ).run(name, dir);
-  return d.prepare(`SELECT * FROM projects WHERE name = ?`).get(name);
+  return d.prepare(`SELECT * FROM projects WHERE dir = ?`).get(dir);
 };
 export const listProjects = () =>
   openDb().prepare(`SELECT * FROM projects ORDER BY name`).all();

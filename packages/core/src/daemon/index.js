@@ -70,16 +70,21 @@ export function createDaemon() {
 
   // ── Projects: union of dirs under PROJECTS_ROOT and projects.json overrides,
   // mirrored into SQLite so threads can reference them.
+  // Keyed by dir, not name: projects.dir is UNIQUE, and an override key (a
+  // channel name OR id, e.g. TEAMLEAD_CHANNEL's Discord id) can point at a
+  // dir that root discovery already found under its real name — one dir must
+  // resolve to exactly one project row. The display name is always the dir's
+  // basename.
   const discoverProjects = () => {
     const root = config.projects.root;
-    const dirs = new Map(); // name -> dir
+    const dirs = new Map(); // dir -> name
     if (root) {
       try {
         for (const entry of readdirSync(root)) {
           if (entry.startsWith(".")) continue;
           const dir = join(root, entry);
           try {
-            if (statSync(dir).isDirectory()) dirs.set(entry, dir);
+            if (statSync(dir).isDirectory()) dirs.set(dir, entry);
           } catch {
             /* unreadable entry */
           }
@@ -88,10 +93,10 @@ export function createDaemon() {
         log.warn(`Spawn daemon: cannot read PROJECTS_ROOT ${root}: ${err.message}`);
       }
     }
-    for (const [name, dir] of Object.entries(getOverrides())) {
-      dirs.set(basename(name), dir);
+    for (const dir of Object.values(getOverrides())) {
+      dirs.set(dir, basename(dir));
     }
-    return [...dirs].map(([name, dir]) => db.upsertProject(name, dir));
+    return [...dirs].map(([dir, name]) => db.upsertProject(name, dir));
   };
 
   // The team-lead's home project: TEAMLEAD_CHANNEL resolved like any bridge
