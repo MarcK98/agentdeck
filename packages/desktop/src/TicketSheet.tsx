@@ -44,6 +44,7 @@ export default function TicketSheet({
   const [effort, setEffort] = useState("");
   const [settings, setSettings] = useState<ProjectSettings | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "create" | "delegate" | "delete">("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (projectId === "") return setSettings(null);
@@ -64,8 +65,11 @@ export default function TicketSheet({
 
   const create = async () => {
     setBusyAction("create");
+    setError("");
     try {
       if (await save()) onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusyAction("");
     }
@@ -73,6 +77,7 @@ export default function TicketSheet({
 
   const delegate = async () => {
     setBusyAction("delegate");
+    setError("");
     try {
       const saved = await save();
       if (!saved) return;
@@ -82,6 +87,8 @@ export default function TicketSheet({
       });
       onDelegated(thread);
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusyAction("");
     }
@@ -90,9 +97,12 @@ export default function TicketSheet({
   const remove = async () => {
     if (!editing) return;
     setBusyAction("delete");
+    setError("");
     try {
       await window.spawn.deleteTicket(ticket.id);
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusyAction("");
     }
@@ -158,9 +168,15 @@ export default function TicketSheet({
           <>
             <div>
               <div className="f-label">
-                Model · effort <span style={{ color: "var(--color-neutral-600)" }}>(when delegating)</span>
+                Model <span style={{ color: "var(--color-neutral-600)" }}>(auto = the team lead right-sizes)</span>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <span
+                  className={`tag pick ${model === "" ? "tag-accent" : "tag-neutral"}`}
+                  onClick={() => setModel("")}
+                >
+                  auto
+                </span>
                 {MODELS.map((m) => (
                   <span
                     key={m}
@@ -171,7 +187,17 @@ export default function TicketSheet({
                     {m}
                   </span>
                 ))}
-                <span style={{ width: 1, height: 18, background: "var(--color-neutral-800)", margin: "0 4px" }} />
+              </div>
+            </div>
+            <div>
+              <div className="f-label">Effort</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <span
+                  className={`tag pick ${effort === "" ? "tag-accent" : "tag-neutral"}`}
+                  onClick={() => setEffort("")}
+                >
+                  auto
+                </span>
                 {EFFORTS.map((x) => (
                   <span
                     key={x}
@@ -190,11 +216,22 @@ export default function TicketSheet({
             </div>
           </>
         )}
+        {error && (
+          <div className="err-c" style={{ fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+            <i className="ph ph-warning-circle" />
+            {error}
+          </div>
+        )}
         <div className="s-foot">
           {editing && (
             <button className="btn btn-ghost small-btn err-c" disabled={busyAction !== ""} onClick={remove}>
               Delete
             </button>
+          )}
+          {canDelegate && (
+            <span style={{ fontSize: 11, color: "var(--color-neutral-500)" }}>
+              {model || settings?.defaultModel || "auto"} · {effort || settings?.defaultEffort || "auto"}
+            </span>
           )}
           <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
             <button
