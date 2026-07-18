@@ -25,7 +25,8 @@ import { timingSafeEqual } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { jwtVerify } from "jose";
 
-const PORT = Number(process.env.RELAY_PORT) || 8820;
+// RELAY_PORT for local dev; PORT is what Railway/Fly inject.
+const PORT = Number(process.env.RELAY_PORT || process.env.PORT) || 8820;
 const DAEMON_KEY = process.env.RELAY_DAEMON_KEY || "";
 const DEV_TOKEN = process.env.RELAY_DEV_TOKEN || "";
 const SUPABASE_SECRET = process.env.SUPABASE_JWT_SECRET || "";

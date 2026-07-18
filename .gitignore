@@ -21,3 +21,4 @@ spawn-daemon.pid
 # Expo/mobile artifacts
 .expo/
 packages/mobile/dist/
+.railway-token
