@@ -15,6 +15,12 @@
     "ios": {
       "bundleIdentifier": "ai.spawnmy.mobile",
       "supportsTablet": false
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9df63626-bc86-4584-98de-1d1b708de688"
+      }
+    },
+    "owner": "marck98"
   }
 }
