@@ -6,8 +6,9 @@
   "private": true,
   "scripts": {
     "start": "expo start",
-    "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "android": "expo run:android"
   },
   "dependencies": {
     "expo": "~52.0.0",
