@@ -14,7 +14,10 @@
     },
     "ios": {
       "bundleIdentifier": "ai.spawnmy.mobile",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "extra": {
       "eas": {
