@@ -8,5 +8,6 @@
 tfplan*
 .build/
 .vps-last-ip
+.vps-archived-ami
 crash.log
 crash.*.log

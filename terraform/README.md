@@ -60,6 +60,26 @@ password. `vps-stop.sh` removes that temporary rule and stops the instance —
 **not** `terraform destroy`, so the disk (and anything you installed/saved)
 is exactly as you left it next time.
 
+### Going idle for a long time (optional — get the VPS to ~$0)
+
+`vps-stop.sh` stops the box but its 30GB disk keeps billing (~$2.40/month)
+even while off. If you won't touch it for weeks, archive it instead:
+
+```sh
+./vps-archive.sh    # snapshots the disk to an AMI, then destroys the instance + its EBS volume
+#  ... weeks pass, paying only ~$0.50-0.75/month for the snapshot ...
+./vps-restore.sh    # recreates it from the snapshot, exactly as you left it
+./vps-start.sh      # then use it normally
+```
+
+`vps-archive.sh` preserves everything you installed (it's all in the
+snapshot) and drops ongoing storage cost to just the snapshot.
+`vps-restore.sh` brings it back (same software, same files, same admin
+password) and leaves it stopped. Trade-off: restore takes a few minutes vs.
+the ~1 minute a merely-stopped instance takes to start — so use
+`vps-stop.sh` for "done for today" and `vps-archive.sh` for "done for a
+while". Day-to-day start/stop is unchanged.
+
 Notes:
 - No Elastic IP — the public address changes on every start. The script
   always prints the current one; don't bookmark an IP.
@@ -141,6 +161,16 @@ own snapshot, even though the relay itself uses almost none of it); the VPS
 is also 30GB gp3 (matches the Windows Server 2022 AMI's own snapshot size,
 and the free-tier EBS cap).
 
+**Important — this is a *member* account in an AWS Organization**
+(management account `603657357170`). AWS Free Tier eligibility for an
+organization is tied to the **management account's age**: if that org is
+more than 12 months old, member accounts get **no free tier at all**, and
+the "worst case" table below is effectively the *actual* cost. I can't
+check the management account's age from this member account's credentials.
+(The newer credits-based free plan also doesn't apply to Organization
+member accounts.) So don't assume free-tier coverage — verify in the
+console.
+
 **I could not get an authoritative answer, for this specific account, on
 which AWS Free Tier offer applies** — Cost Explorer access is denied for
 the `terraform` IAM user even with AdministratorAccess (needs enabling
@@ -190,6 +220,18 @@ point of the start/stop design. The one line item that's genuinely
 worth knowing about regardless of free-tier status is the ~$2.40/month EBS
 overage from running two 30GB volumes simultaneously; everything else is
 either free or rounds to pennies for how lightly this is used.
+
+**Driving the VPS to ~$0 when idle:** `vps-archive.sh` snapshots the disk
+and destroys the instance + its EBS volume, so that ~$2.40/month VPS-EBS
+line drops to ~$0.50–0.75/month of snapshot storage until you
+`vps-restore.sh` it (see "Going idle for a long time" above). And since the
+relay already runs on Railway, the AWS relay is optional — destroying it
+(`terraform destroy -target=aws_instance.relay`, `-target=aws_s3_object`,
+etc., or just `terraform destroy` for everything) removes the largest cost
+items (relay compute + public IPv4 + its 30GB EBS). **There is no
+free-forever always-on compute on AWS**, so a 24/7 relay can't be $0 here
+long-term — that's why Railway remains the primary and this AWS relay is a
+parallel/optional environment.
 
 ## What's been tested
 

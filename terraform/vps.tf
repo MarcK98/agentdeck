@@ -38,7 +38,10 @@ resource "aws_vpc_security_group_egress_rule" "vps_all_out" {
 # No Elastic IP (would cost while stopped and adds no value here — the start
 # script prints whatever dynamic IP is assigned on each start).
 resource "aws_instance" "vps" {
-  ami                         = data.aws_ami.windows2022.id
+  # Empty var.vps_ami = fresh Windows base AMI. vps-restore.sh passes a
+  # snapshot AMI (built by vps-archive.sh) so the box comes back exactly as
+  # it was archived, with everything installed.
+  ami                         = var.vps_ami != "" ? var.vps_ami : data.aws_ami.windows2022.id
   instance_type               = var.vps_instance_type
   subnet_id                   = data.aws_subnets.default.ids[0]
   vpc_security_group_ids      = [aws_security_group.vps.id]
@@ -57,7 +60,14 @@ resource "aws_instance" "vps" {
   # Power state (running/stopped) is managed by vps-start.sh/vps-stop.sh via
   # the AWS CLI, not by Terraform — ignore drift on those attributes.
   lifecycle {
-    ignore_changes = [ami] # don't force a replacement just because a newer Windows AMI is published later
+    ignore_changes = [
+      ami, # don't force a replacement just because a newer Windows AMI is published later (or a restore put us on a snapshot AMI)
+      # A stopped / AMI-launched instance reads associate_public_ip_address
+      # back as false (a provider quirk), which would otherwise force a
+      # spurious replacement on a routine plan. The default subnet still
+      # assigns a public IP on start regardless.
+      associate_public_ip_address,
+    ]
   }
 }
 

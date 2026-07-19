@@ -16,6 +16,12 @@ variable "vps_instance_type" {
   default     = "t3.micro"
 }
 
+variable "vps_ami" {
+  description = "Override AMI for the VPS. Empty = latest Windows Server 2022 base AMI. vps-restore.sh sets this to a snapshot AMI created by vps-archive.sh, so the box comes back with everything you'd installed on it. Leave empty for a fresh box."
+  type        = string
+  default     = ""
+}
+
 # ── Secrets — set via terraform.tfvars (gitignored), NOT committed.
 # Generate with: ./scripts/bootstrap-secrets.sh
 variable "relay_daemon_key" {
