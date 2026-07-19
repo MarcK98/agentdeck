@@ -31,8 +31,20 @@ import { getOverrides, resolveProject } from "../projects.js";
 // source of truth). The Discord bridge keeps its own Trello sync; the daemon
 // never touches it.
 import * as db from "../db/index.js";
-import { getProjectSettings, updateProjectSettings } from "./project-settings.js";
+import {
+  getProjectSettings,
+  updateProjectSettings,
+  setProjectMcpSecret,
+  clearProjectMcpSecret,
+  getProjectMcpSecrets,
+} from "./project-settings.js";
 import { createApprovalHub } from "./approvals.js";
+import {
+  gcloudLogin,
+  gcloudDisconnect,
+  appleDisconnect,
+  importAppleKeyFile,
+} from "./provider-connect.js";
 
 // The Spawn daemon — a mastermind for Claude. This is the ONE API clients talk
 // through; it runs as its OWN background process (server.js) and owns sessions,
@@ -117,15 +129,31 @@ export function createDaemon() {
   // Reserved names (the built-ins) are dropped daemon-side too, so a settings
   // row can never shadow the approver.
   const RESERVED_MCP = new Set(["approver", "chrome-devtools"]);
-  const mcpServersFor = (settings) => {
+  const mcpServersFor = (projectId, settings) => {
     const out = {};
     for (const s of settings.mcpServers ?? []) {
       if (!s?.enabled || !s.name || RESERVED_MCP.has(s.name)) continue;
+      // Pasted tokens (project_secrets, encrypted) become this server's env
+      // (stdio) or a bearer header (http). Decrypted here only, for injection.
+      const secrets = getProjectMcpSecrets(projectId, s.name); // {ENV_KEY: value}
       if (s.transport === "http" && s.url) {
-        out[s.name] = { type: "http", url: s.url };
+        const def = { type: "http", url: s.url };
+        // The first declared secret (e.g. Expo's EXPO_TOKEN) is the PAT bearer.
+        const bearer = secrets[(s.secretKeys ?? [])[0]];
+        if (bearer) def.headers = { Authorization: `Bearer ${bearer}` };
+        out[s.name] = def;
       } else if (s.command) {
         const [command, ...args] = tokenizeArgs(String(s.command));
-        if (command) out[s.name] = { command, args };
+        if (command) {
+          const env = { ...(s.env ?? {}), ...secrets };
+          // Google Cloud connections: point the gcloud MCP at this connection's
+          // isolated config dir + pin its account (set by connectGcloud).
+          if (s.credDir) {
+            env.CLOUDSDK_CONFIG = s.credDir;
+            if (s.account) env.CLOUDSDK_CORE_ACCOUNT = s.account;
+          }
+          out[s.name] = Object.keys(env).length ? { command, args, env } : { command, args };
+        }
       }
     }
     return out;
@@ -250,7 +278,7 @@ export function createDaemon() {
         // Per-project MCP servers + skill denials (settings page). Team-lead
         // runs also get the board archive tools (search incl. done tickets).
         mcpServers: {
-          ...mcpServersFor(settings),
+          ...mcpServersFor(project.id, settings),
           ...(thread.kind === "teamlead"
             ? { board: { command: process.execPath, args: [BOARD_MCP_PATH] } }
             : {}),
@@ -330,6 +358,61 @@ export function createDaemon() {
 
     getProjectSettings: (projectId) => getProjectSettings(projectId),
     updateProjectSettings: (projectId, patch) => updateProjectSettings(projectId, patch),
+
+    // MCP token write paths. Values are stored encrypted and never echoed back
+    // (return a bare boolean). Local-only by intent — not routed to remote/
+    // mobile clients, so pasted tokens never leave this host.
+    setProjectMcpSecret: (projectId, serverName, envKey, value) =>
+      setProjectMcpSecret(projectId, serverName, envKey, value),
+    clearProjectMcpSecret: (projectId, serverName, envKey) =>
+      clearProjectMcpSecret(projectId, serverName, envKey),
+
+    // One-click Google Cloud connect: browser OAuth into an isolated per-
+    // connection config dir, then pin the logged-in account onto the server.
+    // Streams connect:status / connect:url events for the UI. Local-only.
+    connectGcloud: async (projectId, serverName) => {
+      emit("connect:status", { serverName, provider: "gcloud", state: "connecting" });
+      try {
+        const { account, credDir } = await gcloudLogin(projectId, serverName, {
+          onUrl: (url) => emit("connect:url", { serverName, url }),
+        });
+        const cur = getProjectSettings(projectId);
+        const mcpServers = cur.mcpServers.map((s) =>
+          s.name === serverName ? { ...s, account, credDir } : s
+        );
+        updateProjectSettings(projectId, { mcpServers });
+        emit("connect:status", { serverName, provider: "gcloud", state: "connected", account });
+        return { ok: true, account };
+      } catch (err) {
+        emit("connect:status", { serverName, provider: "gcloud", state: "failed", error: err.message });
+        return { ok: false, error: err.message };
+      }
+    },
+
+    // Import a downloaded App Store Connect .p8 key file; stored isolated, its
+    // path injected as APP_STORE_CONNECT_P8_PATH at run time.
+    importAppleKey: (projectId, serverName, sourcePath) => {
+      const dest = importAppleKeyFile(projectId, serverName, sourcePath);
+      setProjectMcpSecret(projectId, serverName, "APP_STORE_CONNECT_P8_PATH", dest);
+      return { ok: true, path: dest };
+    },
+
+    // Drop a connection's credentials: isolated dirs + stored secrets, and the
+    // account/credDir pins on the server def.
+    disconnectProvider: (projectId, serverName) => {
+      gcloudDisconnect(projectId, serverName);
+      appleDisconnect(projectId, serverName);
+      const cur = getProjectSettings(projectId);
+      const prefix = `mcp:${serverName}:`;
+      for (const k of db.listSecretKeys(projectId, prefix)) {
+        clearProjectMcpSecret(projectId, serverName, k.slice(prefix.length));
+      }
+      const mcpServers = cur.mcpServers.map((s) =>
+        s.name === serverName ? { ...s, account: undefined, credDir: undefined } : s
+      );
+      updateProjectSettings(projectId, { mcpServers });
+      return { ok: true };
+    },
 
     // Skills available to runs in this project (project .claude/skills +
     // user ~/.claude/skills), each flagged enabled per the project's

@@ -44,6 +44,16 @@ const MIGRATIONS = [
    );
    CREATE INDEX IF NOT EXISTS idx_tickets_project ON tickets(project_id, status);
    CREATE INDEX IF NOT EXISTS idx_tickets_thread  ON tickets(thread_id) WHERE thread_id IS NOT NULL;`,
+  // v4: per-project MCP secrets — the tokens users paste on the settings page.
+  // ciphertext ONLY (AES-256-GCM, see secrets.js); the key lives in a keyfile,
+  // never in this table. secret_key format: "mcp:<serverName>:<ENV_KEY>".
+  // getProjectSettings never returns these values — only which keys are set.
+  `CREATE TABLE IF NOT EXISTS project_secrets (
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     secret_key TEXT NOT NULL,
+     ciphertext TEXT NOT NULL,
+     PRIMARY KEY (project_id, secret_key)
+   );`,
 ];
 
 let db = null;
@@ -222,8 +232,8 @@ export const deleteTicket = (id) => {
 };
 
 // ── Project settings ─────────────────────────────────────────────────────────
-// One JSON blob per project (v2 migration). Secrets NEVER go here — they stay
-// in the daemon's in-memory map (project-settings.js) by construction.
+// One JSON blob per project (v2 migration). Secret VALUES NEVER go here — they
+// live encrypted in project_secrets (v4, below); this blob is client-safe.
 export const getProjectSettingsRow = (projectId) => {
   const row = openDb()
     .prepare(`SELECT data FROM project_settings WHERE project_id = ?`)
@@ -242,4 +252,45 @@ export const upsertProjectSettings = (projectId, obj) => {
     )
     .run(projectId, JSON.stringify(obj ?? {}));
   return getProjectSettingsRow(projectId);
+};
+
+// ── Project secrets (v4) ───────────────────────────────────────────────────────
+// Ciphertext store (encrypt/decrypt happen in daemon/project-settings.js via
+// secrets.js). This layer never sees plaintext — it just persists opaque blobs
+// keyed by (project_id, secret_key). Values are NEVER returned to any client.
+export const setSecret = (projectId, secretKey, ciphertext) => {
+  openDb()
+    .prepare(
+      `INSERT INTO project_secrets (project_id, secret_key, ciphertext) VALUES (?, ?, ?)
+       ON CONFLICT(project_id, secret_key) DO UPDATE SET ciphertext = excluded.ciphertext`
+    )
+    .run(projectId, secretKey, ciphertext);
+  return true;
+};
+export const getSecret = (projectId, secretKey) =>
+  openDb()
+    .prepare(`SELECT ciphertext FROM project_secrets WHERE project_id = ? AND secret_key = ?`)
+    .get(projectId, secretKey)?.ciphertext ?? null;
+// Keys present for a project, optionally filtered by prefix (e.g. "mcp:foo:").
+export const listSecretKeys = (projectId, prefix = "") =>
+  openDb()
+    .prepare(
+      `SELECT secret_key FROM project_secrets WHERE project_id = ?
+         AND secret_key LIKE ? ESCAPE '\\' ORDER BY secret_key`
+    )
+    .all(projectId, `${prefix.replace(/[\\%_]/g, "\\$&")}%`)
+    .map((r) => r.secret_key);
+export const deleteSecret = (projectId, secretKey) => {
+  openDb()
+    .prepare(`DELETE FROM project_secrets WHERE project_id = ? AND secret_key = ?`)
+    .run(projectId, secretKey);
+  return true;
+};
+export const deleteSecretsByPrefix = (projectId, prefix) => {
+  openDb()
+    .prepare(
+      `DELETE FROM project_secrets WHERE project_id = ? AND secret_key LIKE ? ESCAPE '\\'`
+    )
+    .run(projectId, `${prefix.replace(/[\\%_]/g, "\\$&")}%`);
+  return true;
 };

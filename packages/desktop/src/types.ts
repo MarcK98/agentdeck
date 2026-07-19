@@ -32,16 +32,31 @@ export interface Message {
   created_at: string;
 }
 
-// Client-visible per-project settings (daemon/project-settings.js — secrets
-// never appear here by construction).
+// Client-visible per-project settings (daemon/project-settings.js — secret
+// VALUES never appear here by construction; only which keys are set).
 // One per-project MCP server (settings page). `command` is a single
-// shell-like line for stdio servers; `url` for http. No env/secrets stored.
+// shell-like line for stdio servers; `url` for http.
 export interface McpServerDef {
   name: string;
   transport: "stdio" | "http";
   command?: string;
   url?: string;
   enabled: boolean;
+  // Catalog provenance + presentation.
+  provider?: string; // MCP_CATALOG key ("supabase", …); drives icon/label
+  environment?: string; // free-text target tag ("production", "staging"), badge only
+  // Env-var names this server needs (from its preset). Token VALUES live
+  // encrypted daemon-side, injected as env (stdio) / bearer header (http).
+  secretKeys?: string[];
+  env?: Record<string, string>; // NON-secret env only (optional advanced field)
+  // Daemon-computed: which of `secretKeys` currently have a stored value.
+  // Read-only — booleans only, never the values themselves.
+  secretsSet?: string[];
+  // Connection state (set by the Connect flows). `account` = the logged-in
+  // email/username to show; `credDir` = this connection's isolated credential
+  // dir (Google Cloud) — its presence means "connected via gcloud".
+  account?: string;
+  credDir?: string;
 }
 
 // One per-project connection: an account, cloud project, or deploy target
@@ -234,7 +249,18 @@ export type SpawnEvent =
   | { type: "ticket:deleted"; payload: { id: number } }
   | { type: "deliverables:updated"; payload: { threadId: number; files: string[] } }
   | { type: "approval:request"; payload: ApprovalRequest }
-  | { type: "approval:resolved"; payload: { id: number; threadId: number; allow: boolean } };
+  | { type: "approval:resolved"; payload: { id: number; threadId: number; allow: boolean } }
+  | {
+      type: "connect:status";
+      payload: {
+        serverName: string;
+        provider: string;
+        state: "connecting" | "connected" | "failed";
+        account?: string;
+        error?: string;
+      };
+    }
+  | { type: "connect:url"; payload: { serverName: string; url: string } };
 
 declare global {
   interface Window {
@@ -256,6 +282,37 @@ declare global {
         projectId: number,
         patch: Partial<ProjectSettings>
       ): Promise<ProjectSettings>;
+      // Store (empty value = clear) one MCP token, encrypted at rest. Returns a
+      // bare boolean — the value is never echoed back.
+      setProjectMcpSecret(
+        projectId: number,
+        serverName: string,
+        envKey: string,
+        value: string
+      ): Promise<boolean>;
+      clearProjectMcpSecret(
+        projectId: number,
+        serverName: string,
+        envKey: string
+      ): Promise<boolean>;
+      // Provider connect (local-only). openExternal opens a URL in the OS
+      // browser; readClipboard reads the clipboard (used to auto-capture a
+      // pasted token during a connect flow); pickFile opens a native file
+      // picker. connectGcloud runs the browser OAuth login; importAppleKey
+      // stores a downloaded .p8; disconnectProvider drops a connection's creds.
+      openExternal(url: string): Promise<void>;
+      readClipboard(): Promise<string>;
+      pickFile(opts?: { filters?: { name: string; extensions: string[] }[] }): Promise<string | null>;
+      connectGcloud(
+        projectId: number,
+        serverName: string
+      ): Promise<{ ok: boolean; account?: string; error?: string }>;
+      importAppleKey(
+        projectId: number,
+        serverName: string,
+        sourcePath: string
+      ): Promise<{ ok: boolean; path?: string }>;
+      disconnectProvider(projectId: number, serverName: string): Promise<{ ok: boolean }>;
       listTickets(): Promise<Ticket[]>;
       createTicket(args: {
         projectId: number;

@@ -8,7 +8,7 @@ export interface SpawnEvent {
 }
 
 type EventHandler = (ev: SpawnEvent) => void;
-type StatusHandler = (status: "connecting" | "ready" | "daemon-offline" | "closed") => void;
+type StatusHandler = (status: "connecting" | "ready" | "daemon-offline" | "closed" | "unauthorized") => void;
 
 export class RelayClient {
   private ws: WebSocket | null = null;
@@ -46,9 +46,16 @@ export class RelayClient {
         }
       }
     };
-    this.ws.onclose = () => {
+    this.ws.onclose = (ev?: { code?: number }) => {
       this.pending.forEach((p) => p.reject(new Error("connection closed")));
       this.pending.clear();
+      // 4001 = relay rejected the token (bad/expired). Don't retry — the app
+      // clears the stored token and sends the user back to the login screen.
+      if (ev?.code === 4001) {
+        this.closed = true;
+        this.emitStatus("unauthorized");
+        return;
+      }
       if (!this.closed) {
         this.emitStatus("connecting");
         setTimeout(() => this.connect(), 1500);

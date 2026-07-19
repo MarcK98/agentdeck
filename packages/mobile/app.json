@@ -24,6 +24,9 @@
         "projectId": "9df63626-bc86-4584-98de-1d1b708de688"
       }
     },
-    "owner": "marck98"
+    "owner": "marck98",
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

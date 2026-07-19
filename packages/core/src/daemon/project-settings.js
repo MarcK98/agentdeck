@@ -1,14 +1,17 @@
-// Per-project settings + secrets (decisions #5 and #9).
+// Per-project settings + secrets.
 //
-// Settings persist in SQLite (project_settings, v2 migration); secrets do NOT.
-// Two hard rules enforced by the split below:
+// Settings persist in SQLite (project_settings, v2 migration) as a client-safe
+// JSON blob. MCP secrets (the tokens users paste on the settings page) persist
+// SEPARATELY, encrypted at rest (project_secrets, v4 + secrets.js). Two hard
+// rules still hold:
 //   - `settings` are client-visible and JSON-safe (fed to the settings page).
-//   - `secrets` are daemon-side ONLY: injected into agent runs as env/config,
-//     never returned by a daemon method, never in an event, never to a
-//     remote/mobile client. getProjectSettings() therefore returns settings
-//     WITHOUT secrets by construction, not by filtering.
+//   - secret VALUES are daemon-side ONLY: decrypted just to inject into agent
+//     runs, never returned by a daemon method, never in an event, never to a
+//     remote/mobile client. getProjectSettings() returns, per MCP server, only
+//     WHICH secret keys are set (`secretsSet`) — never the values.
 
 import * as db from "../db/index.js";
+import { encrypt, decrypt } from "../secrets.js";
 
 const DEFAULTS = {
   approvalMode: "prompt", // "prompt" | "auto" — per project, no global default
@@ -17,9 +20,11 @@ const DEFAULTS = {
   defaultEffort: "", // empty = harness default; per-run opts still win
   isolation: true, // worktree-per-ticket for delegations into git projects
   // Per-project MCP servers, merged into every run's --mcp-config when
-  // enabled: {name, transport: "stdio"|"http", command?, url?, enabled}.
-  // `command` is one shell-like line (tokenized daemon-side). No env/secrets
-  // here by the settings-table rule — servers inherit the daemon's env.
+  // enabled: {name, transport, command?, url?, enabled, provider?,
+  // environment?, secretKeys?, env?}. `command` is one shell-like line
+  // (tokenized daemon-side). Token values live in project_secrets (encrypted),
+  // keyed by `mcp:<name>:<ENV_KEY>`, and are injected as env/headers at run time
+  // — never stored in this blob, never returned to a client.
   mcpServers: [],
   // Skills the agent may NOT use in this project (denied via
   // --disallowedTools "Skill(name)"). Everything discovered is allowed by
@@ -39,28 +44,72 @@ const DEFAULTS = {
   connections: [],
 };
 
-// Secrets stay in-memory on purpose: Phase 1 ships no secret-editing UI, and
-// they must never touch the settings table.
-const secretsByProject = new Map(); // projectId -> {KEY: value} — never leaves the daemon
+const secretKeyFor = (serverName, envKey) => `mcp:${serverName}:${envKey}`;
+const mcpPrefix = (serverName) => `mcp:${serverName}:`;
+
+// Env keys currently set for an MCP server (booleans only — values stay hidden).
+function secretsSetFor(projectId, serverName) {
+  const prefix = mcpPrefix(serverName);
+  return db
+    .listSecretKeys(projectId, prefix)
+    .map((k) => k.slice(prefix.length));
+}
 
 export function getProjectSettings(projectId) {
-  return { ...DEFAULTS, ...db.getProjectSettingsRow(projectId) };
+  const merged = { ...DEFAULTS, ...db.getProjectSettingsRow(projectId) };
+  // Augment each MCP server with which of its secrets are set — never values.
+  merged.mcpServers = (merged.mcpServers ?? []).map((s) => ({
+    ...s,
+    secretsSet: secretsSetFor(projectId, s.name),
+  }));
+  return merged;
 }
 
 export function updateProjectSettings(projectId, patch) {
   const clean = { ...patch };
-  delete clean.secrets; // secrets have their own write path, never this one
-  db.upsertProjectSettings(projectId, { ...getProjectSettings(projectId), ...clean });
+  delete clean.secrets; // secret values have their own write path, never this one
+  // Strip the daemon-computed field so it never round-trips into the blob.
+  if (Array.isArray(clean.mcpServers)) {
+    clean.mcpServers = clean.mcpServers.map(({ secretsSet, ...rest }) => rest);
+  }
+  const prev = getProjectSettings(projectId);
+  db.upsertProjectSettings(projectId, { ...prev, ...clean });
+  // Prune secrets belonging to MCP servers that were just removed.
+  if (Array.isArray(clean.mcpServers)) {
+    const kept = new Set(clean.mcpServers.map((s) => s.name));
+    for (const s of prev.mcpServers ?? []) {
+      if (!kept.has(s.name)) db.deleteSecretsByPrefix(projectId, mcpPrefix(s.name));
+    }
+  }
   return getProjectSettings(projectId);
 }
 
-// Daemon-internal: resolve secrets to inject into a run's environment.
-export function getProjectSecrets(projectId) {
-  return { ...(secretsByProject.get(projectId) ?? {}) };
+// Set (or clear, when value is empty) one MCP secret. Returns a boolean; the
+// value is never echoed back.
+export function setProjectMcpSecret(projectId, serverName, envKey, value) {
+  if (!serverName || !envKey) return false;
+  const key = secretKeyFor(serverName, envKey);
+  if (value == null || value === "") {
+    db.deleteSecret(projectId, key);
+  } else {
+    db.setSecret(projectId, key, encrypt(value));
+  }
+  return true;
 }
 
-export function setProjectSecret(projectId, key, value) {
-  const cur = secretsByProject.get(projectId) ?? {};
-  secretsByProject.set(projectId, { ...cur, [key]: value });
-  return true; // never echo the value back
+export function clearProjectMcpSecret(projectId, serverName, envKey) {
+  db.deleteSecret(projectId, secretKeyFor(serverName, envKey));
+  return true;
+}
+
+// Daemon-internal: decrypt a server's secrets to inject into a run
+// (env for stdio, Authorization header for http). Returns {ENV_KEY: value}.
+export function getProjectMcpSecrets(projectId, serverName) {
+  const prefix = mcpPrefix(serverName);
+  const out = {};
+  for (const k of db.listSecretKeys(projectId, prefix)) {
+    const plain = decrypt(db.getSecret(projectId, k));
+    if (plain != null) out[k.slice(prefix.length)] = plain;
+  }
+  return out;
 }

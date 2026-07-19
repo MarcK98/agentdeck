@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, clipboard, dialog } from "electron";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { ensureDaemon, rpc, subscribeEvents } from "./daemon-client.js";
@@ -60,6 +60,12 @@ ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSet
 ipcMain.handle("spawn:updateProjectSettings", (_e, projectId, patch) =>
   rpc("updateProjectSettings", projectId, patch)
 );
+ipcMain.handle("spawn:setProjectMcpSecret", (_e, projectId, serverName, envKey, value) =>
+  rpc("setProjectMcpSecret", projectId, serverName, envKey, value)
+);
+ipcMain.handle("spawn:clearProjectMcpSecret", (_e, projectId, serverName, envKey) =>
+  rpc("clearProjectMcpSecret", projectId, serverName, envKey)
+);
 ipcMain.handle("spawn:listTickets", () => rpc("listTickets"));
 ipcMain.handle("spawn:createTicket", (_e, args) => rpc("createTicket", args));
 ipcMain.handle("spawn:updateTicket", (_e, ticketId, patch) => rpc("updateTicket", ticketId, patch));
@@ -80,6 +86,30 @@ ipcMain.handle("spawn:listDeliverables", (_e, threadId) => rpc("listDeliverables
 // Finder integration — local shell, not daemon RPC.
 ipcMain.handle("spawn:openDir", (_e, dir) => shell.openPath(dir));
 ipcMain.handle("spawn:revealFile", (_e, p) => shell.showItemInFolder(p));
+
+// Provider connect — local host capabilities (browser, clipboard, file picker).
+// Not daemon RPC: they touch the machine the user is sitting at.
+ipcMain.handle("spawn:openExternal", (_e, url) =>
+  /^https?:/i.test(url) ? shell.openExternal(url) : Promise.resolve()
+);
+ipcMain.handle("spawn:readClipboard", () => clipboard.readText());
+ipcMain.handle("spawn:pickFile", async (_e, opts) => {
+  const res = await dialog.showOpenDialog(win, {
+    properties: ["openFile"],
+    filters: opts?.filters ?? [],
+  });
+  return res.canceled ? null : res.filePaths[0] ?? null;
+});
+// Connect flows that need the daemon (cred isolation, gcloud login) — rpc.
+ipcMain.handle("spawn:connectGcloud", (_e, projectId, serverName) =>
+  rpc("connectGcloud", projectId, serverName)
+);
+ipcMain.handle("spawn:importAppleKey", (_e, projectId, serverName, sourcePath) =>
+  rpc("importAppleKey", projectId, serverName, sourcePath)
+);
+ipcMain.handle("spawn:disconnectProvider", (_e, projectId, serverName) =>
+  rpc("disconnectProvider", projectId, serverName)
+);
 
 app.whenReady().then(async () => {
   // CI/agent smoke: prove daemon spawn + RPC round-trip, then exit.

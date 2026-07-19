@@ -16,6 +16,19 @@ contextBridge.exposeInMainWorld("spawn", {
   getProjectSettings: (projectId) => ipcRenderer.invoke("spawn:getProjectSettings", projectId),
   updateProjectSettings: (projectId, patch) =>
     ipcRenderer.invoke("spawn:updateProjectSettings", projectId, patch),
+  setProjectMcpSecret: (projectId, serverName, envKey, value) =>
+    ipcRenderer.invoke("spawn:setProjectMcpSecret", projectId, serverName, envKey, value),
+  clearProjectMcpSecret: (projectId, serverName, envKey) =>
+    ipcRenderer.invoke("spawn:clearProjectMcpSecret", projectId, serverName, envKey),
+  openExternal: (url) => ipcRenderer.invoke("spawn:openExternal", url),
+  readClipboard: () => ipcRenderer.invoke("spawn:readClipboard"),
+  pickFile: (opts) => ipcRenderer.invoke("spawn:pickFile", opts),
+  connectGcloud: (projectId, serverName) =>
+    ipcRenderer.invoke("spawn:connectGcloud", projectId, serverName),
+  importAppleKey: (projectId, serverName, sourcePath) =>
+    ipcRenderer.invoke("spawn:importAppleKey", projectId, serverName, sourcePath),
+  disconnectProvider: (projectId, serverName) =>
+    ipcRenderer.invoke("spawn:disconnectProvider", projectId, serverName),
   listTickets: () => ipcRenderer.invoke("spawn:listTickets"),
   createTicket: (args) => ipcRenderer.invoke("spawn:createTicket", args),
   updateTicket: (ticketId, patch) => ipcRenderer.invoke("spawn:updateTicket", ticketId, patch),

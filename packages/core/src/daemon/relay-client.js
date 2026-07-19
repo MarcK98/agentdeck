@@ -14,9 +14,19 @@ export function startRelayClient(daemon) {
   const key = process.env.SPAWN_RELAY_DAEMON_KEY;
   if (!url || !key) return null;
 
+  // Secret-write paths are local-only: a pasted MCP token must never be
+  // settable (or reachable) through the relay from a remote/mobile client.
+  const REMOTE_DENY = new Set([
+    "setProjectMcpSecret",
+    "clearProjectMcpSecret",
+    "connectGcloud",
+    "importAppleKey",
+    "disconnectProvider",
+  ]);
   const METHODS = new Set(
     Object.entries(daemon)
       .filter(([k, v]) => typeof v === "function" && k !== "events" && !k.startsWith("_"))
+      .filter(([k]) => !REMOTE_DENY.has(k))
       .map(([k]) => k)
   );
 

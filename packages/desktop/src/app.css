@@ -291,6 +291,74 @@ textarea.blob::placeholder { color: var(--color-neutral-600); }
 .conn-add input.f-static:focus { border-color: var(--color-accent-700); }
 .conn-add .f-select { width: auto; }
 
+/* ── Settings category nav (subnav second group) ───────────────────────────── */
+.subnav button.cat { display: flex; align-items: center; gap: 8px; }
+.subnav button.cat i { font-size: 14px; color: var(--color-neutral-500); }
+.subnav button.cat.on i { color: var(--color-accent-300); }
+
+/* ── MCP provider catalog + server cards ───────────────────────────────────── */
+.mcp-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.mcp-card { border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); background: var(--color-neutral-900); overflow: hidden; }
+.mcp-card.off { opacity: 0.62; }
+.mcp-card-head { display: flex; align-items: center; gap: 11px; padding: 10px 12px; }
+.mcp-card-icon { font-size: 18px; color: var(--color-accent-300); flex: none; }
+.mcp-card .body { min-width: 0; flex: 1; }
+.mcp-card .n { font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 7px; }
+.mcp-card .c { font-size: 10.5px; color: var(--color-neutral-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.mcp-card-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.mcp-badge { font-size: 9.5px; letter-spacing: 0.03em; text-transform: uppercase; padding: 1px 7px; border-radius: 100px; background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-accent-200); font-weight: 500; }
+.mcp-tok { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; border: 0; border-radius: 100px; padding: 3px 9px; cursor: pointer; font-family: inherit; }
+.mcp-tok i { font-size: 12px; }
+.mcp-tok.ok { background: color-mix(in srgb, oklch(0.72 0.16 155) 18%, transparent); color: oklch(0.82 0.13 155); }
+.mcp-tok.warn { background: color-mix(in srgb, oklch(0.75 0.11 80) 20%, transparent); color: oklch(0.83 0.11 80); }
+.mcp-tok.cli { background: var(--color-neutral-800); color: var(--color-neutral-300); cursor: default; }
+
+.mcp-secret-edit { border-top: 1px solid var(--color-neutral-800); padding: 12px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--color-bg) 40%, transparent); }
+.mcp-secret-edit.flush { border-top: 0; background: none; padding: 4px 0 0; }
+.mcp-secret-row { display: flex; flex-direction: column; gap: 4px; }
+.mcp-secret-row input.f-static { width: 100%; }
+.mcp-secret-actions { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+.mcp-docs { font-size: 10.5px; color: var(--color-accent-300); text-decoration: none; display: inline-flex; gap: 3px; align-items: center; margin-right: auto; }
+.mcp-docs:hover { text-decoration: underline; }
+.mcp-set-dot { color: oklch(0.78 0.13 155); font-size: 10px; font-weight: 400; }
+.mcp-opt { color: var(--color-neutral-600); font-size: 10px; font-weight: 400; }
+
+.mcp-catalog { display: flex; flex-wrap: wrap; gap: 7px; margin: 2px 0 4px; }
+.mcp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 100px; border: 1px solid var(--color-neutral-800); background: var(--color-neutral-900); color: var(--color-neutral-300); font-size: 12px; cursor: pointer; font-family: inherit; }
+.mcp-chip i { font-size: 14px; color: var(--color-neutral-400); }
+.mcp-chip:hover { border-color: var(--color-accent-700); color: var(--color-text); }
+.mcp-chip:hover i { color: var(--color-accent-300); }
+.mcp-chip.on { border-color: var(--color-accent); color: var(--color-accent-200); }
+.mcp-chip.on i { color: var(--color-accent-300); }
+
+.mcp-addcard { border: 1px solid var(--color-accent-800); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-accent) 5%, var(--color-neutral-900)); padding: 13px; margin: 10px 0; display: flex; flex-direction: column; gap: 11px; }
+.mcp-addcard-head { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 500; }
+.mcp-addcard-head i { font-size: 17px; color: var(--color-accent-300); }
+.mcp-addcard-head .t { flex: 1; }
+.mcp-addcard-row { display: flex; gap: 12px; }
+.mcp-addcard-row input.f-static { width: 100%; }
+.mcp-authnote { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--color-neutral-400); background: var(--color-neutral-900); border-radius: var(--radius-md); padding: 8px 11px; }
+.mcp-authnote i { color: var(--color-neutral-500); }
+.mcp-adv-toggle { align-self: flex-start; background: none; border: 0; color: var(--color-neutral-500); font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-family: inherit; padding: 0; }
+.mcp-adv-toggle:hover { color: var(--color-accent-300); }
+.mcp-addcard-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+
+/* Connect states (server card footer) */
+.mcp-tok.pending { background: color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-accent-200); cursor: default; }
+.spin { animation: mcp-spin 0.9s linear infinite; display: inline-block; }
+@keyframes mcp-spin { to { transform: rotate(360deg); } }
+.mcp-card-foot { border-top: 1px solid var(--color-neutral-800); padding: 9px 12px; background: color-mix(in srgb, var(--color-bg) 35%, transparent); }
+.mcp-connect-row, .mcp-connected-row, .mcp-connecting { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcp-connecting .txt { font-size: 11.5px; color: var(--color-neutral-300); }
+.mcp-connecting .mcp-linkbtn { margin-left: auto; }
+.mcp-connected-row .lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: oklch(0.82 0.13 155); }
+.mcp-connected-row .lbl i { font-size: 13px; }
+.mcp-linkbtn { background: none; border: 0; color: var(--color-accent-300); font-size: 11px; cursor: pointer; font-family: inherit; padding: 2px 4px; }
+.mcp-linkbtn:hover { text-decoration: underline; }
+.mcp-linkbtn.danger { color: oklch(0.7 0.14 25); margin-left: auto; }
+.mcp-foot-note { font-size: 11px; color: var(--color-neutral-500); }
+.mcp-err { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: oklch(0.78 0.13 40); width: 100%; }
+
 /* ── Live map ────────────────────────────────────────────────────────────── */
 .map-view { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 20px 24px; gap: 12px; }
 .map-canvas { flex: 1; min-height: 0; border-radius: var(--radius-md); overflow: hidden; background: radial-gradient(1200px 700px at 42% 45%, #1a1c30, var(--color-bg) 75%); box-shadow: var(--shadow-sm); }

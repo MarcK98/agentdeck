@@ -235,6 +235,8 @@ const map: MapData = {
   ],
 };
 
+let clipReads = 0; // mock clipboard read counter (token-capture flow)
+
 export function installMock() {
   window.spawn = {
     listProjects: async () => projects,
@@ -246,11 +248,72 @@ export function installMock() {
     sendMessage: async (threadId) => ({ threadId, started: true }),
     cancelTurn: async () => true,
     resolveApproval: async () => true,
-    getProjectSettings: async (projectId) => settingsByProject.get(projectId) ?? defaultSettings(),
+    // Clone on read to mirror the daemon's JSON-RPC boundary (fresh object each
+    // call) — otherwise React bails on setSettings with the same mutated ref.
+    getProjectSettings: async (projectId) =>
+      structuredClone(settingsByProject.get(projectId) ?? defaultSettings()),
     updateProjectSettings: async (projectId, patch) => {
       const next = { ...(settingsByProject.get(projectId) ?? defaultSettings()), ...patch } as ProjectSettings;
       settingsByProject.set(projectId, next);
       return next;
+    },
+    setProjectMcpSecret: async (projectId, serverName, envKey, value) => {
+      const s = settingsByProject.get(projectId) ?? defaultSettings();
+      s.mcpServers = s.mcpServers.map((m) =>
+        m.name === serverName
+          ? {
+              ...m,
+              secretsSet: value.trim()
+                ? Array.from(new Set([...(m.secretsSet ?? []), envKey]))
+                : (m.secretsSet ?? []).filter((k) => k !== envKey),
+            }
+          : m
+      );
+      settingsByProject.set(projectId, s);
+      return true;
+    },
+    clearProjectMcpSecret: async (projectId, serverName, envKey) => {
+      const s = settingsByProject.get(projectId) ?? defaultSettings();
+      s.mcpServers = s.mcpServers.map((m) =>
+        m.name === serverName ? { ...m, secretsSet: (m.secretsSet ?? []).filter((k) => k !== envKey) } : m
+      );
+      settingsByProject.set(projectId, s);
+      return true;
+    },
+    openExternal: async (url) => {
+      console.info("[mock] openExternal", url);
+      clipReads = 0; // reset so the next token-capture baseline read is empty
+    },
+    // Mock clipboard: empty on the baseline read, then a fake token — so the
+    // token-page capture flow (baseline-diff) completes in the browser harness.
+    readClipboard: async () => (clipReads++ === 0 ? "" : "sbp_mockclipboardtoken_0000"),
+    pickFile: async () => "/Users/you/Downloads/AuthKey_MOCK123.p8",
+    connectGcloud: async (projectId, serverName) => {
+      const account = "marc@spawnmy.ai";
+      const s = settingsByProject.get(projectId) ?? defaultSettings();
+      s.mcpServers = s.mcpServers.map((m) =>
+        m.name === serverName ? { ...m, account, credDir: `/mock/creds/gcloud/${serverName}` } : m
+      );
+      settingsByProject.set(projectId, s);
+      return { ok: true, account };
+    },
+    importAppleKey: async (projectId, serverName) => {
+      const s = settingsByProject.get(projectId) ?? defaultSettings();
+      s.mcpServers = s.mcpServers.map((m) =>
+        m.name === serverName
+          ? { ...m, secretsSet: Array.from(new Set([...(m.secretsSet ?? []), "APP_STORE_CONNECT_P8_PATH"])) }
+          : m
+      );
+      settingsByProject.set(projectId, s);
+      return { ok: true, path: "/mock/creds/apple/AuthKey.p8" };
+    },
+    disconnectProvider: async (projectId, serverName) => {
+      const s = settingsByProject.get(projectId) ?? defaultSettings();
+      s.mcpServers = s.mcpServers.map((m) =>
+        m.name === serverName ? { ...m, account: undefined, credDir: undefined, secretsSet: [] } : m
+      );
+      settingsByProject.set(projectId, s);
+      return { ok: true };
     },
     listTickets: async () => tickets,
     createTicket: async ({ projectId, title, body, status }) => {
