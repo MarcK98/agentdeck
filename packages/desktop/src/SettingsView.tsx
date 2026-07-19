@@ -10,6 +10,7 @@ export const CONNECTION_TYPES: { key: string; label: string; icon: string; hint:
   { key: "gcp", label: "Google Cloud", icon: "ph-cloud", hint: "project id" },
   { key: "firebase", label: "Firebase", icon: "ph-fire", hint: "project id" },
   { key: "supabase", label: "Supabase", icon: "ph-database", hint: "project ref" },
+  { key: "neon", label: "Neon", icon: "ph-lightning", hint: "project / branch" },
   { key: "vercel", label: "Vercel", icon: "ph-triangle", hint: "project / team" },
   { key: "netlify", label: "Netlify", icon: "ph-globe-hemisphere-west", hint: "site name" },
   { key: "heroku", label: "Heroku", icon: "ph-hexagon", hint: "app name" },
@@ -68,6 +69,18 @@ export const MCP_CATALOG: McpPreset[] = [
     secrets: [{ key: "SUPABASE_ACCESS_TOKEN", label: "Access token", hint: "supabase.com → account → access tokens" }],
     connect: { kind: "token-page", tokenPageUrl: "https://supabase.com/dashboard/account/tokens" },
     docsUrl: "https://supabase.com/docs/guides/getting-started/mcp",
+  },
+  {
+    // Neon (serverless Postgres). The hosted MCP takes the API key as an
+    // Authorization header, so it rides the http + bearer path (like Expo) —
+    // the local stdio server only takes the key as a positional arg, which
+    // our encrypted-env model can't feed.
+    key: "neon", label: "Neon", icon: "ph-lightning", transport: "http",
+    url: "https://mcp.neon.tech/mcp",
+    auth: "token",
+    secrets: [{ key: "NEON_API_KEY", label: "API key", hint: "console.neon.tech → account settings → API keys" }],
+    connect: { kind: "token-page", tokenPageUrl: "https://console.neon.tech/app/settings/api-keys" },
+    docsUrl: "https://neon.com/docs/ai/neon-mcp-server",
   },
   {
     key: "firebase", label: "Firebase", icon: "ph-fire", transport: "stdio",

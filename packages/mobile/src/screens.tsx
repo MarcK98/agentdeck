@@ -684,6 +684,7 @@ export function ThreadScreen({
 const PROVIDER_LABEL: Record<string, string> = {
   gcloud: "Google Cloud",
   supabase: "Supabase",
+  neon: "Neon",
   firebase: "Firebase",
   apple: "App Store Connect",
   expo: "Expo",
