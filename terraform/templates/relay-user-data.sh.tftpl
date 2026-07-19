@@ -1,0 +1,51 @@
+#!/bin/bash
+# Bootstrap for the Spawn relay on Amazon Linux 2023. Runs once on first boot
+# (cloud-init/user-data). Installs Node, pulls the relay code bundle from S3,
+# fetches its secrets from SSM Parameter Store, and runs it under systemd.
+set -euo pipefail
+exec > >(tee /var/log/spawn-relay-userdata.log) 2>&1
+
+echo "== installing Node.js =="
+curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+dnf install -y nodejs unzip
+
+echo "== fetching relay code from s3://${bucket}/${key} =="
+mkdir -p /opt/spawn-relay
+cd /opt/spawn-relay
+aws s3 cp "s3://${bucket}/${key}" relay.zip --region "${region}"
+unzip -o relay.zip
+rm -f relay.zip
+npm install --omit=dev --no-audit --no-fund
+
+echo "== fetching secrets from SSM Parameter Store =="
+DAEMON_KEY=$(aws ssm get-parameter --name "${daemon_key_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
+DEV_TOKEN=$(aws ssm get-parameter --name "${dev_token_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
+
+cat > /etc/spawn-relay.env <<EOF
+RELAY_PORT=${relay_port}
+RELAY_DAEMON_KEY=$DAEMON_KEY
+RELAY_DEV_TOKEN=$DEV_TOKEN
+EOF
+chmod 600 /etc/spawn-relay.env
+
+echo "== installing systemd unit =="
+cat > /etc/systemd/system/spawn-relay.service <<'EOF'
+[Unit]
+Description=Spawn relay
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/spawn-relay.env
+WorkingDirectory=/opt/spawn-relay
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now spawn-relay
+echo "== done =="
