@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, SafeAreaView, StatusBar, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { RelayClient } from "./src/api";
 import { C } from "./src/theme";
@@ -140,7 +140,11 @@ export default function App() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
         <StatusBar barStyle="light-content" />
-        <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 12 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, gap: 12 }}
+            keyboardShouldPersistTaps="handled"
+          >
           <Text style={{ color: C.text, fontSize: 28, fontWeight: "600" }}>Spawn</Text>
           <Text style={{ color: C.n500, fontSize: 13, marginBottom: 8 }}>Sign in to your relay.</Text>
           <TextInput
@@ -193,7 +197,8 @@ export default function App() {
             placeholderTextColor={C.n600}
             onChangeText={setUrl}
           />
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }

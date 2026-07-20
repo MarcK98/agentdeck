@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Switch,
@@ -145,7 +147,10 @@ const sheetInput = {
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "#000a", justifyContent: "flex-end" }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "#000a", justifyContent: "flex-end" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View
           style={{
             backgroundColor: C.bg,
@@ -170,9 +175,14 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
               <Text style={{ color: C.n500, fontSize: 20 }}>✕</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}>{children}</ScrollView>
+          <ScrollView
+            contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -609,7 +619,10 @@ export function ThreadScreen({
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <View
         style={{
           flexDirection: "row",
@@ -628,7 +641,13 @@ export function ThreadScreen({
           {title}
         </Text>
       </View>
-      <ScrollView ref={listRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 14 }}>
+      <ScrollView
+        ref={listRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 14 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {messages.map((m) =>
           m.role === "tool" ? (
             <Text key={m.id} style={[S.dim, { marginBottom: 8, fontFamily: "Menlo" }]} numberOfLines={1}>
@@ -674,7 +693,7 @@ export function ThreadScreen({
         />
         <Btn label="Send" color={C.accent} onPress={send} disabled={busy || !draft.trim()} />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -943,7 +962,10 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", padding: 14, paddingBottom: 6, gap: 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
           {projects.map((p) => (
@@ -955,7 +977,11 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
       {!s ? (
         <Center spinner />
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: 40, gap: 16 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: 40, gap: 16 }}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={S.card}>
             <Text style={[S.title, { marginBottom: 10 }]}>Models & effort</Text>
             <Field label="Allowed models">
@@ -1065,7 +1091,7 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
           </View>
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
