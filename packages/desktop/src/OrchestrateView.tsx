@@ -141,8 +141,9 @@ export default function OrchestrateView({
   };
 
   const onDelegated = (t: Thread) => {
+    // Stay on the orchestrate board after delegating — mark the ticket busy and
+    // let the sheet's onClose refresh the board. (Don't route to the thread view.)
     markBusy(t.id);
-    onOpenThread(t.project_id, t.id);
   };
 
   const cycle = (list: string[], cur: string, set: (v: string) => void) => {
