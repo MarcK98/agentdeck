@@ -156,7 +156,7 @@ const connectHint = (p: McpPreset | null): { icon: string; text: string } => {
     case "oauth-cli":
       return { icon: "ph-google-logo", text: "Adds the server, then opens Google sign-in — isolated per connection, account pinned." };
     case "token-page":
-      return { icon: "ph-link-simple", text: `Adds the server, then opens the ${p.label} token page and captures your token from the clipboard.` };
+      return { icon: "ph-link-simple", text: `Connect ${p.label}: paste your token below, or leave it blank to capture it from the token page.` };
     case "key-file":
       return { icon: "ph-apple-logo", text: "Adds the server, then opens the Apple portal — download your API key (.p8) and import it." };
     case "cli":
@@ -324,14 +324,18 @@ export default function SettingsView({
       ...(mcpDraft.secretKeys.length ? { secretKeys: mcpDraft.secretKeys } : {}),
     };
     await window.spawn.updateProjectSettings(projectId, { mcpServers: [...settings.mcpServers, def] });
+    // Save any tokens the user pasted directly in the add card (always allowed).
+    const pasted = Object.entries(mcpDraft.secretVals).filter(([, v]) => v.trim());
+    for (const [k, v] of pasted) await window.spawn.setProjectMcpSecret(projectId, name, k, v.trim());
     await reloadSettings();
     setSavedTick((n) => n + 1);
-    setMcpDraft(null);
-    // Auto-start the connect step for one-click kinds.
     const kind = preset?.connect.kind;
+    setMcpDraft(null);
+    // Auto-start the connect step for one-click kinds — but if a token was
+    // pasted, it's already saved, so skip the clipboard-capture flow.
     if (kind === "oauth-cli") startGcloud(name);
-    else if (kind === "token-page" && preset) startTokenCapture(name, preset);
-    else if (kind === "key-file" && preset?.connect.portalUrl) window.spawn.openExternal(preset.connect.portalUrl);
+    else if (kind === "token-page" && preset && pasted.length === 0) startTokenCapture(name, preset);
+    else if (kind === "key-file" && preset?.connect.portalUrl && pasted.length === 0) window.spawn.openExternal(preset.connect.portalUrl);
   };
 
   // Google Cloud: browser OAuth into an isolated per-connection config dir.
@@ -1151,6 +1155,28 @@ function McpAddCard({
           <div className="mcp-authnote">
             <i className={`ph ${connectHint(preset).icon}`} /> {connectHint(preset).text}
           </div>
+          {preset?.connect.kind === "token-page" && preset.secrets.length > 0 && (
+            <div className="mcp-secret-edit flush">
+              {preset.secrets.map((f) => (
+                <div key={f.key} className="mcp-secret-row">
+                  <div className="f-label">
+                    {f.label}
+                    {f.optional && <span className="mcp-opt"> · optional</span>}
+                  </div>
+                  <input
+                    className="f-static mono"
+                    type="password"
+                    placeholder={`paste your ${f.label.toLowerCase()}`}
+                    value={draft.secretVals[f.key] ?? ""}
+                    onChange={(e) => up({ secretVals: { ...draft.secretVals, [f.key]: e.target.value } })}
+                  />
+                </div>
+              ))}
+              <div className="note" style={{ marginTop: 2 }}>
+                Paste it here — or leave blank and click Add &amp; connect to grab it from the token page via your clipboard.
+              </div>
+            </div>
+          )}
           <button className="mcp-adv-toggle" onClick={() => up({ advanced: !draft.advanced })}>
             <i className={`ph ${draft.advanced ? "ph-caret-down" : "ph-caret-right"}`} /> Advanced
           </button>
