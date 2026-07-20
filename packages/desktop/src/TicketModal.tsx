@@ -18,6 +18,7 @@ const EFFORTS = ["low", "medium", "high"];
 const MODELS = ["haiku", "sonnet", "opus", "fable"];
 
 const AUTHOR_LABEL: Record<string, string> = { human: "you", lead: "team lead", agent: "agent" };
+const AVATAR_ICON: Record<string, string> = { human: "ph-user", lead: "ph-crown-simple", agent: "ph-robot" };
 
 const fmtTime = (iso: string) => {
   const d = new Date(iso);
@@ -135,6 +136,7 @@ export default function TicketModal({
   };
 
   const remove = async () => {
+    if (!window.confirm(`Delete ticket SPWN-${ticketId}? This can't be undone.`)) return;
     setBusy(true);
     try {
       await window.spawn.deleteTicket(ticketId);
@@ -174,125 +176,152 @@ export default function TicketModal({
           </button>
         </div>
 
-        <div className="tk-body">
-          <input
-            className="f-static tk-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => title.trim() && title !== t.title && saveField({ title: title.trim() })}
-            placeholder="Ticket title"
-          />
-          <textarea
-            className="task tk-desc"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onBlur={() => body !== t.body && saveField({ body })}
-            placeholder="Describe the work…"
-          />
+        <div className="tk-cols">
+          {/* LEFT PANE — title, description, controls, attachments */}
+          <div className="tk-main">
+            <input
+              className="f-static tk-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => title.trim() && title !== t.title && saveField({ title: title.trim() })}
+              placeholder="Ticket title"
+            />
 
-          <div className="tk-controls">
-            <select
-              className="f-select"
-              style={{ width: "auto", padding: "4px 8px", fontSize: 11.5 }}
-              value={t.status}
-              onChange={(e) => saveField({ status: e.target.value as TicketStatus })}
-            >
-              {STATUSES.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            {backlog && (
-              <>
-                <span
-                  className={`tag pick ${model ? "tag-accent" : "tag-outline"}`}
-                  onClick={() => cycle(MODELS, model, setModel)}
-                  title="Click to cycle models"
-                >
-                  <i className="ph ph-brain" style={{ marginRight: 4 }} />
-                  {model || "model"}
-                </span>
-                <span
-                  className={`tag pick ${effort ? "tag-accent" : "tag-outline"}`}
-                  onClick={() => cycle(EFFORTS, effort, setEffort)}
-                  title="Click to cycle efforts"
-                >
-                  <i className="ph ph-gauge" style={{ marginRight: 4 }} />
-                  {effort || "effort"}
-                </span>
-                <button className="btn btn-primary small-btn" disabled={busy} onClick={delegate}>
-                  <i className="ph ph-paper-plane-tilt" /> Delegate
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Attachments */}
-          <div className="tk-sect">
-            <span>Attachments</span>
-            <span className="line" />
-            <button className="btn small-btn" onClick={attach}>
-              <i className="ph ph-paperclip" /> Add file
-            </button>
-          </div>
-          {t.attachments.length === 0 ? (
-            <div className="tk-empty">No files yet.</div>
-          ) : (
-            <div className="tk-files">
-              {t.attachments.map((a) => (
-                <button key={a.id} className="tk-file" onClick={() => window.spawn.revealFile(a.path)}>
-                  <i className="ph ph-file" />
-                  <span className="nm">{a.name}</span>
-                  <span className="mt">
-                    {fmtSize(a.size)} · {a.uploaded_by || "?"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Comments */}
-          <div className="tk-sect">
-            <span>Comments</span>
-            <span className="line" />
-          </div>
-          <div className="tk-comments">
-            {t.comments.length === 0 && <div className="tk-empty">No comments yet.</div>}
-            {t.comments.map((c) => (
-              <div key={c.id} className={`tk-c ${c.author_kind}`}>
-                <div className="tk-c-head">
-                  <span className={`tk-who ${c.author_kind}`}>{AUTHOR_LABEL[c.author_kind] ?? c.author_kind}</span>
-                  <span className="tk-when">{fmtTime(c.created_at)}</span>
-                </div>
-                <div className="tk-c-body">{c.body}</div>
+            <div className="tk-block">
+              <div className="tk-sect">
+                <i className="ph ph-text-align-left" />
+                <span className="tk-sect-label">Description</span>
+                <span className="line" />
               </div>
-            ))}
-            <div ref={commentsEnd} />
-          </div>
-        </div>
+              <textarea
+                className="task tk-desc"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                onBlur={() => body !== t.body && saveField({ body })}
+                placeholder="Describe the work…"
+              />
+            </div>
 
-        <div className="s-foot tk-compose">
-          <textarea
-            className="task"
-            value={comment}
-            placeholder="Comment… (the team lead is notified and will act on it)"
-            onChange={(e) => setComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                post();
-              }
-            }}
-          />
-          <div className="tk-compose-foot">
-            <button className="btn danger small-btn" onClick={remove} disabled={busy}>
-              <i className="ph ph-trash" /> Delete
+            <div className="tk-controls">
+              <select
+                className="f-select"
+                style={{ width: "auto", padding: "4px 8px", fontSize: 11.5 }}
+                value={t.status}
+                onChange={(e) => saveField({ status: e.target.value as TicketStatus })}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              {backlog && (
+                <>
+                  <span
+                    className={`tag pick ${model ? "tag-accent" : "tag-outline"}`}
+                    onClick={() => cycle(MODELS, model, setModel)}
+                    title="Click to cycle models"
+                  >
+                    <i className="ph ph-brain" style={{ marginRight: 4 }} />
+                    {model || "model"}
+                  </span>
+                  <span
+                    className={`tag pick ${effort ? "tag-accent" : "tag-outline"}`}
+                    onClick={() => cycle(EFFORTS, effort, setEffort)}
+                    title="Click to cycle efforts"
+                  >
+                    <i className="ph ph-gauge" style={{ marginRight: 4 }} />
+                    {effort || "effort"}
+                  </span>
+                  <button className="btn btn-primary small-btn" disabled={busy} onClick={delegate}>
+                    <i className="ph ph-paper-plane-tilt" /> Delegate
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Attachments — anchored at the bottom of the card, Trello-style */}
+            <div className="tk-block">
+              <div className="tk-sect">
+                <i className="ph ph-paperclip" />
+                <span className="tk-sect-label">Attachments</span>
+                <span className="line" />
+                <button className="btn small-btn" onClick={attach}>
+                  <i className="ph ph-plus" /> Add
+                </button>
+              </div>
+              {t.attachments.length === 0 ? (
+                <div className="tk-empty">No files yet.</div>
+              ) : (
+                <div className="tk-files">
+                  {t.attachments.map((a) => (
+                    <button key={a.id} className="tk-file" onClick={() => window.spawn.revealFile(a.path)}>
+                      <i className="ph ph-file" />
+                      <span className="nm">{a.name}</span>
+                      <span className="mt">
+                        {fmtSize(a.size)} · {a.uploaded_by || "?"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <span className="tk-spring" />
+            <button className="tk-delete" onClick={remove} disabled={busy}>
+              <i className="ph ph-trash" /> Delete ticket
             </button>
-            <span style={{ marginLeft: "auto" }} />
-            <button className="btn btn-primary small-btn" onClick={post} disabled={!comment.trim() || posting}>
-              {posting ? "…" : "Comment ↵"}
-            </button>
+          </div>
+
+          {/* RIGHT PANE — comments thread + compose */}
+          <div className="tk-side">
+            <div className="tk-side-head">
+              <i className="ph ph-chat-teardrop-text" />
+              <span className="tk-sect-label">Comments</span>
+              {t.comments.length > 0 && <span className="tk-count">{t.comments.length}</span>}
+            </div>
+            <div className="tk-comments">
+              {t.comments.length === 0 && <div className="tk-empty">No comments yet.</div>}
+              {t.comments.map((c) => (
+                <div key={c.id} className={`tk-c ${c.author_kind}`}>
+                  <span className={`tk-avatar ${c.author_kind}`}>
+                    <i className={`ph ${AVATAR_ICON[c.author_kind] ?? "ph-user"}`} />
+                  </span>
+                  <div className="tk-c-main">
+                    <div className="tk-c-head">
+                      <span className={`tk-who ${c.author_kind}`}>
+                        {AUTHOR_LABEL[c.author_kind] ?? c.author_kind}
+                      </span>
+                      <span className="tk-when">{fmtTime(c.created_at)}</span>
+                    </div>
+                    <div className="tk-c-body">{c.body}</div>
+                  </div>
+                </div>
+              ))}
+              <div ref={commentsEnd} />
+            </div>
+            <div className="tk-compose">
+              <textarea
+                className="task"
+                value={comment}
+                placeholder="Write a comment… (the team lead is notified and will act on it)"
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    post();
+                  }
+                }}
+              />
+              <button
+                className="btn btn-primary small-btn"
+                style={{ alignSelf: "flex-end" }}
+                onClick={post}
+                disabled={!comment.trim() || posting}
+              >
+                {posting ? "…" : "Comment ↵"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
