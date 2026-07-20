@@ -51,6 +51,22 @@ resource "aws_ssm_parameter" "relay_dev_token" {
   value       = var.relay_dev_token
 }
 
+# Email/password login secrets, mirrored from Railway so the phone's existing
+# JWT keeps working and email+password login behaves identically here.
+resource "aws_ssm_parameter" "auth_jwt_secret" {
+  name        = "/spawn/relay/auth_jwt_secret"
+  description = "AUTH_JWT_SECRET for the AWS relay (mirror of Railway)."
+  type        = "SecureString"
+  value       = var.auth_jwt_secret
+}
+
+resource "aws_ssm_parameter" "auth_users" {
+  name        = "/spawn/relay/auth_users"
+  description = "AUTH_USERS JSON for the AWS relay (mirror of Railway)."
+  type        = "SecureString"
+  value       = var.auth_users
+}
+
 # ── IAM role for the instance (S3 read of the code bundle, SSM read of the
 # secrets above, plus SSM Session Manager for shell access without opening
 # an SSH port) ────────────────────────────────────────────────────────────
@@ -86,6 +102,8 @@ data "aws_iam_policy_document" "relay_inline" {
     resources = [
       aws_ssm_parameter.relay_daemon_key.arn,
       aws_ssm_parameter.relay_dev_token.arn,
+      aws_ssm_parameter.auth_jwt_secret.arn,
+      aws_ssm_parameter.auth_users.arn,
     ]
   }
   statement {
@@ -119,12 +137,24 @@ resource "aws_security_group" "relay" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-resource "aws_vpc_security_group_ingress_rule" "relay_app_port" {
+# Caddy fronts the relay: 443 = wss (TLS), 80 = ACME HTTP-01 challenge + a
+# redirect to https. The relay's own port (relay_port) is NOT opened publicly —
+# only Caddy on the box (localhost) talks to it. App-layer auth still applies.
+resource "aws_vpc_security_group_ingress_rule" "relay_https" {
   security_group_id = aws_security_group.relay.id
-  description       = "Relay HTTP/WS endpoint"
+  description       = "Relay wss endpoint (Caddy TLS)"
   ip_protocol       = "tcp"
-  from_port         = var.relay_port
-  to_port           = var.relay_port
+  from_port         = 443
+  to_port           = 443
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "relay_http" {
+  security_group_id = aws_security_group.relay.id
+  description       = "ACME HTTP-01 challenge plus http to https redirect"
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
   cidr_ipv4         = "0.0.0.0/0"
 }
 
@@ -137,12 +167,16 @@ resource "aws_vpc_security_group_egress_rule" "relay_all_out" {
 # ── Instance ──────────────────────────────────────────────────────────────
 locals {
   relay_user_data = templatefile("${path.module}/templates/relay-user-data.sh.tftpl", {
-    region          = "us-east-1"
-    bucket          = aws_s3_bucket.relay_code.bucket
-    key             = aws_s3_object.relay_code.key
-    daemon_key_name = aws_ssm_parameter.relay_daemon_key.name
-    dev_token_name  = aws_ssm_parameter.relay_dev_token.name
-    relay_port      = var.relay_port
+    region                = "us-east-1"
+    bucket                = aws_s3_bucket.relay_code.bucket
+    key                   = aws_s3_object.relay_code.key
+    daemon_key_name       = aws_ssm_parameter.relay_daemon_key.name
+    dev_token_name        = aws_ssm_parameter.relay_dev_token.name
+    auth_jwt_secret_name  = aws_ssm_parameter.auth_jwt_secret.name
+    auth_users_name       = aws_ssm_parameter.auth_users.name
+    auth_token_ttl        = var.auth_token_ttl
+    relay_port            = var.relay_port
+    relay_hostname        = var.relay_hostname
   })
 }
 
@@ -166,18 +200,36 @@ resource "aws_instance" "relay" {
   }
 }
 
+# Stable public address DuckDNS points at, so Caddy's cert + the phone's URL
+# survive instance replacement (user_data changes replace the instance). An EIP
+# is free while associated with a running instance.
+resource "aws_eip" "relay" {
+  domain = "vpc"
+  tags   = { Name = "spawn-relay" }
+}
+
+resource "aws_eip_association" "relay" {
+  instance_id   = aws_instance.relay.id
+  allocation_id = aws_eip.relay.id
+}
+
 output "relay_instance_id" {
   value = aws_instance.relay.id
 }
 
+output "relay_eip" {
+  description = "Point the DuckDNS A-record at this address."
+  value       = aws_eip.relay.public_ip
+}
+
 output "relay_public_ip" {
-  value = aws_instance.relay.public_ip
+  value = aws_eip.relay.public_ip
 }
 
 output "relay_endpoint" {
-  value = "ws://${aws_instance.relay.public_ip}:${var.relay_port}"
+  value = var.relay_hostname != "" ? "wss://${var.relay_hostname}" : "ws://${aws_eip.relay.public_ip}:${var.relay_port}"
 }
 
 output "relay_health_url" {
-  value = "http://${aws_instance.relay.public_ip}:${var.relay_port}/health"
+  value = var.relay_hostname != "" ? "https://${var.relay_hostname}/health" : "http://${aws_eip.relay.public_ip}:${var.relay_port}/health"
 }

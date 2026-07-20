@@ -22,18 +22,52 @@ variable "vps_ami" {
   default     = ""
 }
 
+# Public DNS name (DuckDNS) fronted by Caddy with a Let's Encrypt cert, so the
+# relay is reachable over wss:// (required for the iOS app's App Transport
+# Security). Empty = plain ws:// on the public IP (old behavior). When set, the
+# instance gets an Elastic IP (stable address DuckDNS points at) and Caddy
+# terminates TLS on 443, reverse-proxying to the relay on relay_port.
+variable "relay_hostname" {
+  description = "Public DNS name for the relay, e.g. spawn-relay.duckdns.org. Point this DuckDNS record at the relay_eip output, then Caddy provisions the TLS cert."
+  type        = string
+  default     = ""
+}
+
 # ── Secrets — set via terraform.tfvars (gitignored), NOT committed.
-# Generate with: ./scripts/bootstrap-secrets.sh
+# Generate with: ./scripts/bootstrap-secrets.sh — OR, to make this relay a drop-in
+# replacement for Railway, mirror Railway's values (scripts/mirror-railway-env.sh).
 variable "relay_daemon_key" {
-  description = "RELAY_DAEMON_KEY for this AWS relay (fresh value — not the same secret Railway uses)."
+  description = "RELAY_DAEMON_KEY the relay accepts from the daemon. Set to the daemon's SPAWN_RELAY_DAEMON_KEY so no client change is needed beyond the URL."
   type        = string
   sensitive   = true
 }
 
 variable "relay_dev_token" {
-  description = "RELAY_DEV_TOKEN for this AWS relay (fresh value — not the same secret Railway uses)."
+  description = "RELAY_DEV_TOKEN — the phone's fallback access token. Set to the daemon .env SPAWN_RELAY_ACCESS_TOKEN."
   type        = string
   sensitive   = true
+}
+
+# Email/password login (mirror of Railway so already-issued phone JWTs stay
+# valid). Empty = login disabled on this relay (dev-token auth only).
+variable "auth_jwt_secret" {
+  description = "AUTH_JWT_SECRET — HS256 signing secret for /auth/login JWTs. Mirror Railway's value."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "auth_users" {
+  description = "AUTH_USERS — JSON map of email -> scrypt$salt$hash. Mirror Railway's value."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "auth_token_ttl" {
+  description = "AUTH_TOKEN_TTL — optional JWT lifetime (e.g. 30d). Empty uses the relay's default."
+  type        = string
+  default     = ""
 }
 
 variable "vps_control_token" {

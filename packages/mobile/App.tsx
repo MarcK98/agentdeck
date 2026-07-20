@@ -6,7 +6,7 @@ import { C } from "./src/theme";
 
 // The deployed relay (override in the login screen if you self-host). The phone
 // signs in with email + password → the relay returns a JWT it then connects with.
-const DEFAULT_WS = "wss://spawn-production-0d3e.up.railway.app";
+const DEFAULT_WS = "wss://spawn-relay.duckdns.org";
 const TOKEN_KEY = "spawn.token";
 const URL_KEY = "spawn.relay";
 const httpFrom = (ws: string) => ws.replace(/^wss:/, "https:").replace(/^ws:/, "http:");

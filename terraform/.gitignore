@@ -2,6 +2,7 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+*.tfvars.json
 !*.tfvars.example
 .vps-control.env
 !.vps-control.env.example

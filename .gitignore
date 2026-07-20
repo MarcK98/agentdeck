@@ -32,3 +32,6 @@ packages/mobile/android/
 # Apple/ASC secrets (never commit)
 .credentials/
 credentials.json
+
+# local .env backups (secrets) — never commit
+.env.bak.*

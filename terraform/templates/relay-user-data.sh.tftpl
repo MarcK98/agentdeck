@@ -1,7 +1,8 @@
 #!/bin/bash
 # Bootstrap for the Spawn relay on Amazon Linux 2023. Runs once on first boot
 # (cloud-init/user-data). Installs Node, pulls the relay code bundle from S3,
-# fetches its secrets from SSM Parameter Store, and runs it under systemd.
+# fetches its secrets from SSM Parameter Store, runs it under systemd, and (when
+# a hostname is set) puts Caddy in front for wss:// via Let's Encrypt.
 set -euo pipefail
 exec > >(tee /var/log/spawn-relay-userdata.log) 2>&1
 
@@ -20,12 +21,19 @@ npm install --omit=dev --no-audit --no-fund
 echo "== fetching secrets from SSM Parameter Store =="
 DAEMON_KEY=$(aws ssm get-parameter --name "${daemon_key_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
 DEV_TOKEN=$(aws ssm get-parameter --name "${dev_token_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
+AUTH_JWT_SECRET=$(aws ssm get-parameter --name "${auth_jwt_secret_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
+AUTH_USERS=$(aws ssm get-parameter --name "${auth_users_name}" --with-decryption --region "${region}" --query Parameter.Value --output text)
 
-cat > /etc/spawn-relay.env <<EOF
-RELAY_PORT=${relay_port}
-RELAY_DAEMON_KEY=$DAEMON_KEY
-RELAY_DEV_TOKEN=$DEV_TOKEN
-EOF
+# Write the env file. Only include AUTH_* lines when they were actually set
+# (empty SSM value -> omit, so the relay falls back to dev-token-only auth).
+{
+  echo "RELAY_PORT=${relay_port}"
+  echo "RELAY_DAEMON_KEY=$DAEMON_KEY"
+  echo "RELAY_DEV_TOKEN=$DEV_TOKEN"
+  [ -n "$AUTH_JWT_SECRET" ] && echo "AUTH_JWT_SECRET=$AUTH_JWT_SECRET"
+  [ -n "$AUTH_USERS" ] && echo "AUTH_USERS=$AUTH_USERS"
+  [ -n "${auth_token_ttl}" ] && echo "AUTH_TOKEN_TTL=${auth_token_ttl}"
+} > /etc/spawn-relay.env
 chmod 600 /etc/spawn-relay.env
 
 echo "== installing systemd unit =="
@@ -48,4 +56,56 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now spawn-relay
+
+# ── TLS front (Caddy) ────────────────────────────────────────────────────────
+# When a hostname is provided, Caddy terminates TLS on 443 and reverse-proxies
+# to the relay on localhost:$${relay_port}, auto-provisioning a Let's Encrypt
+# cert via the HTTP-01 challenge (needs port 80 open + the DNS record pointing
+# here). WebSocket upgrades pass through transparently.
+RELAY_HOSTNAME="${relay_hostname}"
+if [ -n "$RELAY_HOSTNAME" ]; then
+  echo "== installing Caddy for $RELAY_HOSTNAME =="
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) CADDY_ARCH=amd64 ;;
+    aarch64) CADDY_ARCH=arm64 ;;
+    *) CADDY_ARCH=amd64 ;;
+  esac
+  # Caddy's GitHub releases ship a static-binary tarball (no .rpm). Grab it,
+  # drop the binary in place, and run it under a hand-written systemd unit.
+  curl -fsSL -o /tmp/caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v2.8.4/caddy_2.8.4_linux_$${CADDY_ARCH}.tar.gz"
+  tar -xzf /tmp/caddy.tar.gz -C /tmp caddy
+  install -m 0755 /tmp/caddy /usr/bin/caddy
+  rm -f /tmp/caddy.tar.gz /tmp/caddy
+  id caddy >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/caddy --shell /usr/sbin/nologin caddy
+  mkdir -p /etc/caddy
+  cat > /etc/caddy/Caddyfile <<EOF
+$RELAY_HOSTNAME {
+    reverse_proxy localhost:${relay_port}
+}
+EOF
+  cat > /etc/systemd/system/caddy.service <<'UNIT'
+[Unit]
+Description=Caddy
+After=network.target
+
+[Service]
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+LimitNOFILE=1048576
+StateDirectory=caddy
+Environment=XDG_DATA_HOME=/var/lib
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now caddy
+fi
+
 echo "== done =="
