@@ -124,6 +124,35 @@ export interface Ticket {
   running: boolean;
 }
 
+// A comment on a ticket. author_kind: who wrote it — human (Marc, from
+// desktop/mobile), lead (team-lead run), agent (a working run).
+export interface TicketComment {
+  id: number;
+  ticket_id: number;
+  author_kind: "human" | "lead" | "agent";
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+// A file attached to a ticket (copied into the ticket's files dir).
+export interface TicketAttachment {
+  id: number;
+  ticket_id: number;
+  name: string;
+  path: string;
+  size: number;
+  uploaded_by: string;
+  created_at: string;
+}
+
+// Full ticket detail for the modal: the ticket plus its comment thread and
+// attachments (daemon getTicket).
+export interface TicketDetail extends Ticket {
+  comments: TicketComment[];
+  attachments: TicketAttachment[];
+}
+
 // A thread row joined with its project name (daemon listActiveThreads).
 // `running` is live process truth from the daemon, not event-derived.
 export interface ActiveThread extends Thread {
@@ -247,6 +276,8 @@ export type SpawnEvent =
   | { type: "ticket:created"; payload: Ticket }
   | { type: "ticket:updated"; payload: Ticket }
   | { type: "ticket:deleted"; payload: { id: number } }
+  | { type: "ticket:comment"; payload: { ticketId: number; comment: TicketComment } }
+  | { type: "ticket:attachment"; payload: { ticketId: number; attachment: TicketAttachment } }
   | { type: "deliverables:updated"; payload: { threadId: number; files: string[] } }
   | { type: "approval:request"; payload: ApprovalRequest }
   | { type: "approval:resolved"; payload: { id: number; threadId: number; allow: boolean } }
@@ -323,6 +354,14 @@ declare global {
       updateTicket(ticketId: number, patch: Partial<Pick<Ticket, "title" | "body" | "status">>): Promise<Ticket>;
       deleteTicket(ticketId: number): Promise<boolean>;
       delegateTicket(ticketId: number, opts?: { model?: string; effort?: string }): Promise<Thread>;
+      // Ticket detail modal: full ticket + comments + attachments; post a
+      // comment (always human-authored → wakes the team lead); attach a file
+      // (picked via pickFile → copied into the ticket).
+      getTicket(ticketId: number): Promise<TicketDetail>;
+      listTicketComments(ticketId: number): Promise<TicketComment[]>;
+      addTicketComment(ticketId: number, body: string): Promise<TicketComment>;
+      listTicketAttachments(ticketId: number): Promise<TicketAttachment[]>;
+      addTicketAttachment(ticketId: number, sourcePath: string): Promise<TicketAttachment>;
       getTeamLeadProject(): Promise<Project | null>;
       delegateTask(args: {
         projectId: number;

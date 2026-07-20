@@ -395,6 +395,46 @@ textarea.blob::placeholder { color: var(--color-neutral-600); }
 .sheet textarea.task:focus { border-color: var(--color-accent-700); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent); }
 .sheet .s-foot { display: flex; gap: 8px; align-items: center; padding-top: 10px; border-top: 1px solid var(--color-neutral-900); }
 
+/* Ticket detail modal (Orchestrate card click) */
+.icon-btn { background: none; border: 0; color: var(--color-neutral-500); cursor: pointer; font-size: 16px; padding: 2px 5px; border-radius: var(--radius-sm); }
+.icon-btn:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-text) 8%, transparent); }
+.btn.danger { color: oklch(0.7 0.15 25); border-color: color-mix(in srgb, oklch(0.7 0.15 25) 55%, transparent); }
+.btn.danger:hover { background: color-mix(in srgb, oklch(0.7 0.15 25) 12%, transparent); }
+.col-pill.todo { background: var(--color-neutral-800); color: var(--color-neutral-200); }
+.col-pill.in-progress { background: color-mix(in srgb, oklch(0.72 0.1 150) 24%, transparent); color: oklch(0.85 0.1 150); }
+.col-pill.blocked { background: color-mix(in srgb, oklch(0.75 0.11 80) 24%, transparent); color: oklch(0.87 0.11 80); }
+.col-pill.in-review { background: var(--color-accent-800); color: var(--color-accent-100); }
+.col-pill.done { background: var(--color-neutral-800); color: var(--color-neutral-500); }
+.sheet.tk-modal { width: 640px; max-width: 94vw; max-height: 86vh; padding: 15px 18px; gap: 10px; }
+.tk-modal .s-head { font-size: 12px; font-weight: 400; gap: 8px; }
+.tk-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+input.f-static.tk-title { font-size: 15px; font-weight: 500; }
+.tk-desc { min-height: 56px; }
+.tk-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tk-sect { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.tk-sect > span:first-child { font: 500 10.5px var(--font-heading); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600); white-space: nowrap; }
+.tk-sect .line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--color-neutral-800), transparent); }
+.tk-empty { font-size: 12px; color: var(--color-neutral-600); padding: 1px 2px; }
+.tk-files { display: flex; flex-direction: column; gap: 5px; }
+.tk-file { display: flex; align-items: center; gap: 8px; background: var(--color-neutral-900); border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); padding: 6px 10px; cursor: pointer; text-align: left; color: var(--color-text); }
+.tk-file:hover { border-color: var(--color-accent-700); }
+.tk-file i { color: var(--color-neutral-500); }
+.tk-file .nm { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-file .mt { margin-left: auto; font-size: 10.5px; color: var(--color-neutral-600); flex: none; }
+.tk-comments { display: flex; flex-direction: column; gap: 8px; }
+.tk-c { border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); padding: 7px 10px; background: var(--color-neutral-900); }
+.tk-c.human { border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-neutral-800)); }
+.tk-c-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.tk-who { font: 500 10.5px var(--font-heading); text-transform: uppercase; letter-spacing: 0.06em; }
+.tk-who.human { color: var(--color-accent-300); }
+.tk-who.lead { color: oklch(0.8 0.12 300); }
+.tk-who.agent { color: var(--color-neutral-400); }
+.tk-when { margin-left: auto; font-size: 10px; color: var(--color-neutral-600); }
+.tk-c-body { font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; color: var(--color-neutral-200); }
+.sheet .s-foot.tk-compose { flex-direction: column; align-items: stretch; gap: 8px; }
+.tk-compose textarea.task { width: 100%; min-height: 58px; box-sizing: border-box; }
+.tk-compose-foot { display: flex; align-items: center; gap: 8px; }
+
 /* Approval toast (non-blocking, links to the inbox) */
 .toast { position: fixed; right: 18px; bottom: 18px; z-index: 15; width: 360px; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 13px 15px; outline: 1px solid color-mix(in srgb, oklch(0.75 0.11 80) 45%, transparent); }
 .toast .head { display: flex; gap: 8px; align-items: center; font: 500 12.5px var(--font-heading); }

@@ -54,6 +54,29 @@ const MIGRATIONS = [
      ciphertext TEXT NOT NULL,
      PRIMARY KEY (project_id, secret_key)
    );`,
+  // v5: ticket comments + attachments. Comments drive the team-lead loop
+  // (a human comment wakes the lead, which delegates and comments back);
+  // author_kind distinguishes who wrote it. Attachments are files copied
+  // into <dataDir>/ticket-files/<ticketId>/, uploadable by human/lead/agents.
+  `CREATE TABLE IF NOT EXISTS ticket_comments (
+     id          INTEGER PRIMARY KEY,
+     ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+     author_kind TEXT NOT NULL DEFAULT 'human' CHECK (author_kind IN ('human','lead','agent')),
+     author_name TEXT NOT NULL DEFAULT '',
+     body        TEXT NOT NULL,
+     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_ticket_comments ON ticket_comments(ticket_id, id);
+   CREATE TABLE IF NOT EXISTS ticket_attachments (
+     id          INTEGER PRIMARY KEY,
+     ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+     name        TEXT NOT NULL,
+     path        TEXT NOT NULL,
+     size        INTEGER NOT NULL DEFAULT 0,
+     uploaded_by TEXT NOT NULL DEFAULT '',
+     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_ticket_attachments ON ticket_attachments(ticket_id, id);`,
 ];
 
 let db = null;
@@ -235,6 +258,32 @@ export const deleteTicket = (id) => {
   openDb().prepare(`DELETE FROM tickets WHERE id = ?`).run(id);
   return true;
 };
+
+// ── Ticket comments + attachments (v5) ─────────────────────────────────────────
+const touchTicket = (d, ticketId) =>
+  d.prepare(`UPDATE tickets SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(ticketId);
+
+export const addTicketComment = ({ ticketId, authorKind = "human", authorName = "", body }) => {
+  const d = openDb();
+  const { lastInsertRowid } = d
+    .prepare(`INSERT INTO ticket_comments (ticket_id, author_kind, author_name, body) VALUES (?, ?, ?, ?)`)
+    .run(ticketId, authorKind, authorName, String(body));
+  touchTicket(d, ticketId);
+  return d.prepare(`SELECT * FROM ticket_comments WHERE id = ?`).get(lastInsertRowid);
+};
+export const listTicketComments = (ticketId) =>
+  openDb().prepare(`SELECT * FROM ticket_comments WHERE ticket_id = ? ORDER BY id`).all(ticketId);
+
+export const addTicketAttachment = ({ ticketId, name, path, size = 0, uploadedBy = "" }) => {
+  const d = openDb();
+  const { lastInsertRowid } = d
+    .prepare(`INSERT INTO ticket_attachments (ticket_id, name, path, size, uploaded_by) VALUES (?, ?, ?, ?, ?)`)
+    .run(ticketId, name, path, size, uploadedBy);
+  touchTicket(d, ticketId);
+  return d.prepare(`SELECT * FROM ticket_attachments WHERE id = ?`).get(lastInsertRowid);
+};
+export const listTicketAttachments = (ticketId) =>
+  openDb().prepare(`SELECT * FROM ticket_attachments WHERE ticket_id = ? ORDER BY id`).all(ticketId);
 
 // ── Project settings ─────────────────────────────────────────────────────────
 // One JSON blob per project (v2 migration). Secret VALUES NEVER go here — they

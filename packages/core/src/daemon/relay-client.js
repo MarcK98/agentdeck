@@ -22,6 +22,9 @@ export function startRelayClient(daemon) {
     "connectGcloud",
     "importAppleKey",
     "disconnectProvider",
+    // Reads a file path on the daemon host — meaningless / unsafe from a
+    // remote client. Commenting from mobile stays allowed.
+    "addTicketAttachment",
   ]);
   const METHODS = new Set(
     Object.entries(daemon)

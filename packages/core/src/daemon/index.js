@@ -1,8 +1,8 @@
 import { EventEmitter } from "node:events";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, mkdirSync, existsSync, copyFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, basename } from "node:path";
-import { config, tokenizeArgs } from "../config.js";
+import { config, tokenizeArgs, dataPath } from "../config.js";
 import { log } from "../logger.js";
 import {
   askClaude,
@@ -277,11 +277,23 @@ export function createDaemon() {
         persistSessions: thread.kind !== "ticket",
         // Per-project MCP servers + skill denials (settings page). Team-lead
         // runs also get the board archive tools (search incl. done tickets).
+        // Board MCP: the team lead gets it (archive search + comment/delegate
+        // back), and so do ticket runs (so the working agent can comment on /
+        // attach files to its own ticket). The role + ticket id are passed via
+        // env so the board tools default to the right ticket and author kind.
         mcpServers: {
           ...mcpServersFor(project.id, settings),
           ...(thread.kind === "teamlead"
-            ? { board: { command: process.execPath, args: [BOARD_MCP_PATH] } }
-            : {}),
+            ? { board: { command: process.execPath, args: [BOARD_MCP_PATH], env: { SPAWN_BOARD_ROLE: "lead" } } }
+            : thread.kind === "ticket"
+              ? {
+                  board: {
+                    command: process.execPath,
+                    args: [BOARD_MCP_PATH],
+                    env: { SPAWN_BOARD_ROLE: "agent", SPAWN_BOARD_TICKET_ID: String(db.getTicketByThread(thread.id)?.id ?? "") },
+                  },
+                }
+              : {}),
         },
         disallowedTools: (settings.disabledSkills ?? []).map((s) => `Skill(${s})`),
         // Rules / memory / connections + the deliverables note, as a
@@ -341,6 +353,48 @@ export function createDaemon() {
     });
 
     return { threadId, started: true };
+  };
+
+  // ── Ticket attachments (files) + the human-comment → team-lead nudge ────────
+  const ticketFilesDir = (ticketId) => {
+    const dir = dataPath(join("ticket-files", String(ticketId)));
+    mkdirSync(dir, { recursive: true });
+    return dir;
+  };
+  const storeTicketAttachment = (ticketId, sourcePath, uploadedBy) => {
+    if (!sourcePath || !existsSync(sourcePath)) throw new Error(`No such file: ${sourcePath}`);
+    const dir = ticketFilesDir(ticketId);
+    let dest = join(dir, basename(sourcePath));
+    if (existsSync(dest)) {
+      const base = basename(sourcePath);
+      const dot = base.lastIndexOf(".");
+      const n = db.listTicketAttachments(ticketId).length + 1;
+      dest = join(dir, dot > 0 ? `${base.slice(0, dot)}-${n}${base.slice(dot)}` : `${base}-${n}`);
+    }
+    copyFileSync(sourcePath, dest);
+    return db.addTicketAttachment({ ticketId, name: basename(dest), path: dest, size: statSync(dest).size, uploadedBy });
+  };
+
+  // A human comment wakes the team lead: it reads the ticket + comment and
+  // takes the next action (delegate if backlog, steer/relay if in progress),
+  // then comments back. No-op if no team-lead project is configured.
+  const nudgeTeamLeadForComment = (ticketId, comment) => {
+    const tlProject = resolveTeamLeadProject();
+    if (!tlProject) return;
+    let tl = db.listThreads(tlProject.id).find((t) => t.kind === "teamlead");
+    if (!tl) {
+      tl = db.createThread({ projectId: tlProject.id, kind: "teamlead", title: "Team-lead console" });
+      emit("thread:created", tl);
+    }
+    const k = db.getTicket(ticketId);
+    const prompt =
+      `New comment on SPWN-${ticketId} — ${k.project_name}: "${k.title}" [${k.status}]${k.branch ? ` (${k.branch})` : ""}.\n\n` +
+      `Comment from Marc:\n${comment.body}\n\n` +
+      `Read the full ticket (comments + attachments) with mcp__board__get_ticket. Then take the next action:\n` +
+      `- If it isn't delegated yet, delegate the implementation with mcp__board__delegate_ticket.\n` +
+      `- If it's already in progress, decide whether to steer, wait, or just acknowledge.\n` +
+      `When you've acted, reply to Marc on the ticket with mcp__board__comment_on_ticket. Keep replies short.`;
+    launchTurn(tl, tlProject, prompt, { source: "spawn-ticket-comment" });
   };
 
   const daemonApi = {
@@ -534,6 +588,49 @@ export function createDaemon() {
       return { ...ticket, outcome };
     },
 
+    // Full detail for the desktop ticket modal: ticket + comment thread +
+    // attachments in one round trip.
+    getTicket: (ticketId) => {
+      const ticket = db.getTicket(ticketId);
+      if (!ticket) throw new Error(`No such ticket: ${ticketId}`);
+      return {
+        ...ticket,
+        comments: db.listTicketComments(ticketId),
+        attachments: db.listTicketAttachments(ticketId),
+      };
+    },
+
+    listTicketComments: (ticketId) => db.listTicketComments(ticketId),
+
+    // Post a comment. authorKind: "human" (desktop/mobile), "lead"/"agent"
+    // (board MCP). A HUMAN comment auto-wakes the team lead to act + reply.
+    addTicketComment: (ticketId, opts) => {
+      const { authorKind = "human", authorName = "", body } = opts ?? {};
+      if (!db.getTicket(ticketId)) throw new Error(`No such ticket: ${ticketId}`);
+      const text = String(body ?? "").trim();
+      if (!text) throw new Error("addTicketComment needs a body");
+      const comment = db.addTicketComment({ ticketId, authorKind, authorName, body: text });
+      emit("ticket:comment", { ticketId, comment });
+      if (authorKind === "human") {
+        try {
+          nudgeTeamLeadForComment(ticketId, comment);
+        } catch (e) {
+          log.warn?.(`[teamlead] nudge on comment failed: ${e.message}`);
+        }
+      }
+      return comment;
+    },
+
+    listTicketAttachments: (ticketId) => db.listTicketAttachments(ticketId),
+
+    // Copy a host file into the ticket's attachments dir + record it.
+    addTicketAttachment: (ticketId, sourcePath, uploadedBy = "you") => {
+      if (!db.getTicket(ticketId)) throw new Error(`No such ticket: ${ticketId}`);
+      const attachment = storeTicketAttachment(ticketId, sourcePath, uploadedBy);
+      emit("ticket:attachment", { ticketId, attachment });
+      return attachment;
+    },
+
     deleteTicket: (ticketId) => {
       db.deleteTicket(ticketId);
       emit("ticket:deleted", { id: ticketId });
@@ -623,7 +720,7 @@ export function createDaemon() {
       const isolationNote = wt
         ? `\n\nYou are working in an isolated git worktree created for this ticket: ${wt.path} (branch ${wt.branch}, forked from ${wt.base}). Commit your work on this branch; push it and open a PR rather than committing to the base branch directly.`
         : "";
-      const prompt = `You've been assigned a task by the team lead:\n\n${text}\n\nWork on it in this project. Commit/push or open a PR as appropriate. If you produce a document, report, export, or log Marc should see, share it with the mcp__approver__share_file tool (it uploads the file to this channel). When done or blocked, summarize the outcome in one short message.${isolationNote}`;
+      const prompt = `You've been assigned a task by the team lead:\n\n${text}\n\nWork on it in this project. Commit/push or open a PR as appropriate. If you produce a document, report, export, or log Marc should see, share it with the mcp__approver__share_file tool (it uploads the file to this channel). You can also post progress or questions on this ticket with mcp__board__comment_on_ticket, and attach result files (reports, screenshots, exports) to it with mcp__board__upload_ticket_attachment — those show up on the ticket Marc is watching. When done or blocked, summarize the outcome in one short message.${isolationNote}`;
       launchTurn(thread, project, prompt, { model, effort, source: "spawn-delegate" });
       return thread;
     },

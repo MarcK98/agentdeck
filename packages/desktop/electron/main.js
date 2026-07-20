@@ -71,6 +71,16 @@ ipcMain.handle("spawn:createTicket", (_e, args) => rpc("createTicket", args));
 ipcMain.handle("spawn:updateTicket", (_e, ticketId, patch) => rpc("updateTicket", ticketId, patch));
 ipcMain.handle("spawn:deleteTicket", (_e, ticketId) => rpc("deleteTicket", ticketId));
 ipcMain.handle("spawn:delegateTicket", (_e, ticketId, opts) => rpc("delegateTicket", ticketId, opts));
+ipcMain.handle("spawn:getTicket", (_e, ticketId) => rpc("getTicket", ticketId));
+ipcMain.handle("spawn:listTicketComments", (_e, ticketId) => rpc("listTicketComments", ticketId));
+// Desktop comments are always authored by the human (server-enforced kind).
+ipcMain.handle("spawn:addTicketComment", (_e, ticketId, body) =>
+  rpc("addTicketComment", ticketId, { authorKind: "human", authorName: "you", body })
+);
+ipcMain.handle("spawn:listTicketAttachments", (_e, ticketId) => rpc("listTicketAttachments", ticketId));
+ipcMain.handle("spawn:addTicketAttachment", (_e, ticketId, sourcePath) =>
+  rpc("addTicketAttachment", ticketId, sourcePath, "you")
+);
 ipcMain.handle("spawn:getTeamLeadProject", () => rpc("getTeamLeadProject"));
 ipcMain.handle("spawn:delegateTask", (_e, args) => rpc("delegateTask", args));
 ipcMain.handle("spawn:listActiveThreads", () => rpc("listActiveThreads"));

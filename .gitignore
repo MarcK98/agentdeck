@@ -15,6 +15,10 @@ spawn.db-*
 packages/desktop/dist/
 spawn-daemon.token
 spawn-daemon-sessions.json
+# AES key for encrypted MCP secrets — NEVER commit (loses/leaks all stored tokens)
+spawn-secret.key
+# Per-ticket attachment files live under the data dir
+ticket-files/
 # Per-ticket git worktrees (default SPAWN_WORKTREES_DIR under the data dir)
 worktrees/
 spawn-daemon.pid

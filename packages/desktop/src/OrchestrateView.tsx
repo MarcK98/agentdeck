@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActiveThread, Project, Thread, Ticket, TicketStatus, UsageSummary } from "./types";
 import TicketSheet from "./TicketSheet";
+import TicketModal from "./TicketModal";
 
 // Orchestrate — the native board (source of truth: the tickets table). Cards
 // are tickets; drag between columns to change status; click to edit a
@@ -78,6 +79,7 @@ export default function OrchestrateView({
 }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [sheet, setSheet] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [modalTicket, setModalTicket] = useState<number | null>(null);
   const dragTicket = useRef<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TicketStatus | null>(null);
   // Delegate dock state.
@@ -116,10 +118,10 @@ export default function OrchestrateView({
     await window.spawn.updateTicket(id, { status });
   };
 
-  const openTicket = (t: Ticket) => {
-    if (t.thread_id != null) onOpenThread(t.project_id, t.thread_id);
-    else setSheet({ open: true, ticket: t });
-  };
+  // Clicking any card — backlog or delegated — opens the detail modal
+  // (title/description, comments, attachments). Jumping into the run's thread
+  // is a button inside the modal.
+  const openTicket = (t: Ticket) => setModalTicket(t.id);
 
   const delegate = async () => {
     const text = task.trim();
@@ -337,6 +339,22 @@ export default function OrchestrateView({
             refresh();
           }}
           onDelegated={onDelegated}
+        />
+      )}
+
+      {modalTicket != null && (
+        <TicketModal
+          ticketId={modalTicket}
+          projects={projects}
+          onOpenThread={(pid, tid) => {
+            setModalTicket(null);
+            onOpenThread(pid, tid);
+          }}
+          onClose={() => {
+            setModalTicket(null);
+            refresh();
+          }}
+          onChanged={refresh}
         />
       )}
     </div>

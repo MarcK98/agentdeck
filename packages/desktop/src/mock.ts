@@ -3,6 +3,9 @@ import type {
   ApprovalDecision,
   ApprovalRequest,
   Ticket,
+  TicketComment,
+  TicketAttachment,
+  TicketDetail,
   MapData,
   Message,
   Project,
@@ -153,6 +156,27 @@ let tickets: Ticket[] = [
   mkTicket(30, 1, "Daemon auto-start from desktop app", "done"),
   mkTicket(29, 1, "Per-thread busy state", "done"),
 ];
+
+let mockCommentId = 700;
+let mockAttachmentId = 800;
+const commentsByTicket = new Map<number, TicketComment[]>([
+  [
+    11,
+    [
+      { id: 501, ticket_id: 11, author_kind: "human", author_name: "you", body: "Make sure branches survive the GC.", created_at: "2026-07-19T10:00:00Z" },
+      { id: 502, ticket_id: 11, author_kind: "lead", author_name: "team lead", body: "On it — delegated with the branch-preserve constraint.", created_at: "2026-07-19T10:01:00Z" },
+      { id: 503, ticket_id: 11, author_kind: "agent", author_name: "agent", body: "GC hooked into boot; branches kept. PR open.", created_at: "2026-07-19T10:40:00Z" },
+    ],
+  ],
+]);
+const attachmentsByTicket = new Map<number, TicketAttachment[]>([
+  [
+    11,
+    [
+      { id: 601, ticket_id: 11, name: "gc-report.md", path: "~/dev/deliverables/spawnmy-ai/SPWN-11/gc-report.md", size: 2048, uploaded_by: "agent", created_at: "2026-07-19T10:41:00Z" },
+    ],
+  ],
+]);
 
 const usage: UsageSummary = {
   days: 1,
@@ -336,6 +360,52 @@ export function installMock() {
         x.id === ticketId ? { ...x, status: "in-progress" as const, thread_id: 91, running: true } : x
       );
       return mkThread(91, t.project_id, "ticket", t.title, `ticket/91-mock`);
+    },
+    getTicket: async (ticketId): Promise<TicketDetail> => {
+      const t = tickets.find((x) => x.id === ticketId)!;
+      return {
+        ...t,
+        comments: commentsByTicket.get(ticketId) ?? [],
+        attachments: attachmentsByTicket.get(ticketId) ?? [],
+      };
+    },
+    listTicketComments: async (ticketId) => commentsByTicket.get(ticketId) ?? [],
+    addTicketComment: async (ticketId, body) => {
+      const c: TicketComment = {
+        id: ++mockCommentId,
+        ticket_id: ticketId,
+        author_kind: "human",
+        author_name: "you",
+        body,
+        created_at: "2026-07-20T12:00:00Z",
+      };
+      commentsByTicket.set(ticketId, [...(commentsByTicket.get(ticketId) ?? []), c]);
+      // Fake the team lead acknowledging, so the loop is visible in browser QA.
+      const ack: TicketComment = {
+        id: ++mockCommentId,
+        ticket_id: ticketId,
+        author_kind: "lead",
+        author_name: "team lead",
+        body: "Got it — taking a look and I'll delegate this.",
+        created_at: "2026-07-20T12:00:05Z",
+      };
+      commentsByTicket.set(ticketId, [...(commentsByTicket.get(ticketId) ?? []), ack]);
+      return c;
+    },
+    listTicketAttachments: async (ticketId) => attachmentsByTicket.get(ticketId) ?? [],
+    addTicketAttachment: async (ticketId, sourcePath) => {
+      const name = sourcePath.split("/").pop() || "file";
+      const a: TicketAttachment = {
+        id: ++mockAttachmentId,
+        ticket_id: ticketId,
+        name,
+        path: sourcePath,
+        size: 1024,
+        uploaded_by: "you",
+        created_at: "2026-07-20T12:01:00Z",
+      };
+      attachmentsByTicket.set(ticketId, [...(attachmentsByTicket.get(ticketId) ?? []), a]);
+      return a;
     },
     getTeamLeadProject: async () => projects[3],
     delegateTask: async ({ projectId, task }) => mkThread(91, projectId, "ticket", task.split("\n")[0].slice(0, 40), "ticket/91-mock"),
