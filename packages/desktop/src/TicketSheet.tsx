@@ -51,6 +51,13 @@ export default function TicketSheet({
     window.spawn.getProjectSettings(projectId).then(setSettings).catch(() => setSettings(null));
   }, [projectId]);
 
+  // Isolation is a project-level setting (the daemon reads it per delegation),
+  // so the ticket-sheet toggle flips it on the project — same as SettingsView.
+  const toggleIsolation = async () => {
+    if (projectId === "" || !settings) return;
+    setSettings(await window.spawn.updateProjectSettings(projectId, { isolation: settings.isolation === false }));
+  };
+
   const allowed = settings?.allowedModels ?? MODELS.filter((m) => m !== "fable");
   const branchPreview = title.trim() ? `ticket/<id>-${slugify(title.trim())}` : "ticket/<id>-<slug>";
   const canDelegate = editing ? ticket.thread_id == null : true;
@@ -210,7 +217,12 @@ export default function TicketSheet({
               </div>
             </div>
             <div className="toggle-row" style={{ marginTop: 0 }}>
-              <span className={`toggle ${settings?.isolation !== false ? "on" : ""}`} style={{ cursor: "default" }} />
+              <button
+                type="button"
+                className={`toggle ${settings?.isolation !== false ? "on" : ""}`}
+                disabled={!settings}
+                onClick={toggleIsolation}
+              />
               <span>{settings?.isolation !== false ? "Isolated in a worktree" : "Isolation off for this project"}</span>
               <span className="hint mono">{settings?.isolation !== false ? branchPreview : ""}</span>
             </div>
