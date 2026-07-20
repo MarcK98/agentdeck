@@ -268,6 +268,8 @@ export function installMock() {
     createThread: async ({ projectId, title, kind }) =>
       mkThread(90 + Math.floor(Math.random() * 100), projectId, (kind as Thread["kind"]) ?? "chat", title || "New thread"),
     renameThread: async (threadId, title) => ({ ...threads[0], id: threadId, title }),
+    setThreadStatus: async (threadId, status) => ({ ...threads[0], id: threadId, status }),
+    deleteThread: async () => ({ ok: true }),
     listMessages: async (threadId) => messages.filter((m) => m.thread_id === threadId),
     sendMessage: async (threadId) => ({ threadId, started: true }),
     cancelTurn: async () => true,

@@ -122,11 +122,17 @@ export default function App() {
       if (
         ev.type === "thread:created" ||
         ev.type === "thread:updated" ||
+        ev.type === "thread:deleted" ||
         ev.type === "turn:start" ||
         ev.type === "turn:done"
       ) {
         setRefreshTick((n) => n + 1);
         refreshShared();
+      }
+      if (ev.type === "thread:deleted") {
+        // If the open thread just got deleted (here or elsewhere), drop the
+        // selection so the chat pane doesn't keep pointing at a dead row.
+        setThreadId((cur) => (cur === ev.payload.id ? null : cur));
       }
       if (ev.type === "turn:start") {
         setBusyThreads((prev) => new Set(prev).add(ev.payload.threadId));

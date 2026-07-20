@@ -504,6 +504,45 @@ export function createDaemon() {
       return t;
     },
 
+    // Set a thread's lifecycle status (active | done | blocked | archived) —
+    // the manual counterpart to the board's automatic moves, driven by the
+    // threads list right-click menu. Validates against the schema's CHECK set.
+    setThreadStatus: (threadId, status) => {
+      const allowed = ["active", "done", "blocked", "archived"];
+      if (!allowed.includes(status)) throw new Error(`Bad thread status: ${status}`);
+      const t = db.updateThread(threadId, { status });
+      emit("thread:updated", t);
+      return t;
+    },
+
+    // Hard-delete a thread from the list. Refuses while a run is live (kill it
+    // first). Reclaims the worktree checkout the same way cleanupThread does —
+    // force, since this is an explicit, confirmed destroy — but the branch and
+    // its commits stay in the repo. Messages cascade; a linked ticket keeps its
+    // row (thread_id nulled) so no board work is lost.
+    deleteThread: async (threadId) => {
+      const thread = db.getThread(threadId);
+      if (!thread) return { ok: false, reason: "gone" };
+      if (getActiveRun(threadKey(threadId))) return { ok: false, reason: "running" };
+      if (thread.worktree_path) {
+        const project = db.listProjects().find((p) => p.id === thread.project_id);
+        if (project) {
+          try {
+            await removeWorktree({ repoDir: project.dir, path: thread.worktree_path, force: true });
+          } catch (err) {
+            // Already gone (removed by hand) is fine; a real failure isn't —
+            // don't orphan a live checkout by deleting its row.
+            if (await worktreeStatus(thread.worktree_path)) {
+              return { ok: false, reason: err.message };
+            }
+          }
+        }
+      }
+      db.deleteThread(threadId);
+      emit("thread:deleted", { id: threadId });
+      return { ok: true };
+    },
+
     // Send one user turn into a thread; Claude's reply streams out via
     // launchTurn (see above for the event contract).
     sendMessage: (threadId, text) => {

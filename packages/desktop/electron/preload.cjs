@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("spawn", {
   listThreads: (projectId) => ipcRenderer.invoke("spawn:listThreads", projectId),
   createThread: (args) => ipcRenderer.invoke("spawn:createThread", args),
   renameThread: (threadId, title) => ipcRenderer.invoke("spawn:renameThread", threadId, title),
+  setThreadStatus: (threadId, status) => ipcRenderer.invoke("spawn:setThreadStatus", threadId, status),
+  deleteThread: (threadId) => ipcRenderer.invoke("spawn:deleteThread", threadId),
   listMessages: (threadId, opts) => ipcRenderer.invoke("spawn:listMessages", threadId, opts),
   sendMessage: (threadId, text) => ipcRenderer.invoke("spawn:sendMessage", threadId, text),
   cancelTurn: (threadId) => ipcRenderer.invoke("spawn:cancelTurn", threadId),

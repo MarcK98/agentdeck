@@ -151,6 +151,22 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .thread-item.active { background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-200); }
 .thread-item .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .thread-item .k { font-size: 10px; color: var(--color-neutral-600); }
+.thread-item.menu-target { background: color-mix(in srgb, var(--color-accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent); }
+.thread-rename { flex: 1; min-width: 0; background: var(--color-neutral-900); border: 1px solid var(--color-accent-700); border-radius: var(--radius-sm); color: var(--color-text); font: 12.5px var(--font-body); padding: 3px 6px; outline: none; }
+.thread-note { margin: 0 8px 8px; padding: 6px 9px; font-size: 11.5px; line-height: 1.4; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-100); }
+
+/* Right-click manage menu (ContextMenu.tsx) — used by the threads list. */
+.ctx-menu { position: fixed; min-width: 196px; z-index: 40; display: flex; flex-direction: column; padding: 5px; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md); animation: ctx-in 90ms ease-out; }
+@keyframes ctx-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } }
+.ctx-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 9px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--color-neutral-200); font: 12.5px var(--font-body); text-align: left; cursor: pointer; }
+.ctx-item i { font-size: 15px; width: 16px; color: var(--color-neutral-500); }
+.ctx-item:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-accent-100); }
+.ctx-item:hover:not(:disabled) i { color: var(--color-accent-200); }
+.ctx-item:disabled { opacity: 0.4; cursor: default; }
+.ctx-item.danger, .ctx-item.danger i { color: oklch(0.72 0.15 25); }
+.ctx-item.danger:hover:not(:disabled) { background: color-mix(in srgb, oklch(0.7 0.15 25) 16%, transparent); }
+.ctx-item.danger:hover:not(:disabled), .ctx-item.danger:hover:not(:disabled) i { color: oklch(0.82 0.16 25); }
+.ctx-sep { height: 1px; margin: 4px 6px; background: var(--color-neutral-800); }
 .chat-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .chat-head { display: flex; align-items: center; gap: 10px; padding: 14px 22px 10px; }
 .chat-head .name { font: 500 14px var(--font-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

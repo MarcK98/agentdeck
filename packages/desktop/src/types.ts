@@ -264,6 +264,7 @@ export interface UsageSummary {
 export type SpawnEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
+  | { type: "thread:deleted"; payload: { id: number } }
   | { type: "turn:start"; payload: { threadId: number } }
   | { type: "turn:delta"; payload: { threadId: number; text: string } }
   | { type: "turn:usage"; payload: { threadId: number; liveTokens: number } }
@@ -300,6 +301,8 @@ declare global {
       listThreads(projectId: number): Promise<Thread[]>;
       createThread(args: { projectId: number; title?: string; kind?: string }): Promise<Thread>;
       renameThread(threadId: number, title: string): Promise<Thread>;
+      setThreadStatus(threadId: number, status: Thread["status"]): Promise<Thread>;
+      deleteThread(threadId: number): Promise<{ ok: boolean; reason?: string }>;
       listMessages(threadId: number, opts?: { limit?: number }): Promise<Message[]>;
       sendMessage(threadId: number, text: string): Promise<{ threadId: number; started: boolean }>;
       cancelTurn(threadId: number): Promise<boolean>;

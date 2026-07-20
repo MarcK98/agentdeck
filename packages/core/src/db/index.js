@@ -142,6 +142,14 @@ export const listActiveThreads = () =>
        WHERE t.status = 'active' ORDER BY t.updated_at DESC LIMIT 100`
     )
     .all();
+// Hard-delete a thread. Messages cascade (ON DELETE CASCADE); any ticket that
+// pointed here has its thread_id nulled (ON DELETE SET NULL) so the ticket row
+// survives as backlog. The worktree checkout (if any) is reclaimed by the
+// daemon before this runs — this only drops the rows.
+export const deleteThread = (id) => {
+  openDb().prepare(`DELETE FROM threads WHERE id = ?`).run(id);
+  return true;
+};
 export const updateThread = (id, fields) => {
   const allowed = ["title", "status", "session_id", "branch", "worktree_path"];
   const sets = Object.keys(fields).filter((k) => allowed.includes(k));
