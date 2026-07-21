@@ -341,6 +341,8 @@ export function installMock() {
   window.spawn = {
     listProjects: async () => projects,
     listThreads: async (projectId) => threads.filter((t) => t.project_id === projectId),
+    listAllThreads: async () =>
+      threads.map((t) => ({ ...t, project_name: projects.find((p) => p.id === t.project_id)?.name ?? "?" })),
     createThread: async ({ projectId, title, kind }) => {
       const t = mkThread(90 + Math.floor(Math.random() * 100), projectId, (kind as Thread["kind"]) ?? "chat", title || "New thread");
       threads.push(t);

@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { Project, Thread } from "./types";
+import type { Project, ProjectThread, Thread } from "./types";
 import ChatThread from "./ChatThread";
 import ContextRail from "./ContextRail";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
 import { useEscapeToClose, useFocusTrap } from "./hooks";
 
-// Threads — thread list for the selected project (project picked in the side
-// nav), chat center, context rail right. The team-lead console is the pinned
-// first entry when the selected project IS the team-lead's home (kind
-// teamlead, create-or-open, same contract as the old workspace).
+// Threads — a global list of every thread across every project (each row
+// tagged with its project name), chat center, context rail right. The
+// team-lead console is the pinned first entry (kind teamlead, create-or-open,
+// same contract as the old workspace). The side-nav's selected project is only
+// the target for the "new thread" button, not a filter on the list.
 //
 // Right-clicking a thread opens a manage menu (rename, status, session reset,
 // worktree, delete) — see the ContextMenu wiring below.
@@ -34,9 +35,7 @@ export default function ThreadsView({
   refreshTick: number;
   unread: Map<number, number>;
 }) {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const project = projects.find((p) => p.id === projectId) ?? null;
-  const isTeamLeadProject = projectId != null && projectId === teamLeadProjectId;
+  const [threads, setThreads] = useState<ProjectThread[]>([]);
 
   // Right-click menu target + position; inline-rename state; a transient note
   // banner (worktree copied, reset done, why a delete/cleanup was refused).
@@ -54,23 +53,23 @@ export default function ThreadsView({
   };
 
   useEffect(() => {
-    if (projectId == null) return setThreads([]);
     let stale = false;
     (async () => {
-      let list = await window.spawn.listThreads(projectId);
-      // Team-lead home: make sure the console thread exists, pin it first.
-      if (projectId === teamLeadProjectId && !list.some((t) => t.kind === "teamlead")) {
-        await window.spawn.createThread({ projectId, title: "Team-lead console", kind: "teamlead" });
-        list = await window.spawn.listThreads(projectId);
+      let list = await window.spawn.listAllThreads();
+      // Make sure the team-lead console exists (in its home project), pin first.
+      if (teamLeadProjectId != null && !list.some((t) => t.kind === "teamlead")) {
+        await window.spawn.createThread({ projectId: teamLeadProjectId, title: "Team-lead console", kind: "teamlead" });
+        list = await window.spawn.listAllThreads();
       }
       if (stale) return;
+      // DB already orders newest-first; a stable sort just lifts the console up.
       list.sort((a, b) => (a.kind === "teamlead" ? -1 : b.kind === "teamlead" ? 1 : 0));
       setThreads(list);
     })();
     return () => {
       stale = true;
     };
-  }, [projectId, teamLeadProjectId, refreshTick]);
+  }, [teamLeadProjectId, refreshTick]);
 
   // Focus the rename box as soon as it appears.
   useEffect(() => {
@@ -84,7 +83,9 @@ export default function ThreadsView({
   const openThread = async () => {
     if (projectId == null) return;
     const t = await window.spawn.createThread({ projectId, title: "" });
-    setThreads((prev) => (prev.some((x) => x.id === t.id) ? prev : [t, ...prev]));
+    const project_name = projects.find((p) => p.id === projectId)?.name ?? "";
+    const row: ProjectThread = { ...t, project_name };
+    setThreads((prev) => (prev.some((x) => x.id === t.id) ? prev : [row, ...prev]));
     setThreadId(t.id);
   };
 
@@ -178,16 +179,21 @@ export default function ThreadsView({
     <div className="threads-view">
       <div className="thread-list fade-r" ref={listRef} onKeyDown={onListKeyDown}>
         <div className="sect" style={{ padding: "0 10px 10px" }}>
-          <span>{project ? project.name : "Threads"}</span>
+          <span>All threads</span>
           <span className="line" />
-          <button className="btn btn-ghost small-btn" onClick={openThread} disabled={projectId == null}>
+          <button
+            className="btn btn-ghost small-btn"
+            onClick={openThread}
+            disabled={projectId == null}
+            title={projectId == null ? "Pick a project in the sidebar to start a thread" : "New thread"}
+          >
             <i className="ph ph-plus" />
           </button>
         </div>
         {note && <div className="thread-note">{note}</div>}
-        {projectId == null && (
+        {threads.length === 0 && (
           <span style={{ fontSize: 12, color: "var(--color-neutral-600)", padding: "0 10px" }}>
-            Pick a project in the sidebar.
+            No threads yet.
           </span>
         )}
         {threads.map((t) =>
@@ -241,7 +247,9 @@ export default function ThreadsView({
               {(unread.get(t.id) ?? 0) > 0 ? (
                 <span className="unread-count">{unread.get(t.id)}</span>
               ) : (
-                <span className="k">{t.kind === "chat" ? "" : t.kind}</span>
+                // Global view — tag each row with its project so you know where
+                // it lives; the console's home project is implied by its icon.
+                <span className="k">{t.kind === "teamlead" ? "" : t.project_name}</span>
               )}
             </button>
           )
@@ -250,9 +258,7 @@ export default function ThreadsView({
 
       <div className="chat-col">
         {current == null ? (
-          <div className="empty">
-            {isTeamLeadProject ? "Opening the console…" : "Pick a thread, or open a new one."}
-          </div>
+          <div className="empty">Pick a thread, or open a new one.</div>
         ) : (
           <>
             <div className="chat-head fade-b">

@@ -6,6 +6,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("spawn", {
   listProjects: () => ipcRenderer.invoke("spawn:listProjects"),
   listThreads: (projectId) => ipcRenderer.invoke("spawn:listThreads", projectId),
+  listAllThreads: () => ipcRenderer.invoke("spawn:listAllThreads"),
   createThread: (args) => ipcRenderer.invoke("spawn:createThread", args),
   renameThread: (threadId, title) => ipcRenderer.invoke("spawn:renameThread", threadId, title),
   setThreadStatus: (threadId, status) => ipcRenderer.invoke("spawn:setThreadStatus", threadId, status),

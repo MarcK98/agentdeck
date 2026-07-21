@@ -142,6 +142,17 @@ export const listActiveThreads = () =>
        WHERE t.status = 'active' ORDER BY t.updated_at DESC LIMIT 100`
     )
     .all();
+// Every thread across ALL projects (the global Threads view), each carrying
+// its project name so the client needs no second lookup. Newest first, all
+// statuses — same rows the per-project listThreads returns, just unscoped.
+export const listAllThreads = () =>
+  openDb()
+    .prepare(
+      `SELECT t.*, p.name AS project_name FROM threads t
+       JOIN projects p ON p.id = t.project_id
+       ORDER BY t.updated_at DESC`
+    )
+    .all();
 // Hard-delete a thread. Messages cascade (ON DELETE CASCADE); any ticket that
 // pointed here has its thread_id nulled (ON DELETE SET NULL) so the ticket row
 // survives as backlog. The worktree checkout (if any) is reclaimed by the

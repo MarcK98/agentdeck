@@ -531,6 +531,7 @@ export function createDaemon() {
     },
 
     listThreads: (projectId) => db.listThreads(projectId),
+    listAllThreads: () => db.listAllThreads(),
     getThread: (threadId) => db.getThread(threadId),
     listMessages: (threadId, opts) => db.listMessages(threadId, opts),
 

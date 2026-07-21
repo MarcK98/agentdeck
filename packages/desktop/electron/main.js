@@ -48,6 +48,7 @@ function createWindow() {
 // IPC surface = daemon RPC, JSON in/out only.
 ipcMain.handle("spawn:listProjects", () => rpc("listProjects"));
 ipcMain.handle("spawn:listThreads", (_e, projectId) => rpc("listThreads", projectId));
+ipcMain.handle("spawn:listAllThreads", () => rpc("listAllThreads"));
 ipcMain.handle("spawn:createThread", (_e, args) => rpc("createThread", args));
 ipcMain.handle("spawn:renameThread", (_e, threadId, title) => rpc("renameThread", threadId, title));
 ipcMain.handle("spawn:setThreadStatus", (_e, threadId, status) => rpc("setThreadStatus", threadId, status));

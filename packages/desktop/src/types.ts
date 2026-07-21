@@ -153,6 +153,12 @@ export interface TicketDetail extends Ticket {
   attachments: TicketAttachment[];
 }
 
+// A thread row joined with its project name — the global Threads view lists
+// these across every project (daemon listAllThreads).
+export interface ProjectThread extends Thread {
+  project_name: string;
+}
+
 // A thread row joined with its project name (daemon listActiveThreads).
 // `running` is live process truth from the daemon, not event-derived.
 export interface ActiveThread extends Thread {
@@ -300,6 +306,7 @@ declare global {
     spawn: {
       listProjects(): Promise<Project[]>;
       listThreads(projectId: number): Promise<Thread[]>;
+      listAllThreads(): Promise<ProjectThread[]>;
       createThread(args: { projectId: number; title?: string; kind?: string }): Promise<Thread>;
       renameThread(threadId: number, title: string): Promise<Thread>;
       setThreadStatus(threadId: number, status: Thread["status"]): Promise<Thread>;

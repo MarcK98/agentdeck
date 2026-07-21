@@ -51,7 +51,6 @@ export default function TicketModal({
   const [effort, setEffort] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [settings, setSettings] = useState<ProjectSettings | null>(null);
-  const commentsEnd = useRef<HTMLDivElement | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(modalRef, !confirmingDelete);
   const confirmRef = useRef<HTMLDivElement>(null);
@@ -107,13 +106,14 @@ export default function TicketModal({
   useEscapeToClose(onClose, confirmingDelete === false);
   useEscapeToClose(() => setConfirmingDelete(false), confirmingDelete);
 
-  // Follow new comments only while the reader is already near the bottom.
+  // Newest comment sits at the top — follow new arrivals only while the reader
+  // is already near the top (where a fresh comment lands).
   const commentsBox = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = commentsBox.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (nearBottom) commentsEnd.current?.scrollIntoView({ block: "end" });
+    const nearTop = el.scrollTop < 80;
+    if (nearTop) el.scrollTo({ top: 0 });
   }, [t?.comments.length]);
 
   if (!t) return null;
@@ -314,7 +314,8 @@ export default function TicketModal({
             </div>
             <div className="tk-comments" ref={commentsBox}>
               {t.comments.length === 0 && <div className="tk-empty">No comments yet.</div>}
-              {t.comments.map((c) => (
+              {/* Newest first — reverse a shallow copy so the stored order stays put. */}
+              {[...t.comments].reverse().map((c) => (
                 <div key={c.id} className={`tk-c ${c.author_kind}`}>
                   <span className={`tk-avatar ${c.author_kind}`}>
                     <i className={`ph ${AVATAR_ICON[c.author_kind] ?? "ph-user"}`} />
@@ -330,7 +331,6 @@ export default function TicketModal({
                   </div>
                 </div>
               ))}
-              <div ref={commentsEnd} />
             </div>
             <div className="tk-compose">
               <textarea
