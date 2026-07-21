@@ -487,6 +487,14 @@ export function installMock() {
         created_at: "2026-07-20T12:00:00Z",
       };
       commentsByTicket.set(ticketId, [...(commentsByTicket.get(ticketId) ?? []), c]);
+      // Board-flow rule (mirrors the daemon): a human comment on a ticket
+      // awaiting review is fresh feedback — pull it back into in-progress.
+      const reviewed = tickets.find((x) => x.id === ticketId);
+      if (reviewed?.status === "in-review") {
+        const moved = { ...reviewed, status: "in-progress" as const };
+        tickets = tickets.map((x) => (x.id === ticketId ? moved : x));
+        emit("ticket:updated", moved);
+      }
       // Fake the team lead acknowledging, so the loop is visible in browser QA.
       const ack: TicketComment = {
         id: ++mockCommentId,

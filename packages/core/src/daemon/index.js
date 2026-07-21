@@ -702,12 +702,19 @@ export function createDaemon() {
     // (board MCP). A HUMAN comment auto-wakes the team lead to act + reply.
     addTicketComment: (ticketId, opts) => {
       const { authorKind = "human", authorName = "", body } = opts ?? {};
-      if (!db.getTicket(ticketId)) throw new Error(`No such ticket: ${ticketId}`);
+      const ticket = db.getTicket(ticketId);
+      if (!ticket) throw new Error(`No such ticket: ${ticketId}`);
       const text = String(body ?? "").trim();
       if (!text) throw new Error("addTicketComment needs a body");
       const comment = db.addTicketComment({ ticketId, authorKind, authorName, body: text });
       emit("ticket:comment", { ticketId, comment });
       if (authorKind === "human") {
+        // A human comment on a ticket awaiting review is fresh feedback to
+        // act on — pull it back into in-progress (board-flow rule, mirrors
+        // the run-start/finish transitions above).
+        if (ticket.status === "in-review") {
+          emit("ticket:updated", db.updateTicket(ticketId, { status: "in-progress" }));
+        }
         try {
           nudgeTeamLeadForComment(ticketId, comment);
         } catch (e) {
