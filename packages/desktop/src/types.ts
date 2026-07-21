@@ -272,8 +272,9 @@ export type SpawnEvent =
   | { type: "turn:tool"; payload: { threadId: number; message: Message } }
   | {
       type: "turn:done";
-      payload: { threadId: number; ok: boolean; cancelled: boolean; contextTokens: number | null };
+      payload: { threadId: number; ok: boolean; cancelled: boolean; contextTokens: number | null; queued?: number };
     }
+  | { type: "turn:queued"; payload: { threadId: number; depth: number } }
   | { type: "ticket:created"; payload: Ticket }
   | { type: "ticket:updated"; payload: Ticket }
   | { type: "ticket:deleted"; payload: { id: number } }
@@ -304,7 +305,10 @@ declare global {
       setThreadStatus(threadId: number, status: Thread["status"]): Promise<Thread>;
       deleteThread(threadId: number): Promise<{ ok: boolean; reason?: string }>;
       listMessages(threadId: number, opts?: { limit?: number }): Promise<Message[]>;
-      sendMessage(threadId: number, text: string): Promise<{ threadId: number; started: boolean }>;
+      sendMessage(
+        threadId: number,
+        text: string
+      ): Promise<{ threadId: number; started?: boolean; queued?: boolean; depth?: number }>;
       cancelTurn(threadId: number): Promise<boolean>;
       resolveApproval(
         id: number,

@@ -229,9 +229,41 @@ export function createDaemon() {
       ticketId: db.getTicketByThread(thread.id)?.id ?? null,
     });
 
+  // One turn at a time per thread. `activeTurns` marks a thread whose turn is
+  // in flight (set synchronously when the turn is launched, not when the child
+  // process finally spawns — so a message sent in the gap still queues instead
+  // of racing a parallel run). `messageQueues` holds user messages sent while a
+  // turn was running; they're drained FIFO on turn:done, one follow-up turn
+  // each. In-memory only — a daemon restart mid-queue drops pending messages,
+  // and the user just re-sends (rare; daemon restarts are code changes).
+  const activeTurns = new Set(); // threadId
+  const messageQueues = new Map(); // threadId -> string[]
+
+  // Pull the next queued message for a thread (if any) and continue the chain
+  // by launching it; otherwise release the thread. `activeTurns` is kept set
+  // across the hand-off so a message arriving here still queues. Called from
+  // every turn's completion — see launchTurn's done handler.
+  const drainQueue = (threadId) => {
+    const q = messageQueues.get(threadId);
+    const nextText = q && q.length ? q.shift() : null;
+    if (q && q.length === 0) messageQueues.delete(threadId);
+    if (nextText != null) {
+      const thread = db.getThread(threadId);
+      const project = thread && db.listProjects().find((p) => p.id === thread.project_id);
+      if (thread && project) {
+        launchTurn(thread, project, nextText); // activeTurns stays set
+        return;
+      }
+      // Thread/project vanished under us — drop the rest of the queue.
+      messageQueues.delete(threadId);
+    }
+    activeTurns.delete(threadId);
+  };
+
   const launchTurn = (thread, project, promptText, opts = {}) => {
     const threadId = thread.id;
     const settings = getProjectSettings(project.id);
+    activeTurns.add(threadId);
     emit("turn:start", { threadId });
 
     // Deliverables: give the run a managed output dir (pre-created, permitted
@@ -327,29 +359,40 @@ export function createDaemon() {
     }
 
     done.then((res) => {
-      // Final text arrives via onText already when streamed; store the result
-      // only if nothing streamed (e.g. an error string) — and ship the row so
-      // clients (who no longer re-pull on turn:done) still see it.
-      if (res.text && !res.streamed) {
-        const message = db.addMessage({ threadId, role: res.ok ? "assistant" : "system", text: res.text, seq: seq++ });
-        emit("turn:text", { threadId, message });
+      // Bookkeeping (final text row, ticket status, deliverables) is guarded so
+      // a hiccup here never strands the message queue — the drain below must
+      // always run, or a thread could get stuck holding queued follow-ups.
+      try {
+        // Final text arrives via onText already when streamed; store the result
+        // only if nothing streamed (e.g. an error string) — and ship the row so
+        // clients (who no longer re-pull on turn:done) still see it.
+        if (res.text && !res.streamed) {
+          const message = db.addMessage({ threadId, role: res.ok ? "assistant" : "system", text: res.text, seq: seq++ });
+          emit("turn:text", { threadId, message });
+        }
+        const k = db.getTicketByThread(threadId);
+        if (k && k.status === "in-progress") {
+          const status = res.ok ? "in-review" : res.cancelled ? "in-progress" : "blocked";
+          if (status !== k.status) emit("ticket:updated", db.updateTicket(k.id, { status }));
+        }
+        // Version any new/changed output files (repo-wide snapshot; the message
+        // names the run that triggered it). Fire-and-forget by design.
+        commitDeliverables(`${project.name}${k ? ` SPWN-${k.id}` : ""}: ${thread.title}`).then((files) => {
+          if (files.length) emit("deliverables:updated", { threadId, files });
+        });
+      } catch (err) {
+        log.warn(`[daemon] post-turn bookkeeping for thread ${threadId} failed: ${err.message}`);
       }
-      const k = db.getTicketByThread(threadId);
-      if (k && k.status === "in-progress") {
-        const status = res.ok ? "in-review" : res.cancelled ? "in-progress" : "blocked";
-        if (status !== k.status) emit("ticket:updated", db.updateTicket(k.id, { status }));
-      }
-      // Version any new/changed output files (repo-wide snapshot; the message
-      // names the run that triggered it). Fire-and-forget by design.
-      commitDeliverables(`${project.name}${k ? ` SPWN-${k.id}` : ""}: ${thread.title}`).then((files) => {
-        if (files.length) emit("deliverables:updated", { threadId, files });
-      });
+      // `queued` = messages still waiting after this one hands off (the next is
+      // drained just below), so clients can render an accurate "N queued" chip.
       emit("turn:done", {
         threadId,
         ok: res.ok,
         cancelled: res.cancelled ?? false,
         contextTokens: res.contextTokens ?? null,
+        queued: Math.max(0, (messageQueues.get(threadId)?.length ?? 0) - 1),
       });
+      drainQueue(threadId);
     });
 
     return { threadId, started: true };
@@ -562,6 +605,19 @@ export function createDaemon() {
       }
 
       db.addMessage({ threadId, role: "user", text });
+
+      // A turn is already running (or messages are already queued behind one):
+      // don't start a parallel run — queue this message and let drainQueue send
+      // it as its own turn when the current one finishes. The user row above is
+      // persisted either way, so the message shows in the transcript at once.
+      if (activeTurns.has(threadId)) {
+        const q = messageQueues.get(threadId) ?? [];
+        q.push(text);
+        messageQueues.set(threadId, q);
+        emit("turn:queued", { threadId, depth: q.length });
+        return { threadId, queued: true, depth: q.length };
+      }
+
       return launchTurn(thread, project, text);
     },
 
@@ -1009,7 +1065,16 @@ export function createDaemon() {
       return { dir, files: listDeliverableFiles(dir) };
     },
 
-    cancelTurn: (threadId) => cancelRun(threadKey(threadId)),
+    // Stop the live turn. Cancelling is a deliberate "take over" — so any
+    // messages queued behind it are dropped too, rather than firing once the
+    // killed run's turn:done drains them.
+    cancelTurn: (threadId) => {
+      if (messageQueues.has(threadId)) {
+        messageQueues.delete(threadId);
+        emit("turn:queued", { threadId, depth: 0 });
+      }
+      return cancelRun(threadKey(threadId));
+    },
     resetThreadSession: (threadId) => resetSession(threadKey(threadId)),
     lastTurnStats: (threadId) => getLastStats(threadKey(threadId)),
   };

@@ -40,11 +40,16 @@ export default function ChatThread({
   // The persisted row (turn:text) supersedes it, so it's cleared there —
   // never appended, which keeps the transcript free of duplicates.
   const [live, setLive] = useState("");
+  // How many messages are waiting behind the running turn (queued while busy).
+  // Daemon-owned: turn:queued carries the current depth, turn:done the depth
+  // remaining after it hands off to the next queued message.
+  const [queued, setQueued] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages([]);
     setLive("");
+    setQueued(0);
     window.spawn.listMessages(threadId).then(setMessages);
   }, [threadId]);
 
@@ -54,8 +59,15 @@ export default function ChatThread({
         if (ev.payload.threadId === threadId) setLive((prev) => prev + ev.payload.text);
         return;
       }
+      if (ev.type === "turn:queued") {
+        if (ev.payload.threadId === threadId) setQueued(ev.payload.depth);
+        return;
+      }
       if (ev.type === "turn:done") {
-        if (ev.payload.threadId === threadId) setLive("");
+        if (ev.payload.threadId === threadId) {
+          setLive("");
+          setQueued(ev.payload.queued ?? 0);
+        }
         return;
       }
       if (ev.type !== "turn:text" && ev.type !== "turn:tool") return;
@@ -70,11 +82,16 @@ export default function ChatThread({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, live]);
 
+  // Sending while the agent is busy doesn't start a second run — the daemon
+  // queues the message and fires it as its own turn when the current one ends.
+  // Only mark busy for a fresh turn; a queued send leaves the running turn's
+  // busy state alone (the turn:queued event drives the "N queued" indicator).
   const send = async () => {
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text) return;
     setDraft("");
-    markBusy(threadId);
+    if (busy) setQueued((n) => n + 1);
+    else markBusy(threadId);
     await window.spawn.sendMessage(threadId, text);
     setMessages(await window.spawn.listMessages(threadId));
   };
@@ -111,13 +128,18 @@ export default function ChatThread({
             working…
           </div>
         )}
+        {queued > 0 && (
+          <div className="queued-note">
+            {queued} message{queued > 1 ? "s" : ""} queued — will send when the agent is free
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
       <div className="composer">
         <div className="box">
           <textarea
             value={draft}
-            placeholder={placeholder}
+            placeholder={busy ? "Queue a message — sends when the agent finishes…" : placeholder}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -126,8 +148,8 @@ export default function ChatThread({
               }
             }}
           />
-          <button className="btn btn-primary small-btn" onClick={send} disabled={busy || !draft.trim()}>
-            Send
+          <button className="btn btn-primary small-btn" onClick={send} disabled={!draft.trim()}>
+            {busy ? "Queue" : "Send"}
           </button>
         </div>
       </div>

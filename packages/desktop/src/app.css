@@ -187,6 +187,7 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .composer textarea { flex: 1; background: none; border: 0; resize: none; height: 40px; color: var(--color-text); font: 13px/1.5 var(--font-body); outline: none; padding: 8px 0 0; }
 .composer textarea::placeholder { color: var(--color-neutral-500); }
 .working { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--color-neutral-500); }
+.queued-note { margin-top: 6px; font-size: 11px; color: var(--color-accent); opacity: 0.85; }
 @keyframes caret-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .caret { display: inline-block; width: 1.5px; height: 14px; background: var(--color-accent); vertical-align: -2px; margin-left: 1px; animation: caret-pulse 1.1s infinite; }
 

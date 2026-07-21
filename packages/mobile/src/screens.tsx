@@ -588,17 +588,23 @@ export function ThreadScreen({
   const [liveText, setLiveText] = useState("");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  // Messages waiting behind the running turn (queued while the agent is busy).
+  // Daemon-owned depth: turn:queued carries it, turn:done the remainder.
+  const [queued, setQueued] = useState(0);
   const listRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     client.rpc<any[]>("listMessages", threadId).then(setMessages).catch(() => {});
   }, [client, threadId]);
-  useSpawnEvents(client, ["turn:delta", "turn:text", "turn:tool", "turn:done"], (ev) => {
+  useSpawnEvents(client, ["turn:start", "turn:delta", "turn:text", "turn:tool", "turn:queued", "turn:done"], (ev) => {
     if (ev.payload.threadId !== threadId) return;
-    if (ev.type === "turn:delta") setLiveText((p) => p + ev.payload.text);
+    if (ev.type === "turn:start") setBusy(true);
+    else if (ev.type === "turn:delta") setLiveText((p) => p + ev.payload.text);
+    else if (ev.type === "turn:queued") setQueued(ev.payload.depth);
     else if (ev.type === "turn:done") {
       setLiveText("");
       setBusy(false);
+      setQueued(ev.payload.queued ?? 0);
     } else {
       if (ev.type === "turn:text") setLiveText("");
       const msg = ev.payload.message;
@@ -609,12 +615,18 @@ export function ThreadScreen({
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, [messages, liveText]);
 
+  // While busy the daemon queues the message (fires it as its own turn when the
+  // current one ends) rather than starting a parallel run — so sending is always
+  // allowed; a busy send just bumps the queued count.
   const send = async () => {
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text) return;
     setDraft("");
-    setBusy(true);
-    await client.rpc("sendMessage", threadId, text).catch(() => setBusy(false));
+    if (busy) setQueued((n) => n + 1);
+    else setBusy(true);
+    await client.rpc("sendMessage", threadId, text).catch(() => {
+      if (!busy) setBusy(false);
+    });
     setMessages(await client.rpc("listMessages", threadId).catch(() => messages));
   };
 
@@ -671,6 +683,11 @@ export function ThreadScreen({
           </View>
         )}
         {busy && liveText === "" && <Text style={S.dim}>working…</Text>}
+        {queued > 0 && (
+          <Text style={{ color: C.accent, fontSize: 12, marginTop: 6, opacity: 0.85 }}>
+            {queued} queued — sends when the agent is free
+          </Text>
+        )}
       </ScrollView>
       <View style={{ flexDirection: "row", gap: 8, padding: 12, alignItems: "flex-end" }}>
         <TextInput
@@ -687,11 +704,11 @@ export function ThreadScreen({
           }}
           multiline
           value={draft}
-          placeholder="Steer the agent…"
+          placeholder={busy ? "Queue a message…" : "Steer the agent…"}
           placeholderTextColor={C.n600}
           onChangeText={setDraft}
         />
-        <Btn label="Send" color={C.accent} onPress={send} disabled={busy || !draft.trim()} />
+        <Btn label={busy ? "Queue" : "Send"} color={C.accent} onPress={send} disabled={!draft.trim()} />
       </View>
     </KeyboardAvoidingView>
   );

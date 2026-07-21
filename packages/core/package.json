@@ -15,7 +15,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dashboard": "node src/dashboard.js",
-    "daemon": "node src/daemon/server.js"
+    "daemon": "node src/daemon/server.js",
+    "test": "node --test --experimental-test-module-mocks 'src/**/*.test.js'"
   },
   "engines": {
     "node": ">=20"
