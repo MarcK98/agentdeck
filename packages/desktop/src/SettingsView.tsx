@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Connection, McpServerDef, Project, ProjectSettings, SkillInfo, SpawnEvent } from "./types";
+import { MODELS, EFFORTS } from "./constants";
 
 // Connection catalog: developer-infra types with icons and value hints.
 // "other" keeps it open-ended.
@@ -167,9 +168,6 @@ const connectHint = (p: McpPreset | null): { icon: string; text: string } => {
 };
 
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
-
-const MODELS = ["haiku", "sonnet", "opus", "fable"];
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
 // Focused settings categories — the left rail's second group filters which
 // panels render, so each screen is a small honest set instead of a wall.

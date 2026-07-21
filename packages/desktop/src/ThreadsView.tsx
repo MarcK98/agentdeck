@@ -3,7 +3,7 @@ import type { Project, Thread } from "./types";
 import ChatThread from "./ChatThread";
 import ContextRail from "./ContextRail";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
-import { useEscapeToClose } from "./hooks";
+import { useEscapeToClose, useFocusTrap } from "./hooks";
 
 // Threads — thread list for the selected project (project picked in the side
 // nav), chat center, context rail right. The team-lead console is the pinned
@@ -78,6 +78,8 @@ export default function ThreadsView({
   }, [renaming]);
 
   useEscapeToClose(() => setConfirmDelete(null), confirmDelete != null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(confirmRef, confirmDelete != null);
 
   const openThread = async () => {
     if (projectId == null) return;
@@ -159,9 +161,22 @@ export default function ThreadsView({
 
   const current = threads.find((t) => t.id === threadId) ?? null;
 
+  // Roving arrow-key nav across the list — Tab still works row-by-row, but
+  // Up/Down moves focus without leaving the list (Discord/mail-app pattern).
+  const listRef = useRef<HTMLDivElement>(null);
+  const onListKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const items = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>(".thread-item") ?? []);
+    if (items.length === 0) return;
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    e.preventDefault();
+    const next = i === -1 ? 0 : e.key === "ArrowDown" ? Math.min(i + 1, items.length - 1) : Math.max(i - 1, 0);
+    items[next].focus();
+  };
+
   return (
     <div className="threads-view">
-      <div className="thread-list fade-r">
+      <div className="thread-list fade-r" ref={listRef} onKeyDown={onListKeyDown}>
         <div className="sect" style={{ padding: "0 10px 10px" }}>
           <span>{project ? project.name : "Threads"}</span>
           <span className="line" />
@@ -201,6 +216,16 @@ export default function ThreadsView({
               onContextMenu={(e) => {
                 e.preventDefault();
                 setMenu({ x: e.clientX, y: e.clientY, thread: t });
+              }}
+              onKeyDown={(e) => {
+                // The keyboard equivalent of right-click (Menu key, or
+                // Shift+F10 on keyboards without one) — the manage menu
+                // otherwise has no non-mouse path in.
+                if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                  e.preventDefault();
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMenu({ x: r.left + 24, y: r.bottom, thread: t });
+                }
               }}
             >
               {busyThreads.has(t.id) ? (
@@ -259,7 +284,7 @@ export default function ThreadsView({
 
       {confirmDelete && (
         <div className="overlay center" onPointerDown={() => setConfirmDelete(null)}>
-          <div className="sheet" style={{ width: 420 }} onPointerDown={(e) => e.stopPropagation()}>
+          <div className="sheet" ref={confirmRef} style={{ width: 420 }} onPointerDown={(e) => e.stopPropagation()}>
             <div className="s-head">
               <i className="ph ph-trash" style={{ color: "oklch(0.72 0.15 25)" }} />
               Delete thread

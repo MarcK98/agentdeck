@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveThread, Project, Thread } from "./types";
+import { useFocusTrap } from "./hooks";
 
 // ⌘K command palette: actions, active threads, and projects, filtered as you
 // type. Enter (or click) runs the selected row and closes.
@@ -88,12 +89,14 @@ export default function Palette({
 
   useEffect(() => setSel(0), [q]);
   useEffect(() => inputRef.current?.focus(), []);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(paletteRef);
 
   return (
     // pointerdown, not click: releasing a text-selection drag over the
     // backdrop must not dismiss the palette.
     <div className="overlay" onPointerDown={onClose}>
-      <div className="palette" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="palette" ref={paletteRef} onPointerDown={(e) => e.stopPropagation()}>
         <input
           ref={inputRef}
           value={q}

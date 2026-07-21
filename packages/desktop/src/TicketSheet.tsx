@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Project, ProjectSettings, Thread, Ticket, TicketStatus } from "./types";
-import { useEscapeToClose } from "./hooks";
+import { useEscapeToClose, useFocusTrap } from "./hooks";
+import { MODELS, EFFORTS } from "./constants";
 
 // Ticket sheet (design 3a) — create a backlog ticket, create-and-delegate in
 // one move, or edit an existing ticket (title/body/column, delegate, delete).
 // The board is the source of truth: everything here is a ticket row first.
 
-const MODELS = ["haiku", "sonnet", "opus", "fable"];
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 const COLUMNS: { key: TicketStatus; label: string }[] = [
   { key: "todo", label: "To do" },
   { key: "in-progress", label: "In progress" },
@@ -53,6 +52,8 @@ export default function TicketSheet({
   }, [projectId]);
 
   useEscapeToClose(onClose);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(sheetRef);
 
   // Isolation is a project-level setting (the daemon reads it per delegation),
   // so the ticket-sheet toggle flips it on the project — same as SettingsView.
@@ -124,6 +125,7 @@ export default function TicketSheet({
     <div className="overlay center" onPointerDown={onClose}>
       <div
         className="sheet"
+        ref={sheetRef}
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           // The buttons advertise ↵ — honor ⌘/Ctrl+Enter anywhere in the sheet.

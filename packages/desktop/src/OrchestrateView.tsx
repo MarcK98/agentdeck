@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActiveThread, Project, Thread, Ticket, TicketStatus, UsageSummary } from "./types";
 import TicketSheet from "./TicketSheet";
 import TicketModal from "./TicketModal";
+import { MODELS, EFFORTS } from "./constants";
 
 // Orchestrate — the native board (source of truth: the tickets table). Cards
 // are tickets; drag between columns to change status; click to edit a
@@ -15,8 +16,6 @@ const COLUMNS: { key: TicketStatus; label: string }[] = [
   { key: "in-review", label: "In review" },
   { key: "done", label: "Done" },
 ];
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
-const MODELS = ["haiku", "sonnet", "opus", "fable"];
 
 function TicketCard({
   t,
