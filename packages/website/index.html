@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spawn — a mastermind for Claude Code</title>
+  <meta name="description" content="Spawn turns Claude Code into a team you direct. Delegate tickets from a board, watch agents work in live threads, approve risky actions from one inbox, and track every token. Open source — self-host free, or let us run it for you." />
+
+  <meta property="og:title" content="Spawn — a mastermind for Claude Code" />
+  <meta property="og:description" content="Delegate tickets to Claude Code agents, watch them work live, approve risky actions, track every token. Open source. Self-host free, or we run it for you." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://spawnmy.ai" />
+  <meta property="og:image" content="https://spawnmy.ai/assets/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#top" aria-label="Spawn home">
+      <svg class="brand-glyph" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 6 v6 M16 12 L7 20 M16 12 L16 20 M16 12 L25 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+        <circle cx="16" cy="5" r="3.2" fill="currentColor"/>
+        <circle cx="7" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+        <circle cx="16" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+        <circle cx="25" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+      </svg>
+      <span>Spawn</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Self-host free</a>
+      <a class="btn btn-solid" href="#pricing">Get Spawn hosted</a>
+    </div>
+    <button class="nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ═══════════════ Hero ═══════════════ -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="container hero-inner">
+      <p class="eyebrow">Open source &middot; bring your own Claude</p>
+      <h1>A mastermind for<br /><span class="accent">Claude Code.</span></h1>
+      <p class="lede">
+        Spawn turns Claude Code into a team you direct. Delegate tickets from a board,
+        watch agents work in live threads, approve risky actions from one inbox, and
+        see exactly what every run costs — on your Mac, your VPS, your rules.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-solid btn-lg" href="#pricing">Get Spawn hosted</a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Deploy your own — free</a>
+      </div>
+      <p class="hero-note">MIT-licensed. Your code and sessions never leave machines you control.</p>
+
+      <!-- App mock, drawn in CSS — board + live threads -->
+      <div class="mock" role="img" aria-label="The Spawn desktop app: a ticket board with live agent runs">
+        <div class="mock-chrome">
+          <span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span>
+          <span class="mock-title">Spawn — Orchestrate</span>
+          <span class="mock-usage">▲ 2.4M tokens today &middot; $11.20</span>
+        </div>
+        <div class="mock-body">
+          <div class="mock-rail">
+            <span class="mock-rail-item is-active">Orchestrate</span>
+            <span class="mock-rail-item">Threads</span>
+            <span class="mock-rail-item">Live map</span>
+            <span class="mock-rail-item">Approvals <em class="mock-badge">2</em></span>
+            <span class="mock-rail-item">Usage</span>
+          </div>
+          <div class="mock-board">
+            <div class="mock-col">
+              <h6>Backlog</h6>
+              <div class="mock-card"><b>SPWN-34</b> Add CSV export to usage view</div>
+              <div class="mock-card"><b>SPWN-35</b> Dark-mode toggle for docs</div>
+            </div>
+            <div class="mock-col">
+              <h6>In progress</h6>
+              <div class="mock-card is-live"><span class="pulse"></span><b>SPWN-31</b> Marketing site + pricing<span class="mock-meta">opus &middot; $0.84 &middot; branch spwn-31</span></div>
+              <div class="mock-card is-live"><span class="pulse"></span><b>SPWN-32</b> Fix relay reconnect loop<span class="mock-meta">sonnet &middot; $0.12 &middot; 3 files</span></div>
+            </div>
+            <div class="mock-col">
+              <h6>In review</h6>
+              <div class="mock-card"><b>SPWN-29</b> Native notifications<span class="mock-meta">PR #48 &middot; checks ✓</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ Features ═══════════════ -->
+  <section class="section" id="features">
+    <div class="container">
+      <h6 class="kicker">What you get</h6>
+      <h2>Run a fleet of agents like a team,<br />not a terminal tab.</h2>
+      <div class="grid grid-3 features">
+        <div class="card">
+          <h4>Orchestrate board</h4>
+          <p>Tickets become agent runs. Delegate with a model and effort level, watch live cards pulse while agents work, and comment to steer — a comment moves the work, not just the card.</p>
+        </div>
+        <div class="card">
+          <h4>Live threads</h4>
+          <p>Every agent is a transcript you can open: tool calls as they happen, a steering composer, and a context rail with the run's cost, branch, worktree state, and PR checks.</p>
+        </div>
+        <div class="card">
+          <h4>Approvals inbox</h4>
+          <p>Risky commands wait for you. One inbox for every pending permission across all agents, with the full command shown — allow or deny from the app or a native notification.</p>
+        </div>
+        <div class="card">
+          <h4>Ticket isolation</h4>
+          <p>Each ticket gets its own branch and git worktree. Agents can't step on each other or on your working tree; finished work arrives as a PR, and cleanup is one click.</p>
+        </div>
+        <div class="card">
+          <h4>Live map</h4>
+          <p>Your whole operation as a live graph — team lead, projects, running threads — with pids, costs, dirty counts, and PR badges. Click any node to jump into it.</p>
+        </div>
+        <div class="card">
+          <h4>Exact usage ledger</h4>
+          <p>Tokens, turns, and dollars by hour, model, and project — from a real ledger, not estimates. Live sessions show each agent's context window filling in real time.</p>
+        </div>
+      </div>
+      <p class="features-more">
+        Plus a team-lead agent that plans and delegates for you, a ⌘K palette, native
+        OS notifications, per-project MCP servers and skills, and an iOS companion in the works.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ How it works ═══════════════ -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <h6 class="kicker">How it works</h6>
+      <h2>Three pieces. You control all of them.</h2>
+      <div class="grid grid-3 steps">
+        <div class="card step">
+          <span class="step-n">1</span>
+          <h4>Run the daemon</h4>
+          <p>A small background process owns your Claude Code sessions, threads, tickets, and the usage ledger — in SQLite, on your Mac or a VPS. Node 20+, one command.</p>
+        </div>
+        <div class="card step">
+          <span class="step-n">2</span>
+          <h4>Open the app</h4>
+          <p>The desktop app connects to your daemon: board, threads, approvals, usage, live map. It even starts the daemon for you if it isn't running.</p>
+        </div>
+        <div class="card step">
+          <span class="step-n">3</span>
+          <h4>Delegate</h4>
+          <p>Write a ticket, pick a model, hit go. Spawn drives Claude Code with <em>your</em> account — Anthropic bills you directly, and Spawn never marks up a token.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ Open source ═══════════════ -->
+  <section class="section" id="opensource">
+    <div class="container os-split">
+      <div>
+        <h6 class="kicker">Open source</h6>
+        <h2>The whole product is public. Nothing held back.</h2>
+        <p class="lede-sm">
+          Spawn is MIT-licensed — daemon, desktop app, mobile relay, all of it.
+          Read every line before you trust it with your repos. Self-host it
+          forever for free, or pay us to run it and stay current without thinking about it.
+        </p>
+        <div class="os-ctas">
+          <a class="btn btn-ghost" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Read the source</a>
+        </div>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
+        <pre><code><span class="t-dim"># self-host in three commands</span>
+<span class="t-p">$</span> git clone https://github.com/MarcK98/Ventriloquist.git spawn
+<span class="t-p">$</span> cd spawn &amp;&amp; npm install
+<span class="t-p">$</span> npm run desktop
+<span class="t-ok">✓</span> daemon up &middot; desktop connected &middot; delegate your first ticket</code></pre>
+        <button class="copy" data-copy="git clone https://github.com/MarcK98/Ventriloquist.git spawn && cd spawn && npm install && npm run desktop">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ Pricing ═══════════════ -->
+  <section class="section section-alt" id="pricing">
+    <div class="container">
+      <h6 class="kicker">Pricing</h6>
+      <h2>Free to run yourself. Paid if we run it for you.</h2>
+      <p class="lede-sm center">Same product on every plan — the paid tiers buy operations, not features.</p>
+
+      <div class="grid grid-3 plans">
+        <div class="card plan">
+          <h4>Self-host</h4>
+          <div class="price">$0 <span>forever</span></div>
+          <p class="plan-tag">The full product, on your hardware.</p>
+          <ul>
+            <li>Every feature — nothing gated</li>
+            <li>MIT license, audit every line</li>
+            <li>Desktop app + daemon + relay</li>
+            <li>Updates when you <code>git pull</code></li>
+            <li>Community support on GitHub</li>
+          </ul>
+          <a class="btn btn-ghost btn-block" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Clone the repo</a>
+        </div>
+
+        <div class="card plan plan-featured">
+          <span class="plan-badge">Early access</span>
+          <h4>Hosted</h4>
+          <div class="price">$29 <span>/ month</span></div>
+          <p class="plan-tag">We run Spawn. You just delegate.</p>
+          <ul>
+            <li>Everything in Self-host</li>
+            <li>Your daemon on a managed VPS</li>
+            <li>Continuous updates, applied for you</li>
+            <li>Nightly backups of your workspace</li>
+            <li>Mobile relay configured out of the box</li>
+            <li>Email support</li>
+          </ul>
+          <a class="btn btn-solid btn-block" href="mailto:hello@spawnmy.ai?subject=Spawn%20Hosted%20—%20early%20access">Request early access</a>
+        </div>
+
+        <div class="card plan">
+          <h4>Concierge</h4>
+          <div class="price">$199 <span>/ month</span></div>
+          <p class="plan-tag">Your whole fleet, set up and tuned.</p>
+          <ul>
+            <li>Everything in Hosted</li>
+            <li>Onboarding across your repos</li>
+            <li>Custom MCP servers, skills &amp; agents wired for you</li>
+            <li>Priority support, direct line</li>
+            <li>Migration &amp; workflow design help</li>
+          </ul>
+          <a class="btn btn-ghost btn-block" href="mailto:hello@spawnmy.ai?subject=Spawn%20Concierge%20—%20early%20access">Talk to us</a>
+        </div>
+      </div>
+
+      <p class="plans-note">
+        Every plan is bring-your-own-Claude: Spawn drives Claude Code with your Anthropic
+        account, Anthropic bills your usage directly, and Spawn never marks up tokens.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FAQ ═══════════════ -->
+  <section class="section" id="faq">
+    <div class="container container-narrow">
+      <h6 class="kicker">FAQ</h6>
+      <h2>Questions, answered straight.</h2>
+
+      <details>
+        <summary>Do I need a Claude subscription?</summary>
+        <p>Yes. Spawn is an orchestrator for Claude Code — it drives the official CLI with your Anthropic account (subscription or API key). Anthropic bills your usage directly; Spawn adds no markup and never proxies your tokens.</p>
+      </details>
+      <details>
+        <summary>Does my code leave my machines?</summary>
+        <p>No. The daemon, your repos, your sessions, and the usage ledger live where you deploy them — your Mac or your VPS. The only outbound traffic is Claude Code talking to Anthropic, exactly as it does when you run it by hand.</p>
+      </details>
+      <details>
+        <summary>What's actually different between Self-host and Hosted?</summary>
+        <p>The software is identical. Hosted means we provision a VPS, run your daemon on it, apply every update as it ships, back up your workspace nightly, and wire up the mobile relay — the operations work, so you never SSH into anything.</p>
+      </details>
+      <details>
+        <summary>Is self-hosting really free? What's the catch?</summary>
+        <p>Really free — MIT license, every feature, no telemetry, no seat limits. The catch is you operate it yourself: updates, backups, and uptime are yours. If that stops being fun, Hosted exists.</p>
+      </details>
+      <details>
+        <summary>What platforms does it run on?</summary>
+        <p>The desktop app runs on macOS today. The daemon runs anywhere Node 20+ does — macOS or Linux, local or VPS. An iOS companion app (via the relay) is in development.</p>
+      </details>
+      <details>
+        <summary>Is Spawn affiliated with Anthropic?</summary>
+        <p>No. Spawn is an independent open-source project built on top of Claude Code. Claude is a trademark of Anthropic, PBC.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ═══════════════ Final CTA ═══════════════ -->
+  <section class="section section-cta">
+    <div class="container center">
+      <h2>Stop babysitting terminals.<br />Start directing.</h2>
+      <div class="hero-ctas">
+        <a class="btn btn-solid btn-lg" href="#pricing">Get Spawn hosted</a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="brand brand-sm">
+      <svg class="brand-glyph" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 6 v6 M16 12 L7 20 M16 12 L16 20 M16 12 L25 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+        <circle cx="16" cy="5" r="3.2" fill="currentColor"/>
+        <circle cx="7" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+        <circle cx="16" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+        <circle cx="25" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
+      </svg>
+      <span>Spawn</span>
+    </div>
+    <nav class="footer-links">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">GitHub</a>
+      <a href="mailto:hello@spawnmy.ai">Contact</a>
+    </nav>
+    <p class="footer-legal">
+      © 2026 Spawn &middot; spawnmy.ai &middot; MIT licensed.<br />
+      Not affiliated with Anthropic. Claude is a trademark of Anthropic, PBC.
+    </p>
+  </div>
+</footer>
+
+<script src="site.js" defer></script>
+</body>
+</html>
