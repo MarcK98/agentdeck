@@ -212,31 +212,52 @@ const attachmentsByTicket = new Map<number, TicketAttachment[]>([
   ],
 ]);
 
-const usage: UsageSummary = {
-  days: 1,
-  totalTokens: 1_240_000,
-  totalCost: 14.6,
-  turns: 38,
-  threads: 9,
-  byModel: [
-    { model: "opus", tokens: 612_000 },
-    { model: "sonnet", tokens: 465_000 },
-    { model: "haiku", tokens: 163_000 },
-  ],
-  byProject: [
-    { project: "spawnmy-ai", tokens: 742_000, turns: 24, threads: 5 },
-    { project: "fable-engine", tokens: 386_000, turns: 11, threads: 3 },
-    { project: "site-refresh", tokens: 112_000, turns: 3, threads: 1 },
-  ],
-  series: Array.from({ length: 14 }, (_, i) => ({
-    ts: Date.now() - (13 - i) * 3600e3,
-    tokens: [21, 15, 29, 43, 19, 51, 67, 45, 87, 73, 105, 81, 115, 142][i] * 1000,
-  })),
-  sessions: [
-    { threadId: 10, title: "Team-lead console", project: "team-lead", kind: "teamlead", running: false, model: "opus", contextTokens: 92_000 },
-    { threadId: 11, title: "Worktree GC on daemon boot", project: "spawnmy-ai", kind: "ticket", running: true, model: "opus", contextTokens: 84_000 },
-    { threadId: 13, title: "Migrate sessions.json into SQLite", project: "fable-engine", kind: "ticket", running: false, model: "sonnet", contextTokens: 41_000 },
-  ],
+// Fixture usage that respects the window `days` — mirrors the daemon's
+// adaptive bucketing (5-min ≤2h, 15-min ≤6h, hourly ≤1d, daily beyond) and
+// zero-fill so the browser harness genuinely exercises the hour-scale ranges.
+const mkUsage = (days: number): UsageSummary => {
+  const now = Date.now();
+  const windowMs = days * 86_400e3;
+  const bucketMs =
+    windowMs <= 2 * 3600e3 ? 5 * 60e3
+    : windowMs <= 6 * 3600e3 ? 15 * 60e3
+    : windowMs <= 86_400e3 ? 3600e3
+    : 86_400e3;
+  const first = Math.floor((now - windowMs) / bucketMs) * bucketMs;
+  const last = Math.floor(now / bucketMs) * bucketMs;
+  const series: { ts: number; tokens: number }[] = [];
+  for (let b = first; b <= last; b += bucketMs) {
+    const i = series.length;
+    // Deterministic wave so the shape reads as real bursty activity.
+    const t = Math.round((20 + 55 * Math.abs(Math.sin(i * 0.7 + 1)) + (i % 3) * 12) * 1000);
+    series.push({ ts: b, tokens: t });
+  }
+  const totalTokens = series.reduce((a, s) => a + s.tokens, 0);
+  const f = totalTokens / 1_240_000 || 1; // scale the fixed breakdown to the window
+  const scale = (n: number) => Math.round(n * f);
+  return {
+    days,
+    totalTokens,
+    series,
+    totalCost: +(14.6 * f).toFixed(2),
+    turns: Math.max(1, Math.round(38 * f)),
+    threads: 9,
+    byModel: [
+      { model: "opus", tokens: scale(612_000) },
+      { model: "sonnet", tokens: scale(465_000) },
+      { model: "haiku", tokens: scale(163_000) },
+    ],
+    byProject: [
+      { project: "spawnmy-ai", tokens: scale(742_000), turns: Math.round(24 * f), threads: 5 },
+      { project: "fable-engine", tokens: scale(386_000), turns: Math.round(11 * f), threads: 3 },
+      { project: "site-refresh", tokens: scale(112_000), turns: Math.max(1, Math.round(3 * f)), threads: 1 },
+    ],
+    sessions: [
+      { threadId: 10, title: "Team-lead console", project: "team-lead", kind: "teamlead", running: false, model: "opus", contextTokens: 92_000 },
+      { threadId: 11, title: "Worktree GC on daemon boot", project: "spawnmy-ai", kind: "ticket", running: true, model: "opus", contextTokens: 84_000 },
+      { threadId: 13, title: "Migrate sessions.json into SQLite", project: "fable-engine", kind: "ticket", running: false, model: "sonnet", contextTokens: 41_000 },
+    ],
+  };
 };
 
 const ctxFor = (threadId: number): ThreadContext => {
@@ -546,7 +567,7 @@ export function installMock() {
     getMap: async () => map,
     listApprovals: async () => approvals,
     listDecisions: async () => decisions,
-    getUsage: async () => usage,
+    getUsage: async (days?: number) => mkUsage(days ?? 1 / 24),
     resetThreadSession: async () => true,
     listSkills: async (projectId) => {
       const disabled = new Set((settingsByProject.get(projectId) ?? defaultSettings()).disabledSkills);

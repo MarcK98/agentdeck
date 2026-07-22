@@ -8,14 +8,20 @@ import type { UsageSummary } from "./types";
 const fmt = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n);
 
+// Sub-day ranges (hour-scale) carry fractional `days`; the daemon adapts the
+// series bucket size (5-min / 15-min bars) so short windows still show a shape.
 const RANGES: { label: string; days: number }[] = [
+  { label: "1h", days: 1 / 24 },
+  { label: "2h", days: 2 / 24 },
+  { label: "4h", days: 4 / 24 },
+  { label: "5h", days: 5 / 24 },
   { label: "Today", days: 1 },
   { label: "7 days", days: 7 },
   { label: "30 days", days: 30 },
 ];
 
 export default function UsageView() {
-  const [days, setDays] = useState(1);
+  const [days, setDays] = useState(1 / 24);
   const [u, setU] = useState<UsageSummary | null>(null);
 
   const refresh = useCallback(() => {

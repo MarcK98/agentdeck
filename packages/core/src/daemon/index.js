@@ -976,7 +976,9 @@ export function createDaemon() {
     // aggregation over readUsageEvents — no new state.
     getUsage: (rawDays) => {
       const days = rawDays ?? 1; // RPC/JSON turns an omitted arg into null, not undefined
-      const cutoff = Date.now() - days * 86_400_000;
+      const now = Date.now();
+      const windowMs = days * 86_400_000; // days may be fractional (hour-scale ranges)
+      const cutoff = now - windowMs;
       const events = readUsageEvents().filter((r) => (r.ts ?? 0) >= cutoff);
       const tok = (r) =>
         (r.input_tokens || 0) +
@@ -1001,8 +1003,16 @@ export function createDaemon() {
       const threadIds = new Set();
       const byModel = new Map();
       const byProject = new Map();
-      // Series buckets: hourly for a 1-day window, daily beyond.
-      const bucketMs = days <= 1 ? 3_600_000 : 86_400_000;
+      // Series bucket size adapts to the window so short (hour-scale) ranges
+      // still show a shape: 5-min bars ≤2h, 15-min ≤6h, hourly ≤1d, else daily.
+      const bucketMs =
+        windowMs <= 2 * 3_600_000
+          ? 5 * 60_000
+          : windowMs <= 6 * 3_600_000
+            ? 15 * 60_000
+            : windowMs <= 86_400_000
+              ? 3_600_000
+              : 86_400_000;
       const series = new Map();
       for (const r of events) {
         const t = tok(r);
@@ -1020,6 +1030,18 @@ export function createDaemon() {
         byProject.set(proj, p);
         const bucket = Math.floor((r.ts ?? 0) / bucketMs) * bucketMs;
         series.set(bucket, (series.get(bucket) || 0) + t);
+      }
+
+      // Zero-fill every bucket across the window so the chart's x-axis is
+      // linear in time (bars are index-positioned in the view). An empty
+      // window stays empty so the "No runs recorded" state still shows.
+      const denseSeries = [];
+      if (events.length > 0) {
+        const firstBucket = Math.floor(cutoff / bucketMs) * bucketMs;
+        const lastBucket = Math.floor(now / bucketMs) * bucketMs;
+        for (let b = firstBucket; b <= lastBucket; b += bucketMs) {
+          denseSeries.push({ ts: b, tokens: series.get(b) || 0 });
+        }
       }
 
       // Live sessions: active threads with a known context size, running first.
@@ -1056,9 +1078,7 @@ export function createDaemon() {
         byProject: [...byProject]
           .map(([project, p]) => ({ project, tokens: p.tokens, turns: p.turns, threads: p.threads.size }))
           .sort((a, b) => b.tokens - a.tokens),
-        series: [...series]
-          .map(([ts, tokens]) => ({ ts, tokens }))
-          .sort((a, b) => a.ts - b.ts),
+        series: denseSeries,
         sessions,
       };
     },
