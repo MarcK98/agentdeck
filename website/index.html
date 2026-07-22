@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spawn — A mastermind for Claude</title>
+  <meta name="description" content="Spawn is an open-source desktop cockpit for running a team of Claude Code agents: ticket board, always-on team lead, live threads, approvals inbox, usage tracking, and a mobile companion. Self-host free, or let us run it for you." />
+  <meta property="og:title" content="Spawn — A mastermind for Claude" />
+  <meta property="og:description" content="Run a team of Claude Code agents from one cockpit. Open source. Self-host free, or managed cloud with constant updates." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://spawnmy.ai" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23161826'/><circle cx='16' cy='11' r='4' fill='%239184d9'/><circle cx='9' cy='22' r='3' fill='%235d5294'/><circle cx='16' cy='23' r='3' fill='%23796cbf'/><circle cx='23' cy='22' r='3' fill='%235d5294'/></svg>" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <svg class="brand-mark" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+        <circle cx="16" cy="9" r="5" fill="var(--accent)"/>
+        <circle cx="8" cy="23" r="3.5" fill="var(--accent-700)"/>
+        <circle cx="16" cy="24" r="3.5" fill="var(--accent-600)"/>
+        <circle cx="24" cy="23" r="3.5" fill="var(--accent-700)"/>
+      </svg>
+      Spawn
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a class="btn btn-accent" href="#pricing">Get Spawn</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <p class="micro">Open source &middot; Claude-native &middot; Runs on your machine</p>
+  <h1>A mastermind<br/>for Claude.</h1>
+  <p class="lede">
+    Spawn turns Claude Code into a team you can run. An always-on lead reads your
+    board, spawns agents into isolated branches, and reports back — while you steer
+    from one cockpit: tickets, live threads, approvals, usage. On your desk and in
+    your pocket.
+  </p>
+  <div class="hero-cta">
+    <a class="btn btn-accent btn-lg" href="#pricing">Get Spawn</a>
+    <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Deploy your own — free</a>
+  </div>
+
+  <!-- Stylized app mock -->
+  <div class="mock" aria-hidden="true">
+    <div class="mock-titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="mock-title">Spawn — Mission Control</span>
+    </div>
+    <div class="mock-body">
+      <div class="mock-rail">
+        <div class="rail-item active">Orchestrate</div>
+        <div class="rail-item">Threads</div>
+        <div class="rail-item">Approvals <span class="badge">2</span></div>
+        <div class="rail-item">Usage</div>
+        <div class="rail-item">Map</div>
+      </div>
+      <div class="mock-board">
+        <div class="col">
+          <div class="col-head">Backlog</div>
+          <div class="card">SPWN-31 · Landing page A/B copy</div>
+          <div class="card">SPWN-29 · Relay reconnect backoff</div>
+        </div>
+        <div class="col">
+          <div class="col-head">In progress</div>
+          <div class="card live"><span class="pulse"></span>SPWN-30 · SAASing<span class="card-sub">agent · branch spwn-30-saasing</span></div>
+          <div class="card live"><span class="pulse"></span>SPWN-27 · Hour-scale usage windows<span class="card-sub">team-lead · reviewing diff</span></div>
+        </div>
+        <div class="col">
+          <div class="col-head">In review</div>
+          <div class="card">SPWN-22 · Comment moves ticket back</div>
+        </div>
+        <div class="col">
+          <div class="col-head">Done</div>
+          <div class="card dim">SPWN-21 · Native notifications</div>
+          <div class="card dim">SPWN-17 · Global Threads view</div>
+        </div>
+      </div>
+      <div class="mock-dock">
+        <div class="dock-head">Active runs</div>
+        <div class="run"><span class="pulse"></span>SPWN-30 <span class="run-meta">fable · 41k ctx</span></div>
+        <div class="run"><span class="pulse"></span>SPWN-27 <span class="run-meta">opus · 12k ctx</span></div>
+        <div class="dock-head" style="margin-top:14px">Today</div>
+        <div class="spark">
+          <i style="height:30%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:90%"></i><i style="height:45%"></i>
+        </div>
+        <div class="run-meta">1.4M tokens · $6.12</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="section" id="features">
+  <p class="micro">Features</p>
+  <h2>Everything a one-person AI team needs.</h2>
+  <div class="grid">
+    <div class="feature">
+      <h3>Ticket board</h3>
+      <p>A kanban cockpit where live agent runs render as pulse-dot cards. Write a ticket, hit delegate, and an agent spins up on its own git branch.</p>
+    </div>
+    <div class="feature">
+      <h3>Always-on team lead</h3>
+      <p>A lead agent wakes on a heartbeat, reads the board, delegates coding to project threads, and pings you only when it needs a decision.</p>
+    </div>
+    <div class="feature">
+      <h3>Live threads</h3>
+      <p>Every run is a thread: an activity trail of tools and turns, a steering composer to redirect mid-flight, and a context rail with cost, branch, and PR status.</p>
+    </div>
+    <div class="feature">
+      <h3>Approvals inbox</h3>
+      <p>Agents never block waiting on you. Permission prompts land in a non-blocking inbox — full command JSON, allow once or deny, decided trail kept.</p>
+    </div>
+    <div class="feature">
+      <h3>Usage, hour by hour</h3>
+      <p>Token and dollar tracking across 1h to 30-day windows: by model, by project, per live session with context bars. Know your burn before the invoice does.</p>
+    </div>
+    <div class="feature">
+      <h3>Worktree isolation + PR loop</h3>
+      <p>Each ticket gets its own git worktree and branch. Agents open PRs, an automated reviewer responds, change requests re-run the author — you merge.</p>
+    </div>
+    <div class="feature">
+      <h3>Mobile companion</h3>
+      <p>Board, approvals, and live runs from your phone. The daemon dials out to a relay — your machine never opens an inbound port.</p>
+    </div>
+    <div class="feature">
+      <h3>Native notifications</h3>
+      <p>A comment lands on a ticket or an agent needs approval — you get an OS notification that clicks through to the exact thread.</p>
+    </div>
+    <div class="feature">
+      <h3>MCP + connectors</h3>
+      <p>Per-project MCP servers with secret storage, plus first-class Google Cloud and App Store Connect auth. Your agents get your tools.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="hr" />
+
+<section class="section" id="how">
+  <p class="micro">How it works</p>
+  <h2>One daemon. Every screen is a client.</h2>
+  <p class="section-lede">
+    Spawn is a local-first system: a background daemon owns your Claude Code
+    sessions, tickets, approvals, and usage in a SQLite store on your machine.
+    Everything else just talks to it.
+  </p>
+  <div class="arch">
+    <div class="arch-node">
+      <div class="arch-label">Daemon</div>
+      <p>Owns sessions, threads, tickets, approvals, usage. SQLite on disk. Your code and keys never leave the machine it runs on.</p>
+    </div>
+    <div class="arch-node accent-node">
+      <div class="arch-label">Desktop</div>
+      <p>Electron Mission Control: board, threads, approvals, usage, live agent map. Auto-starts the daemon.</p>
+    </div>
+    <div class="arch-node">
+      <div class="arch-label">Relay &rarr; Mobile</div>
+      <p>The daemon dials <em>out</em> to a stateless relay; your phone dials in. No inbound ports, no VPN, no port-forwarding.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="hr" />
+
+<section class="section" id="opensource">
+  <p class="micro">Open source</p>
+  <h2>Yours to run. No lock-in, ever.</h2>
+  <p class="section-lede">
+    The entire product is public — daemon, desktop app, relay, mobile. Bring your
+    own Claude Code subscription, clone the repo, and run the whole thing yourself
+    for free. Paid plans exist for one reason: you'd rather we operate it, keep it
+    updated, and answer the pager.
+  </p>
+  <div class="hero-cta">
+    <a class="btn btn-ghost" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Read the source</a>
+  </div>
+</section>
+
+<hr class="hr" />
+
+<section class="section" id="pricing">
+  <p class="micro">Pricing</p>
+  <h2>Start free. Pay when you'd rather not ops.</h2>
+  <div class="tiers">
+
+    <div class="tier">
+      <div class="tier-head">
+        <h3>Self-host</h3>
+        <div class="price">$0<span class="per"> forever</span></div>
+        <p class="tier-sub">The full product, on your machine.</p>
+      </div>
+      <ul>
+        <li>Every feature — nothing held back</li>
+        <li>Desktop app + daemon + relay + mobile</li>
+        <li>Your hardware, your keys, your data</li>
+        <li>Bring your own Claude Code plan</li>
+        <li>Community support on GitHub</li>
+      </ul>
+      <a class="btn btn-ghost btn-block" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Clone the repo</a>
+    </div>
+
+    <div class="tier featured">
+      <div class="tier-badge">Early access</div>
+      <div class="tier-head">
+        <h3>Cloud</h3>
+        <div class="price">$29<span class="per">/month</span></div>
+        <p class="tier-sub">We run it. You just steer.</p>
+      </div>
+      <ul>
+        <li>Managed daemon + hosted relay</li>
+        <li>Constant updates, applied for you</li>
+        <li>Mobile access out of the box</li>
+        <li>Backups of your board &amp; threads</li>
+        <li>Priority support</li>
+        <li>Still bring your own Claude Code plan</li>
+      </ul>
+      <a class="btn btn-accent btn-block" href="mailto:marc@spawnmy.ai?subject=Spawn%20Cloud%20early%20access">Join early access</a>
+    </div>
+
+    <div class="tier">
+      <div class="tier-head">
+        <h3>Team</h3>
+        <div class="price">Custom</div>
+        <p class="tier-sub">For teams running agent fleets.</p>
+      </div>
+      <ul>
+        <li>Everything in Cloud</li>
+        <li>Multiple seats, shared board</li>
+        <li>Per-project access control</li>
+        <li>Onboarding &amp; migration help</li>
+        <li>Dedicated support channel</li>
+      </ul>
+      <a class="btn btn-ghost btn-block" href="mailto:marc@spawnmy.ai?subject=Spawn%20Team">Talk to us</a>
+    </div>
+
+  </div>
+  <p class="fineprint">All plans use your own Anthropic / Claude Code account for model usage. Spawn never marks up tokens.</p>
+</section>
+
+<hr class="hr" />
+
+<section class="section" id="faq">
+  <p class="micro">FAQ</p>
+  <h2>Questions, answered.</h2>
+  <div class="faq">
+    <details>
+      <summary>Is self-hosting really the full product?</summary>
+      <p>Yes. There is one codebase and it's public. Cloud runs the exact same daemon and relay you can run yourself — you're paying for operations, updates, and support, not unlocked features.</p>
+    </details>
+    <details>
+      <summary>Where do my code and API keys live?</summary>
+      <p>Self-hosted: entirely on your machine — the daemon stores everything in a local SQLite database, and the relay only forwards encrypted traffic your daemon initiates. Cloud: the managed daemon runs in an isolated environment per customer; your Claude credentials are yours and usage is billed by Anthropic to you directly.</p>
+    </details>
+    <details>
+      <summary>Do I need a Claude subscription?</summary>
+      <p>Yes — Spawn orchestrates Claude Code, it doesn't resell it. A Claude Code subscription or an Anthropic API key is required on every plan. Spawn's usage view helps you see exactly what you're spending.</p>
+    </details>
+    <details>
+      <summary>Why Claude only?</summary>
+      <p>By design. Spawn is built against Claude Code's real capabilities — sessions, skills, MCP, subagents, worktrees — instead of a lowest-common-denominator abstraction over five providers. Depth over breadth.</p>
+    </details>
+    <details>
+      <summary>What does "constant updates" mean on Cloud?</summary>
+      <p>Spawn ships continuously — the changelog is public. On Cloud we roll every release out to your instance for you, with backups taken before each update. Self-hosters pull whenever they like.</p>
+    </details>
+    <details>
+      <summary>Can I use it from my phone?</summary>
+      <p>Yes. The mobile companion shows your board, approvals, and live runs, and lets you steer threads. It connects through the relay, so your desktop never exposes an inbound port.</p>
+    </details>
+  </div>
+</section>
+
+<section class="section cta-final">
+  <h2>Stop babysitting agents.<br/>Start running them.</h2>
+  <div class="hero-cta">
+    <a class="btn btn-accent btn-lg" href="mailto:marc@spawnmy.ai?subject=Spawn%20Cloud%20early%20access">Join Cloud early access</a>
+    <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">Self-host free</a>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="brand-foot">Spawn</span>
+    <span>A mastermind for Claude · spawnmy.ai</span>
+    <span class="footer-links">
+      <a href="https://github.com/MarcK98/Ventriloquist" target="_blank" rel="noopener">GitHub</a>
+      <a href="mailto:marc@spawnmy.ai">Contact</a>
+    </span>
+  </div>
+  <p class="footer-note">Spawn is an independent open-source project. Claude and Claude Code are trademarks of Anthropic, PBC; Spawn is not affiliated with or endorsed by Anthropic.</p>
+</footer>
+
+</body>
+</html>
