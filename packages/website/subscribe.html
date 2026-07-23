@@ -60,16 +60,11 @@
         <input class="inp" type="email" required placeholder="you@company.com" autocomplete="email" style="width:100%; box-sizing:border-box; background:#0e1023; border:1px solid #23264a; border-radius:9px; padding:14px 16px; font-size:14px; color:#dfe1f5">
 
         <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin:32px 0 12px">3 · PAYMENT</div>
-        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px">
-          <input class="inp" type="text" required placeholder="Name on card" autocomplete="cc-name" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5">
-          <input class="inp" type="text" required inputmode="numeric" placeholder="1234 1234 1234 1234" autocomplete="cc-number" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5">
-          <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:12px">
-            <input class="inp" type="text" required placeholder="MM / YY" autocomplete="cc-exp" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
-            <input class="inp" type="text" required inputmode="numeric" placeholder="CVC" autocomplete="cc-csc" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
-            <input class="inp" type="text" required placeholder="Country" autocomplete="country-name" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
-          </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:18px">
+          <div data-pay-status style="font:400 13px 'JetBrains Mono',monospace; color:#9ba0d4; line-height:1.6; margin-bottom:14px">Loading secure PayPal checkout…</div>
+          <div data-paypal-buttons style="min-height:8px"></div>
         </div>
-        <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:12px">processed by Stripe · we never see your card number</div>
+        <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:12px">processed securely by PayPal · we never see your card details</div>
       </form>
 
       <div class="order-summary" style="position:sticky; top:96px">
@@ -79,8 +74,7 @@
             <div style="display:flex; justify-content:space-between; font-size:14.5px; margin-bottom:10px"><span data-out="name">AgentDeck Hosted</span><span data-out="was" style="font-family:'JetBrains Mono',monospace">$30/mo</span></div>
             <div style="display:flex; justify-content:space-between; font-size:14.5px; color:#59d8ff; margin-bottom:10px"><span>Early-access discount</span><span data-out="off" style="font-family:'JetBrains Mono',monospace">−$10/mo</span></div>
             <div style="border-top:1px solid #23264a; margin:14px 0; padding-top:14px; display:flex; justify-content:space-between; font-weight:700; font-size:17px"><span>Due today</span><span data-out="price" style="font-family:'JetBrains Mono',monospace">$20</span></div>
-            <button data-pay type="button" class="btn-primary" style="width:100%; border:none; margin-top:16px; background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; font-size:14.5px; font-family:'Space Grotesk',sans-serif; text-align:center; border-radius:8px; padding:13px; cursor:pointer">Start subscription</button>
-            <div style="font:400 10.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:12px; line-height:1.6">renews monthly at <span data-out="renew">$20</span> · price locked while subscribed · cancel anytime, workspace destroyed within 30 days</div>
+            <div style="font:400 10.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:16px; line-height:1.6">complete checkout with PayPal on the left · renews monthly at <span data-out="renew">$20</span> · price locked while subscribed · cancel anytime, workspace destroyed within 30 days</div>
           </div>
         </div>
         <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:18px 20px; margin-top:14px">

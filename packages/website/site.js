@@ -2,12 +2,16 @@
    AgentDeck marketing site — behavior.
    Ports the design build's scroll-reveal, count-up, and bar-grow effects to
    vanilla JS (no framework), fits the live-map canvas, honors reduced motion,
-   and drives the subscribe page's plan picker + mock checkout.
+   and drives the subscribe page's plan picker + PayPal subscription checkout.
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Relay base URL — where the billing endpoints (/billing/config, /billing/activate)
+  // live. Override by setting window.RELAY_BASE before this script loads.
+  var RELAY_BASE = (window.RELAY_BASE || 'https://spawn-relay.duckdns.org').replace(/\/+$/, '');
 
   /* ── Scroll reveal + count-up + bar grow ──────────────────────────────── */
   function count(el) {
@@ -100,7 +104,7 @@
     });
   });
 
-  /* ── Subscribe page: plan picker + mock checkout ──────────────────────── */
+  /* ── Subscribe page: plan picker + PayPal subscription checkout ────────── */
   var checkout = document.querySelector('[data-checkout]');
   if (checkout) initCheckout(checkout);
 
@@ -138,30 +142,123 @@
     }
 
     picks.forEach(function (p) {
-      p.addEventListener('click', function () { state.plan = p.dataset.plan; render(); });
+      p.addEventListener('click', function () { state.plan = p.dataset.plan; render(); syncButtons(); });
     });
     render();
 
-    // Mock checkout — no real charge. Validate the form, then swap the order
-    // card for a success confirmation. This is a demo funnel: nothing is sent.
-    var form = root.querySelector('[data-pay-form]');
-    var payBtn = root.querySelector('[data-pay]');
-    var summary = root.querySelector('[data-summary-card]');
-    if (payBtn && form && summary) {
-      payBtn.addEventListener('click', function () {
-        if (!form.reportValidity()) return;
-        var pl = PLANS[state.plan];
-        var email = (form.querySelector('input[type="email"]') || {}).value || 'your inbox';
-        summary.innerHTML =
-          '<div style="text-align:center; padding:8px 4px 4px">' +
-            '<div style="width:52px; height:52px; margin:0 auto 16px; border-radius:50%; background:linear-gradient(140deg,#8f88ff,#59d8ff); display:flex; align-items:center; justify-content:center; color:#0b0c1a; font-size:26px; font-weight:700">✓</div>' +
-            '<div style="font-size:19px; font-weight:700; letter-spacing:-.01em">You\'re on the list.</div>' +
-            '<p style="font-size:13px; line-height:1.6; color:#9ba0d4; margin:12px 0 0">Early access to <b style="color:#dfe1f5">AgentDeck ' + pl.name + '</b> at <b style="color:#dfe1f5">$' + pl.price + '/mo</b>, price locked while you stay subscribed. We\'ll email <span style="font-family:\'JetBrains Mono\',monospace; color:#59d8ff">' + escapeHtml(email) + '</span> the moment your VPS is provisioned.</p>' +
-            '<div style="margin-top:16px; font:400 10.5px \'JetBrains Mono\',monospace; color:#5c6094">demo checkout · no card was charged</div>' +
-            '<a href="index.html" style="display:inline-block; margin-top:18px; border:1px solid #303359; padding:10px 20px; border-radius:8px; font-size:13.5px" class="btn-ghost">Back to site</a>' +
-          '</div>';
-        summary.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    /* ── PayPal subscription checkout ───────────────────────────────────────
+       Fetch the relay's public billing config → inject the PayPal JS SDK →
+       render subscription buttons for the selected plan. Buttons re-render when
+       the plan or the email's validity changes. On approval we hand PayPal's
+       subscription id to the relay, which re-verifies it server-side, then swap
+       the order card for a "You're subscribed" confirmation. If the relay has no
+       client-id yet we show a friendly "configuring" state — never broken buttons. */
+    var form       = root.querySelector('[data-pay-form]');
+    var summary    = root.querySelector('[data-summary-card]');
+    var emailInput = form && form.querySelector('input[type="email"]');
+    var btnHost    = root.querySelector('[data-paypal-buttons]');
+    var statusEl   = root.querySelector('[data-pay-status]');
+
+    var cfg = null;       // { clientId, plans, env } from the relay
+    var sdkReady = false; // PayPal JS SDK loaded
+    var buttons = null;   // live paypal.Buttons instance
+    var lastSig = null;   // plan + email-validity signature we last rendered for
+    var done = false;     // subscribed — freeze the buttons
+
+    function setStatus(msg, tone) {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.style.color = tone === 'error' ? '#ff8f8f' : tone === 'ok' ? '#59d8ff' : '#9ba0d4';
+    }
+    function planId() { return cfg && cfg.plans ? cfg.plans[state.plan] : ''; }
+    function emailValue() { return ((emailInput && emailInput.value) || '').trim(); }
+    function emailValid() { return !!emailInput && emailInput.checkValidity() && !!emailValue(); }
+
+    function loadSdk(clientId) {
+      return new Promise(function (resolve, reject) {
+        if (window.paypal) { resolve(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId) + '&vault=true&intent=subscription';
+        s.onload = function () { resolve(); };
+        s.onerror = function () { reject(new Error('paypal sdk failed to load')); };
+        document.head.appendChild(s);
       });
+    }
+
+    function renderButtons() {
+      if (done || !sdkReady || !btnHost || !window.paypal) return;
+      if (buttons && buttons.close) { try { buttons.close(); } catch (e) {} }
+      btnHost.innerHTML = '';
+      var pid = planId();
+      if (!pid) { setStatus('This plan isn\'t available for checkout yet.', 'error'); return; }
+      if (!emailValid()) { setStatus('Enter your email above to continue.', ''); return; }
+      setStatus('Pay with PayPal to start your ' + PLANS[state.plan].name + ' subscription.', '');
+      buttons = window.paypal.Buttons({
+        style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+        createSubscription: function (data, actions) {
+          return actions.subscription.create({ plan_id: planId() });
+        },
+        onApprove: function (data) { finishSubscription(data.subscriptionID); },
+        onError: function () { setStatus('Payment couldn\'t be started. Please try again.', 'error'); }
+      });
+      buttons.render(btnHost).catch(function () {
+        setStatus('Couldn\'t load PayPal. Refresh and try again.', 'error');
+      });
+    }
+
+    // Only re-render when the effective inputs (plan + email validity) change, so
+    // typing an email doesn't tear the iframe down on every keystroke.
+    function syncButtons() {
+      if (done || !sdkReady) return;
+      var sig = state.plan + '|' + (emailValid() ? 'y' : 'n');
+      if (sig === lastSig) return;
+      lastSig = sig;
+      renderButtons();
+    }
+
+    function finishSubscription(subscriptionID) {
+      done = true;
+      var pl = PLANS[state.plan];
+      var email = emailValue();
+      setStatus('Confirming your subscription…', 'ok');
+      // The subscription already exists on PayPal; the relay re-verifies + records
+      // it. Show success either way — a network hiccup here doesn't undo the sub.
+      fetch(RELAY_BASE + '/billing/activate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ subscriptionID: subscriptionID, plan: state.plan, email: email })
+      }).then(function () { showSuccess(pl, email); }, function () { showSuccess(pl, email); });
+    }
+
+    function showSuccess(pl, email) {
+      if (!summary) return;
+      summary.innerHTML =
+        '<div style="text-align:center; padding:8px 4px 4px">' +
+          '<div style="width:52px; height:52px; margin:0 auto 16px; border-radius:50%; background:linear-gradient(140deg,#8f88ff,#59d8ff); display:flex; align-items:center; justify-content:center; color:#0b0c1a; font-size:26px; font-weight:700">✓</div>' +
+          '<div style="font-size:19px; font-weight:700; letter-spacing:-.01em">You\'re subscribed.</div>' +
+          '<p style="font-size:13px; line-height:1.6; color:#9ba0d4; margin:12px 0 0">Your <b style="color:#dfe1f5">AgentDeck ' + pl.name + '</b> subscription is active at <b style="color:#dfe1f5">$' + pl.price + '/mo</b>, price locked while you stay subscribed. We\'ll email <span style="font-family:\'JetBrains Mono\',monospace; color:#59d8ff">' + escapeHtml(email || 'your inbox') + '</span> the moment your VPS is provisioned.</p>' +
+          '<div style="margin-top:16px; font:400 10.5px \'JetBrains Mono\',monospace; color:#5c6094">subscription active · managed securely via PayPal</div>' +
+          '<a href="index.html" style="display:inline-block; margin-top:18px; border:1px solid #303359; padding:10px 20px; border-radius:8px; font-size:13.5px" class="btn-ghost">Back to site</a>' +
+        '</div>';
+      summary.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    function showUnconfigured() {
+      if (btnHost) btnHost.innerHTML = '';
+      setStatus('Payments are being configured — check back soon, or email us and we\'ll set you up.', '');
+    }
+
+    if (btnHost && statusEl) {
+      if (emailInput) emailInput.addEventListener('input', syncButtons);
+      setStatus('Loading secure PayPal checkout…', '');
+      fetch(RELAY_BASE + '/billing/config')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          cfg = data || {};
+          if (!cfg.clientId) { showUnconfigured(); return; }
+          return loadSdk(cfg.clientId).then(function () { sdkReady = true; syncButtons(); });
+        })
+        .catch(function () { showUnconfigured(); });
     }
   }
 
