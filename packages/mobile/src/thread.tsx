@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import Markdown from "react-native-markdown-display";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RelayClient } from "./api";
 import { useOnReady, useSpawnEvents } from "./hooks";
 import { messagesGet, messagesPut } from "./db";
@@ -232,6 +233,7 @@ export function ThreadScreen({
   const [away, setAway] = useState(false);
   const [unseen, setUnseen] = useState(0);
   const listRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
 
   const refetch = useCallback(() => {
     client
@@ -319,7 +321,16 @@ export function ThreadScreen({
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: C.bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      // The screen sits below the top safe-area inset (App wraps the nav in a
+      // SafeAreaView edges={["top"]}). RN measures the KAV frame relative to its
+      // parent (y=0) but the keyboard in absolute window coords, so the computed
+      // padding lands short by exactly that inset and the keyboard covers the
+      // input. Feed the inset back as the offset to line the input up on top.
+      keyboardVerticalOffset={insets.top}
+    >
       <View
         style={{
           flexDirection: "row",
@@ -399,7 +410,17 @@ export function ThreadScreen({
           ⚠ {sendError} — draft restored
         </Text>
       )}
-      <View style={{ flexDirection: "row", gap: 8, padding: 12, alignItems: "flex-end" }}>
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 8,
+          paddingHorizontal: 12,
+          paddingTop: 12,
+          // Keep the input clear of the home indicator when the keyboard is down.
+          paddingBottom: 12 + insets.bottom,
+          alignItems: "flex-end",
+        }}
+      >
         <TextInput
           style={{
             flex: 1,

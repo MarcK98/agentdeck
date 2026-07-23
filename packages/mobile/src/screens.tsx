@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Linking,
@@ -144,6 +144,16 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+// Comment thread — who wrote it and how the byline reads (mirrors the desktop
+// ticket modal). A human comment wakes the team lead, which replies here.
+const AUTHOR_LABEL: Record<string, string> = { human: "you", lead: "team lead", agent: "agent" };
+const AUTHOR_COLOR: Record<string, string> = { human: C.accent300, lead: C.warn, agent: C.ok };
+const fmtCommentTime = (iso: string) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
 // Create / edit / delegate / delete a ticket (the board's row is source of truth).
 function TicketSheet({
   client,
@@ -170,7 +180,41 @@ function TicketSheet({
   const [settings, setSettings] = useState<any>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  // Full detail (comments + attachments) for an existing ticket — the board row
+  // only carries the summary fields, so fetch the thread on open.
+  const [detail, setDetail] = useState<any>(null);
+  const [comment, setComment] = useState("");
+  const [posting, setPosting] = useState(false);
   const canDelegate = editing ? ticket.thread_id == null : true;
+  const threadId: number | null = ticket?.thread_id ?? null;
+
+  const loadDetail = useCallback(() => {
+    if (!editing) return;
+    client.rpc<any>("getTicket", ticket.id).then(setDetail).catch(() => {});
+  }, [client, editing, ticket?.id]);
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+  // A comment (from the lead/agent) or a status flip on THIS ticket re-fetches.
+  useSpawnEvents(client, ["ticket:comment", "ticket:updated"], (ev) => {
+    if (!editing) return;
+    const tid = ev.payload?.ticketId ?? ev.payload?.id;
+    if (tid === ticket.id) loadDetail();
+  });
+
+  const postComment = async () => {
+    const text = comment.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    setError("");
+    try {
+      await client.rpc("addTicketComment", ticket.id, { authorKind: "human", body: text });
+      setComment("");
+      loadDetail();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPosting(false);
+    }
+  };
 
   useEffect(() => {
     if (projectId === "") return setSettings(null);
@@ -208,6 +252,16 @@ function TicketSheet({
 
   return (
     <Sheet title={editing ? `Ticket SPWN-${ticket.id}` : "New ticket"} onClose={onClose}>
+      {threadId != null && (
+        <Btn
+          label="↗ Open thread"
+          color={C.accent}
+          onPress={() => {
+            onClose();
+            onOpenThread(threadId, title || ticket.title);
+          }}
+        />
+      )}
       <TextInput style={[sheetInput, { fontWeight: "500" }]} placeholder="Title" placeholderTextColor={C.n600} value={title} onChangeText={setTitle} />
       <TextInput
         style={[sheetInput, { minHeight: 90, textAlignVertical: "top" }]}
@@ -254,6 +308,51 @@ function TicketSheet({
           />
         )}
       </View>
+
+      {editing && (
+        <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: C.n800, paddingTop: 14, gap: 12 }}>
+          <Text style={{ color: C.n500, fontSize: 11 }}>
+            Comments{detail?.comments?.length ? ` · ${detail.comments.length}` : ""}
+          </Text>
+
+          {/* Compose — a human comment wakes the team lead, which acts + replies. */}
+          <View style={{ gap: 8 }}>
+            <TextInput
+              style={[sheetInput, { minHeight: 64, textAlignVertical: "top" }]}
+              placeholder="Write a comment — the team lead is notified and acts on it."
+              placeholderTextColor={C.n600}
+              multiline
+              value={comment}
+              onChangeText={setComment}
+            />
+            <View style={{ flexDirection: "row" }}>
+              <View style={{ flex: 1 }} />
+              <Btn label="Comment" color={C.accent} onPress={postComment} disabled={!comment.trim() || posting} busy={posting} />
+            </View>
+          </View>
+
+          {/* Newest first — reverse a shallow copy so stored order stays put. */}
+          {detail == null ? (
+            <Text style={S.dim}>Loading…</Text>
+          ) : detail.comments.length === 0 ? (
+            <Text style={S.dim}>No comments yet.</Text>
+          ) : (
+            [...detail.comments].reverse().map((c: any) => (
+              <View key={c.id} style={{ gap: 3 }}>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                  <Text style={{ color: AUTHOR_COLOR[c.author_kind] ?? C.n400, fontSize: 12, fontWeight: "600" }}>
+                    {AUTHOR_LABEL[c.author_kind] ?? c.author_kind}
+                  </Text>
+                  <Text style={{ color: C.n600, fontSize: 10 }}>{fmtCommentTime(c.created_at)}</Text>
+                </View>
+                <Text style={{ color: C.text, fontSize: 14, lineHeight: 20 }} selectable>
+                  {c.body}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
     </Sheet>
   );
 }
@@ -371,9 +470,10 @@ export function BoardScreen({
               {rows.map((t) => (
                 <Card
                   key={t.id}
-                  onPress={() =>
-                    t.thread_id != null ? openThread(t.thread_id, t.title) : setSheet({ kind: "ticket", ticket: t })
-                  }
+                  // Always open the ticket detail (comments + Open thread inside),
+                  // mirroring the desktop card → modal flow — a delegated ticket's
+                  // comment thread was otherwise unreachable on mobile.
+                  onPress={() => setSheet({ kind: "ticket", ticket: t })}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
                     {t.running && <Dot color={C.ok} />}
