@@ -10,6 +10,12 @@
         "simulator": true
       }
     },
+    "device": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
     "production": {
       "autoIncrement": true,
       "credentialsSource": "local"
