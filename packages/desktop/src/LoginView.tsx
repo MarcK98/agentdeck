@@ -2,12 +2,13 @@ import { useState } from "react";
 import Brand from "./Brand";
 
 // Sign-in gate (mockup: "Sign in to AgentDeck"). AgentDeck is bring-your-own-
-// subscription: agents run on the user's own Claude/OpenAI account, so "login"
-// authorizes a provider rather than creating an AgentDeck account. The provider
-// buttons open the provider's own auth in the browser (the daemon's `claude`
+// subscription: agents run on the user's own Claude account, so "login"
+// authorizes Anthropic rather than creating an AgentDeck account. The provider
+// button opens Anthropic's own auth in the browser (the daemon's `claude`
 // CLI owns the actual OAuth handshake); pasting a key or exploring the demo both
-// complete locally. Real in-app OAuth token capture needs registered provider
-// client IDs — tracked as a blocker in the SPWN-39 spec.
+// complete locally. Real in-app OAuth token capture needs a registered provider
+// client ID — tracked as a blocker in the SPWN-39 spec. ChatGPT + Google login
+// are deferred (SPWN-39 scope cut) — Anthropic only for now.
 
 type Provider = { id: string; name: string; mark: string; markC: string; sub: string; url: string };
 
@@ -19,22 +20,6 @@ const PROVIDERS: Provider[] = [
     markC: "#d97757",
     sub: "run agents on your Claude Pro / Max plan",
     url: "https://claude.ai/login",
-  },
-  {
-    id: "openai",
-    name: "ChatGPT",
-    mark: "◍",
-    markC: "#55e0a6",
-    sub: "use your ChatGPT / OpenAI subscription",
-    url: "https://platform.openai.com/login",
-  },
-  {
-    id: "google",
-    name: "Google",
-    mark: "◆",
-    markC: "#59d8ff",
-    sub: "sign in with your Google account",
-    url: "https://accounts.google.com",
   },
 ];
 

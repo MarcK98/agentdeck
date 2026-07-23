@@ -28,10 +28,8 @@
 // daemon connection ("the Mac"), any number of phone connections.
 import { createServer } from "node:http";
 import { timingSafeEqual, scryptSync } from "node:crypto";
-import { appendFile } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SignJWT, jwtVerify } from "jose";
-import { getSubscription, verifyWebhookSignature } from "./paypal.js";
 
 // RELAY_PORT for local dev; PORT is what Railway/Fly inject.
 const PORT = Number(process.env.RELAY_PORT || process.env.PORT) || 8820;
@@ -41,31 +39,9 @@ const SUPABASE_SECRET = process.env.SUPABASE_JWT_SECRET || "";
 const AUTH_JWT_SECRET = process.env.AUTH_JWT_SECRET || "";
 const TOKEN_TTL = process.env.AUTH_TOKEN_TTL || "30d";
 
-// PayPal billing (subscriptions). The secret never leaves the server; the browser
-// only ever gets the clientId + plan ids via GET /billing/config.
-const PAYPAL = {
-  env: process.env.PAYPAL_ENV || "sandbox", // "sandbox" | "live"
-  clientId: process.env.PAYPAL_CLIENT_ID || "",
-  secret: process.env.PAYPAL_SECRET || "",
-  planHosted: process.env.PAYPAL_PLAN_HOSTED || "",
-  planConcierge: process.env.PAYPAL_PLAN_CONCIERGE || "",
-  webhookId: process.env.PAYPAL_WEBHOOK_ID || "",
-};
-const BILLING_LOG = process.env.BILLING_LOG || "./subscriptions.jsonl";
-
 if (!DAEMON_KEY) {
   console.error("[relay] RELAY_DAEMON_KEY is required");
   process.exit(1);
-}
-
-// Append one billing record (activation / webhook) as a JSON line. Best-effort:
-// a write failure is logged, never thrown — billing must not take the relay down.
-async function logBilling(record) {
-  try {
-    await appendFile(BILLING_LOG, JSON.stringify({ at: new Date().toISOString(), ...record }) + "\n");
-  } catch (e) {
-    console.error("[relay] billing log write failed:", e.message);
-  }
 }
 
 // Collect a request body (bounded). Resolves to the raw string, or null if it
@@ -179,92 +155,6 @@ const server = createServer(async (req, res) => {
   }
   if (req.url === "/health") {
     sendJson(res, 200, { ok: true, daemon: daemonWs?.readyState === WebSocket.OPEN, phones: phones.size });
-    return;
-  }
-  // Public billing config — clientId + plan ids the PayPal JS SDK needs. Never
-  // the secret. Empty clientId is a valid response: the site shows a "configuring"
-  // state rather than broken buttons.
-  if (req.method === "GET" && req.url === "/billing/config") {
-    sendJson(res, 200, {
-      clientId: PAYPAL.clientId,
-      plans: { hosted: PAYPAL.planHosted, concierge: PAYPAL.planConcierge },
-      env: PAYPAL.env,
-    });
-    return;
-  }
-  // Activate: the browser hands us the subscriptionID PayPal just approved; we
-  // independently confirm it's ACTIVE/APPROVED via the REST API before recording
-  // it, so a forged id can't earn a subscription.
-  if (req.method === "POST" && req.url === "/billing/activate") {
-    const body = await readBody(req, 8192);
-    if (body === null) return; // oversized / errored — socket already gone
-    let subscriptionID = "";
-    let plan = "";
-    let email = "";
-    try {
-      const p = JSON.parse(body || "{}");
-      subscriptionID = String(p.subscriptionID ?? "").trim();
-      plan = String(p.plan ?? "").trim();
-      email = String(p.email ?? "").trim().toLowerCase();
-    } catch {
-      return sendJson(res, 400, { error: "bad request" });
-    }
-    if (!subscriptionID) return sendJson(res, 400, { error: "subscriptionID required" });
-    if (!PAYPAL.clientId || !PAYPAL.secret) return sendJson(res, 501, { error: "billing not configured" });
-    let sub;
-    try {
-      sub = await getSubscription(PAYPAL, subscriptionID);
-    } catch (e) {
-      console.error("[relay] subscription verify failed:", e.message);
-      return sendJson(res, 502, { error: "could not verify subscription" });
-    }
-    const status = sub?.status ?? "UNKNOWN";
-    if (status !== "ACTIVE" && status !== "APPROVED") {
-      return sendJson(res, 400, { error: "subscription not active", status });
-    }
-    await logBilling({ type: "activate", subscriptionID, plan, email, status, planId: sub?.plan_id });
-    console.log(`[relay] subscription ${subscriptionID} ${status} (${plan}) for ${email || "unknown"}`);
-    sendJson(res, 200, { ok: true, status });
-    return;
-  }
-  // Webhook: PayPal's server-to-server event stream. Ack 200 fast, then verify
-  // the signature and log the events we care about. If verification isn't
-  // configured we accept-and-log (dev) rather than crash.
-  if (req.method === "POST" && req.url === "/billing/webhook") {
-    const raw = await readBody(req, 1 << 20);
-    if (raw === null) return; // oversized / errored — socket already gone
-    res.writeHead(200, CORS); // ack immediately; processing continues below
-    res.end();
-    let event;
-    try {
-      event = JSON.parse(raw || "{}");
-    } catch {
-      return;
-    }
-    if (PAYPAL.webhookId && PAYPAL.clientId && PAYPAL.secret) {
-      try {
-        const ok = await verifyWebhookSignature(PAYPAL, { webhookId: PAYPAL.webhookId, headers: req.headers, body: event });
-        if (!ok) {
-          console.warn("[relay] webhook signature not verified — ignoring", event.event_type);
-          return;
-        }
-      } catch (e) {
-        console.error("[relay] webhook verify error:", e.message);
-        return;
-      }
-    } else {
-      console.warn("[relay] webhook verification not configured — accepting", event.event_type);
-    }
-    const HANDLED = [
-      "BILLING.SUBSCRIPTION.ACTIVATED",
-      "BILLING.SUBSCRIPTION.CANCELLED",
-      "BILLING.SUBSCRIPTION.EXPIRED",
-      "PAYMENT.SALE.COMPLETED",
-    ];
-    if (HANDLED.includes(event.event_type)) {
-      await logBilling({ type: "webhook", event: event.event_type, id: event.resource?.id, resource: event.resource });
-      console.log("[relay] webhook", event.event_type, event.resource?.id ?? "");
-    }
     return;
   }
   // Email + password → session JWT (no signup; accounts come from AUTH_USERS).
