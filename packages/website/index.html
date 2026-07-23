@@ -3,329 +3,514 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AgentDeck — a mastermind for Claude Code</title>
-  <meta name="description" content="AgentDeck turns Claude Code into a team you direct. Delegate tickets from a board, watch agents work in live threads, approve risky actions from one inbox, and track every token. Open source — self-host free, or let us run it for you." />
+  <title>AgentDeck — every agent, one deck</title>
+  <meta name="description" content="AgentDeck turns Claude Code into a team you direct. Write a ticket, pick a model — an agent branches, builds, and opens the PR while you watch the whole fleet on one live map. Open source, MIT, bring your own Claude." />
 
-  <meta property="og:title" content="AgentDeck — a mastermind for Claude Code" />
-  <meta property="og:description" content="Delegate tickets to Claude Code agents, watch them work live, approve risky actions, track every token. Open source. Self-host free, or we run it for you." />
+  <meta property="og:title" content="AgentDeck — every agent, one deck" />
+  <meta property="og:description" content="Turn Claude Code into a team you direct. Delegate tickets, watch agents work in live threads, approve risky actions, track every token. Open source. Self-host free, or we run it for you." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://agentdeck.run" />
   <meta property="og:image" content="https://agentdeck.run/assets/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#0b0c1a" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="site.css" />
 </head>
 <body>
 
-<header class="nav">
-  <div class="container nav-inner">
-    <a class="brand" href="#top" aria-label="AgentDeck home">
-      <svg class="brand-glyph" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 6 v6 M16 12 L7 20 M16 12 L16 20 M16 12 L25 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-        <circle cx="16" cy="5" r="3.2" fill="currentColor"/>
-        <circle cx="7" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-        <circle cx="16" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-        <circle cx="25" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-      </svg>
-      <span>AgentDeck</span>
-    </a>
-    <nav class="nav-links" id="nav-links">
-      <a href="#features">Features</a>
-      <a href="#how">How it works</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#faq">FAQ</a>
-      <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">GitHub</a>
-    </nav>
-    <div class="nav-cta">
-      <a class="btn btn-ghost" href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">Self-host free</a>
-      <a class="btn btn-solid" href="#pricing">Get AgentDeck hosted</a>
+<div style="overflow-x:hidden">
+
+  <!-- ═══ Nav ═══ -->
+  <div style="position:sticky; top:0; z-index:50; background:rgba(11,12,26,0.78); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 32px">
+      <a href="#top" style="display:flex; align-items:center; gap:11px" aria-label="AgentDeck home">
+        <div style="position:relative; width:24px; height:26px">
+          <div style="position:absolute; left:50%; top:1px; width:14px; height:14px; background:#2c3060; transform:translateX(-50%) rotate(45deg); border-radius:3.5px"></div>
+          <div style="position:absolute; left:50%; top:8px; width:14px; height:14px; background:linear-gradient(140deg,#8f88ff,#59d8ff); transform:translateX(-50%) rotate(45deg); border-radius:3.5px; box-shadow:0 4px 12px rgba(110,102,255,0.4)"></div>
+        </div>
+        <span style="font-weight:700; font-size:17px; letter-spacing:-0.01em">AgentDeck</span>
+      </a>
+      <div class="nav-links" style="display:flex; gap:28px; align-items:center; font-size:13.5px">
+        <a href="#features" style="color:#9ba0d4">Features</a>
+        <a href="#how" style="color:#9ba0d4">How it works</a>
+        <a href="#opensource" style="color:#9ba0d4">Open source</a>
+        <a href="#pricing" style="color:#9ba0d4">Pricing</a>
+        <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" style="color:#9ba0d4">GitHub</a>
+      </div>
+      <a href="#pricing" class="btn-primary" style="background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; padding:9px 18px; border-radius:7px; font-weight:700; font-size:13.5px">Get hosted</a>
     </div>
-    <button class="nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
   </div>
-</header>
 
-<main id="top">
-
-  <!-- ═══════════════ Hero ═══════════════ -->
-  <section class="hero">
-    <div class="hero-glow" aria-hidden="true"></div>
-    <div class="container hero-inner">
-      <p class="eyebrow">Open source &middot; bring your own Claude</p>
-      <h1>A mastermind for<br /><span class="accent">Claude Code.</span></h1>
-      <p class="lede">
-        AgentDeck turns Claude Code into a team you direct. Delegate tickets from a board,
-        watch agents work in live threads, approve risky actions from one inbox, and
-        see exactly what every run costs — on your Mac, your VPS, your rules.
-      </p>
-      <div class="hero-ctas">
-        <a class="btn btn-solid btn-lg" href="#pricing">Get AgentDeck hosted</a>
-        <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">Deploy your own — free</a>
+  <!-- ═══ Hero ═══ -->
+  <div id="top" style="position:relative; padding:88px 32px 90px; text-align:center">
+    <div style="position:absolute; top:-160px; left:50%; transform:translateX(-50%); width:900px; max-width:100%; height:480px; background:radial-gradient(ellipse, rgba(110,102,255,0.26), transparent 70%); animation:adGlow 6s infinite; pointer-events:none"></div>
+    <div style="position:relative; max-width:840px; margin:0 auto">
+      <div style="display:inline-block; font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; border:1px solid #274b63; border-radius:100px; padding:7px 16px; letter-spacing:0.08em">OPEN SOURCE · MIT · BRING YOUR OWN CLAUDE</div>
+      <h1 class="hero-h1" style="font-size:76px; font-weight:700; line-height:1.02; letter-spacing:-0.028em; margin:26px 0 0">Every agent.<br><span style="background:linear-gradient(100deg,#8f88ff,#59d8ff); -webkit-background-clip:text; background-clip:text; color:transparent">One deck.</span></h1>
+      <p style="max-width:580px; margin:24px auto 0; font-size:17px; line-height:1.65; color:#9ba0d4">AgentDeck turns Claude Code into a team you direct. Write a ticket, pick a model — an agent branches, builds, and opens the PR while you watch the whole fleet on one live map.</p>
+      <div style="display:flex; gap:14px; justify-content:center; margin-top:34px; flex-wrap:wrap">
+        <a href="#pricing" class="btn-primary" style="background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; font-size:15px; padding:14px 28px; border-radius:9px">Get hosted — $20/mo</a>
+        <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" class="btn-ghost" style="border:1px solid #303359; font-size:15px; padding:14px 28px; border-radius:9px">Self-host free →</a>
       </div>
-      <p class="hero-note">MIT-licensed. Your code and sessions never leave machines you control.</p>
+      <div style="margin-top:18px; font:400 12px 'JetBrains Mono',monospace; color:#5c6094">MIT-licensed · your code never leaves machines you control</div>
+    </div>
 
-      <!-- App mock, drawn in CSS — board + live threads -->
-      <div class="mock" role="img" aria-label="The AgentDeck desktop app: a ticket board with live agent runs">
-        <div class="mock-chrome">
-          <span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span>
-          <span class="mock-title">AgentDeck — Orchestrate</span>
-          <span class="mock-usage">▲ 2.4M tokens today &middot; $11.20</span>
+    <!-- Hero demo: ticket lifecycle, 16s scripted loop -->
+    <div style="position:relative; max-width:1060px; margin:64px auto 0; text-align:left">
+      <div style="position:absolute; inset:-1px; background:linear-gradient(140deg, rgba(143,136,255,0.5), rgba(89,216,255,0.2) 40%, transparent 70%); border-radius:13px; pointer-events:none"></div>
+      <div style="position:relative; background:#0e1023; border-radius:12px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.6)">
+        <div style="display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid #1b1e3d; background:#101230">
+          <span style="width:11px; height:11px; border-radius:50%; background:#2c3060"></span><span style="width:11px; height:11px; border-radius:50%; background:#2c3060"></span><span style="width:11px; height:11px; border-radius:50%; background:#2c3060"></span>
+          <span style="margin-left:12px; font:500 11.5px 'JetBrains Mono',monospace; color:#5c6094">AgentDeck — Orchestrate</span>
+          <span style="margin-left:auto; font:500 11.5px 'JetBrains Mono',monospace; color:#59d8ff">▲ 2.4M tok today</span>
         </div>
-        <div class="mock-body">
-          <div class="mock-rail">
-            <span class="mock-rail-item is-active">Orchestrate</span>
-            <span class="mock-rail-item">Threads</span>
-            <span class="mock-rail-item">Live map</span>
-            <span class="mock-rail-item">Approvals <em class="mock-badge">2</em></span>
-            <span class="mock-rail-item">Usage</span>
+        <div style="display:flex; min-height:380px">
+          <div style="width:160px; flex:none; border-right:1px solid #1b1e3d; padding:16px 10px; display:flex; flex-direction:column; gap:3px; font-size:12.5px">
+            <div style="background:#1c1f45; color:#dfe1f5; border-radius:6px; padding:8px 12px; font-weight:500">Orchestrate</div>
+            <div style="color:#9ba0d4; padding:8px 12px">Threads</div>
+            <div style="color:#9ba0d4; padding:8px 12px">Live map</div>
+            <div style="color:#9ba0d4; padding:8px 12px; display:flex; justify-content:space-between; align-items:center">Approvals <span style="background:#8f88ff; color:#0b0c1a; font:700 10px 'JetBrains Mono',monospace; border-radius:100px; padding:1px 7px">2</span></div>
+            <div style="color:#9ba0d4; padding:8px 12px">Usage</div>
           </div>
-          <div class="mock-board">
-            <div class="mock-col">
-              <h6>Backlog</h6>
-              <div class="mock-card"><b>SPWN-34</b> Add CSV export to usage view</div>
-              <div class="mock-card"><b>SPWN-35</b> Dark-mode toggle for docs</div>
+          <div style="flex:1; position:relative; padding:18px 20px">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px">
+              <div>
+                <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">BACKLOG · 2</div>
+                <div style="background:#14163a; border:1px solid #23264a; border-radius:8px; padding:11px 13px; font-size:12px; color:#9ba0d4; margin-bottom:9px"><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-34</b><br>CSV export for usage view</div>
+                <div style="background:#14163a; border:1px solid #8f88ff; border-radius:8px; padding:11px 13px; font-size:12px; animation:dCardA 16s infinite; opacity:0"><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-32</b><br>Fix relay reconnect loop</div>
+              </div>
+              <div>
+                <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">IN PROGRESS · 2</div>
+                <div style="background:#14163a; border:1px solid #23264a; border-radius:8px; padding:11px 13px; font-size:12px; margin-bottom:9px"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-31</b><br><span style="color:#dfe1f5">Marketing site + pricing</span><div style="font:400 10px 'JetBrains Mono',monospace; color:#5c6094; margin-top:6px">opus · 212k tok · spwn-31</div></div>
+                <div style="background:#161947; border:1px solid #3d4179; border-radius:8px; padding:11px 13px; font-size:12px; animation:dCardB 16s infinite; opacity:0"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-32</b><br>Fix relay reconnect loop<div style="font:400 10px 'JetBrains Mono',monospace; color:#5c6094; margin-top:6px">sonnet · 48k tok · spwn-32</div></div>
+              </div>
+              <div>
+                <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">REVIEW · 1</div>
+                <div style="background:#14163a; border:1px solid #23264a; border-radius:8px; padding:11px 13px; font-size:12px; color:#9ba0d4; margin-bottom:9px"><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-29</b><br>Native notifications<div style="font:400 10px 'JetBrains Mono',monospace; color:#5c6094; margin-top:6px">PR #48 · checks ✓</div></div>
+                <div style="background:#14163a; border:1px solid #2c5f79; border-radius:8px; padding:11px 13px; font-size:12px; animation:dCardC 16s infinite; opacity:0"><b style="color:#8f88ff; font-family:'JetBrains Mono',monospace; font-size:11px">SPWN-32</b><br>Fix relay reconnect loop<div style="font:400 10px 'JetBrains Mono',monospace; color:#59d8ff; margin-top:6px">PR #52 · checks ✓</div></div>
+              </div>
             </div>
-            <div class="mock-col">
-              <h6>In progress</h6>
-              <div class="mock-card is-live"><span class="pulse"></span><b>SPWN-31</b> Marketing site + pricing<span class="mock-meta">opus &middot; $0.84 &middot; branch spwn-31</span></div>
-              <div class="mock-card is-live"><span class="pulse"></span><b>SPWN-32</b> Fix relay reconnect loop<span class="mock-meta">sonnet &middot; $0.12 &middot; 3 files</span></div>
-            </div>
-            <div class="mock-col">
-              <h6>In review</h6>
-              <div class="mock-card"><b>SPWN-29</b> Native notifications<span class="mock-meta">PR #48 &middot; checks ✓</span></div>
+            <!-- delegate sheet -->
+            <div style="position:absolute; right:20px; top:14px; width:290px; max-width:calc(100% - 40px); background:#171a3e; border:1px solid #3d4179; border-radius:10px; padding:16px; box-shadow:0 20px 50px rgba(0,0,0,0.55); animation:dSheet 16s infinite; opacity:0">
+              <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">NEW TICKET · ⌘N</div>
+              <div style="display:flex; align-items:center; background:#0e1023; border:1px solid #23264a; border-radius:6px; padding:9px 11px">
+                <div style="overflow:hidden; white-space:nowrap; width:24ch; animation:dType 16s steps(24,end) infinite; font:400 12px 'JetBrains Mono',monospace; color:#dfe1f5">Fix relay reconnect loop</div>
+                <div style="width:7px; height:13px; background:#59d8ff; animation:adBlink 0.9s infinite; flex:none; margin-left:-2px"></div>
+              </div>
+              <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; font:500 10px 'JetBrains Mono',monospace">
+                <span style="border:1px solid #303359; color:#9ba0d4; border-radius:100px; padding:4px 10px">relay</span>
+                <span style="border:1px solid #303359; color:#9ba0d4; border-radius:100px; padding:4px 10px">sonnet</span>
+                <span style="border:1px solid #303359; color:#9ba0d4; border-radius:100px; padding:4px 10px">effort: high</span>
+                <span style="border:1px solid #274b63; color:#59d8ff; border-radius:100px; padding:4px 10px">worktree: spwn-32</span>
+              </div>
+              <div style="margin-top:12px; background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; font-size:12px; text-align:center; border-radius:6px; padding:9px">Delegate ⏎</div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════ Features ═══════════════ -->
-  <section class="section" id="features">
-    <div class="container">
-      <h6 class="kicker">What you get</h6>
-      <h2>Run a fleet of agents like a team,<br />not a terminal tab.</h2>
-      <div class="grid grid-3 features">
-        <div class="card">
-          <h4>Orchestrate board</h4>
-          <p>Tickets become agent runs. Delegate with a model and effort level, watch live cards pulse while agents work, and comment to steer — a comment moves the work, not just the card.</p>
-        </div>
-        <div class="card">
-          <h4>Live threads</h4>
-          <p>Every agent is a transcript you can open: tool calls as they happen, a steering composer, and a context rail with the run's cost, branch, worktree state, and PR checks.</p>
-        </div>
-        <div class="card">
-          <h4>Approvals inbox</h4>
-          <p>Risky commands wait for you. One inbox for every pending permission across all agents, with the full command shown — allow or deny from the app or a native notification.</p>
-        </div>
-        <div class="card">
-          <h4>Ticket isolation</h4>
-          <p>Each ticket gets its own branch and git worktree. Agents can't step on each other or on your working tree; finished work arrives as a PR, and cleanup is one click.</p>
-        </div>
-        <div class="card">
-          <h4>Live map</h4>
-          <p>Your whole operation as a live graph — team lead, projects, running threads — with pids, costs, dirty counts, and PR badges. Click any node to jump into it.</p>
-        </div>
-        <div class="card">
-          <h4>Exact usage ledger</h4>
-          <p>Tokens, turns, and dollars by hour, model, and project — from a real ledger, not estimates. Live sessions show each agent's context window filling in real time.</p>
+        <div style="position:relative; height:38px; border-top:1px solid #1b1e3d; background:#101230; font:400 11px 'JetBrains Mono',monospace">
+          <div style="position:absolute; inset:0; display:flex; align-items:center; padding:0 16px; color:#9ba0d4; animation:dL1 16s infinite; opacity:0"><span style="color:#5c6094; margin-right:8px">agent</span>→ worktree created · branch spwn-32</div>
+          <div style="position:absolute; inset:0; display:flex; align-items:center; padding:0 16px; color:#9ba0d4; animation:dL2 16s infinite; opacity:0"><span style="color:#5c6094; margin-right:8px">agent</span>→ Edit reconnect.ts · +18 −6</div>
+          <div style="position:absolute; inset:0; display:flex; align-items:center; padding:0 16px; color:#9ba0d4; animation:dL3 16s infinite; opacity:0"><span style="color:#5c6094; margin-right:8px">agent</span>→ npm test · 42 passing</div>
+          <div style="position:absolute; inset:0; display:flex; align-items:center; padding:0 16px; color:#59d8ff; animation:dL4 16s infinite; opacity:0"><span style="color:#5c6094; margin-right:8px">agent</span>✓ PR #52 opened · checks green</div>
         </div>
       </div>
-      <p class="features-more">
-        Plus a team-lead agent that plans and delegates for you, a ⌘K palette, native
-        OS notifications, per-project MCP servers and skills, and an iOS companion in the works.
-      </p>
+      <div style="text-align:center; margin-top:16px; font:400 11.5px 'JetBrains Mono',monospace; color:#5c6094">↻ one ticket, start to PR — no terminal touched</div>
     </div>
-  </section>
+  </div>
 
-  <!-- ═══════════════ How it works ═══════════════ -->
-  <section class="section section-alt" id="how">
-    <div class="container">
-      <h6 class="kicker">How it works</h6>
-      <h2>Three pieces. You control all of them.</h2>
-      <div class="grid grid-3 steps">
-        <div class="card step">
-          <span class="step-n">1</span>
-          <h4>Run the daemon</h4>
-          <p>A small background process owns your Claude Code sessions, threads, tickets, and the usage ledger — in SQLite, on your Mac or a VPS. Node 20+, one command.</p>
-        </div>
-        <div class="card step">
-          <span class="step-n">2</span>
-          <h4>Open the app</h4>
-          <p>The desktop app connects to your daemon: board, threads, approvals, usage, live map. It even starts the daemon for you if it isn't running.</p>
-        </div>
-        <div class="card step">
-          <span class="step-n">3</span>
-          <h4>Delegate</h4>
-          <p>Write a ticket, pick a model, hit go. AgentDeck drives Claude Code with <em>your</em> account — Anthropic bills you directly, and AgentDeck never marks up a token.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+  <!-- ═══ Features ═══ -->
+  <div id="features" class="pad-x" style="max-width:1180px; margin:0 auto; padding:60px 32px 0">
 
-  <!-- ═══════════════ Open source ═══════════════ -->
-  <section class="section" id="opensource">
-    <div class="container os-split">
+    <!-- Threads -->
+    <div data-reveal class="row2" style="display:grid; grid-template-columns:0.9fr 1.1fr; gap:64px; align-items:center; padding:60px 0">
       <div>
-        <h6 class="kicker">Open source</h6>
-        <h2>The whole product is public. Nothing held back.</h2>
-        <p class="lede-sm">
-          AgentDeck is MIT-licensed — daemon, desktop app, mobile relay, all of it.
-          Read every line before you trust it with your repos. Self-host it
-          forever for free, or pay us to run it and stay current without thinking about it.
-        </p>
-        <div class="os-ctas">
-          <a class="btn btn-ghost" href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">Read the source</a>
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">LIVE THREADS</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; margin:0">Every agent is a transcript you can steer.</h2>
+        <p style="font-size:15.5px; line-height:1.7; color:#9ba0d4; margin:18px 0 0">Tool calls stream in as they happen. Type mid-run to redirect the agent. The context rail keeps the run's cost, branch, worktree state, and PR checks one glance away.</p>
+      </div>
+      <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; overflow:hidden">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 16px; border-bottom:1px solid #1b1e3d; font:500 11px 'JetBrains Mono',monospace; color:#5c6094">
+          <span><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#59d8ff; margin-right:7px; animation:adPulse 1.5s infinite"></span>SPWN-32 · relay · sonnet</span><span>running 4m 12s</span>
+        </div>
+        <div style="display:flex">
+          <div style="flex:1; padding:16px; font:400 11.5px 'JetBrains Mono',monospace; display:flex; flex-direction:column; gap:10px">
+            <div style="animation:tL1 12s infinite; opacity:0"><span style="color:#5c6094">14:02:11</span> <span style="color:#8f88ff">Read</span> <span style="color:#9ba0d4">src/relay/reconnect.ts</span></div>
+            <div style="animation:tL2 12s infinite; opacity:0"><span style="color:#5c6094">14:02:14</span> <span style="color:#8f88ff">Edit</span> <span style="color:#9ba0d4">reconnect.ts · +18 −6</span></div>
+            <div style="animation:tL3 12s infinite; opacity:0"><span style="color:#5c6094">14:02:19</span> <span style="color:#8f88ff">Bash</span> <span style="color:#9ba0d4">npm test → 42 passing</span></div>
+            <div style="animation:tL4 12s infinite; opacity:0"><span style="color:#5c6094">14:02:31</span> <span style="color:#dfe1f5">"Reconnect used a fixed 5s delay; switching to exponential backoff with jitter."</span></div>
+            <div style="animation:tL5 12s infinite; opacity:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap"><span style="color:#5c6094">14:02:44</span><span style="border:1px solid #3d4179; color:#dfe1f5; border-radius:5px; padding:3px 9px">approval: git push</span><span style="background:#59d8ff; color:#0b0c1a; font-weight:700; border-radius:5px; padding:3px 9px">Allow</span><span style="border:1px solid #303359; color:#9ba0d4; border-radius:5px; padding:3px 9px">Deny</span></div>
+            <div style="margin-top:auto; display:flex; align-items:center; background:#14163a; border:1px solid #23264a; border-radius:7px; padding:9px 12px; color:#5c6094">steer the run…<div style="width:6px; height:12px; background:#59d8ff; margin-left:6px; animation:adBlink 1s infinite"></div></div>
+          </div>
+          <div style="width:160px; flex:none; border-left:1px solid #1b1e3d; padding:14px; font:400 10.5px 'JetBrains Mono',monospace; color:#5c6094; display:flex; flex-direction:column; gap:12px">
+            <div>MODEL<div style="color:#dfe1f5; margin-top:3px">sonnet</div></div>
+            <div>TOKENS<div style="color:#59d8ff; margin-top:3px">48.2k</div></div>
+            <div>BRANCH<div style="color:#dfe1f5; margin-top:3px">spwn-32</div></div>
+            <div>CONTEXT<div style="height:5px; background:#1b1e3d; border-radius:3px; margin-top:6px; overflow:hidden"><div style="height:100%; background:linear-gradient(90deg,#8f88ff,#59d8ff); border-radius:3px; animation:uCtx1 18s infinite"></div></div></div>
+            <div>PR<div style="color:#dfe1f5; margin-top:3px">— pending</div></div>
+          </div>
         </div>
       </div>
-      <div class="terminal">
-        <div class="terminal-bar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
-        <pre><code><span class="t-dim"># self-host in three commands</span>
-<span class="t-p">$</span> git clone https://github.com/MarcK98/agentdeck.git
-<span class="t-p">$</span> cd agentdeck &amp;&amp; npm install
-<span class="t-p">$</span> npm run desktop
-<span class="t-ok">✓</span> daemon up &middot; desktop connected &middot; delegate your first ticket</code></pre>
-        <button class="copy" data-copy="git clone https://github.com/MarcK98/agentdeck.git && cd agentdeck && npm install && npm run desktop">Copy</button>
+    </div>
+
+    <!-- Live map -->
+    <div data-reveal class="row2 row2-media-first" style="display:grid; grid-template-columns:1.1fr 0.9fr; gap:64px; align-items:center; padding:60px 0">
+      <div style="position:relative; height:400px; background:#0d0f26; border:1px solid #23264a; border-radius:12px; overflow:hidden">
+        <div style="position:absolute; inset:0; background-image:radial-gradient(#23264a 1px, transparent 1px); background-size:22px 22px; opacity:0.5"></div>
+        <div style="position:absolute; top:14px; left:18px; font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; z-index:2">LIVE MAP — 3 RUNNING</div>
+        <div style="position:absolute; top:14px; right:18px; font:500 10.5px 'JetBrains Mono',monospace; color:#59d8ff; z-index:2">▲ 2.4M TOK TODAY</div>
+        <div data-map-canvas style="position:absolute; left:50%; top:53%; width:560px; height:340px; transform:translate(-50%,-50%)">
+          <svg width="560" height="340" viewBox="0 0 560 340" style="position:absolute; inset:0" aria-hidden="true">
+            <path d="M150,159 C182,159 173,72 205,72" fill="none" stroke="#59d8ff" stroke-width="1.5" stroke-dasharray="6 6" style="animation:adDash 1.2s linear infinite"></path>
+            <path d="M150,159 C182,159 173,262 205,262" fill="none" stroke="#3d4179" stroke-width="1.5"></path>
+            <path d="M345,72 C378,72 372,40 405,40" fill="none" stroke="#59d8ff" stroke-width="1.5" stroke-dasharray="6 6" style="animation:adDash 1.2s linear infinite"></path>
+            <path d="M345,72 C378,72 372,146 405,146" fill="none" stroke="#59d8ff" stroke-width="1.5" stroke-dasharray="6 6" style="animation:adDash 1.4s linear infinite"></path>
+            <path d="M345,262 C378,262 372,268 405,268" fill="none" stroke="#3d4179" stroke-width="1.5"></path>
+          </svg>
+          <div style="position:absolute; left:0; top:120px; width:150px; background:#14163a; border:1px solid #8f88ff; border-radius:8px; padding:10px 12px; box-shadow:0 0 22px rgba(143,136,255,0.25)">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#dfe1f5"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#8f88ff; margin-right:6px; animation:adPulse 1.8s infinite"></span>team lead</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:5px">pid 48112 · opus</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#9ba0d4; margin-top:2px">3 threads live</div>
+            <div style="position:absolute; right:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+          <div style="position:absolute; left:205px; top:40px; width:140px; background:#14163a; border:1px solid #3d4179; border-radius:8px; padding:9px 12px">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#dfe1f5">▸ relay</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">2 running · dirty 3</div>
+            <div style="position:absolute; left:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+            <div style="position:absolute; right:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+          <div style="position:absolute; left:205px; top:230px; width:140px; background:#14163a; border:1px solid #3d4179; border-radius:8px; padding:9px 12px">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#dfe1f5">▸ docs</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">idle · clean</div>
+            <div style="position:absolute; left:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+            <div style="position:absolute; right:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+          <div style="position:absolute; left:405px; top:8px; width:150px; background:#14163a; border:1px solid #2c5f79; border-radius:8px; padding:9px 12px">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#dfe1f5"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span>spwn-31</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">opus · 212k tok · PR —</div>
+            <div style="position:absolute; left:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+          <div style="position:absolute; left:405px; top:112px; width:150px; background:#14163a; border:1px solid #2c5f79; border-radius:8px; padding:9px 12px">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#dfe1f5"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span>spwn-32</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">sonnet · 48k tok</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#59d8ff; margin-top:2px">PR #52 · checks ✓</div>
+            <div style="position:absolute; left:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+          <div style="position:absolute; left:405px; top:242px; width:150px; background:#14163a; border:1px solid #3d4179; border-radius:8px; padding:9px 12px; opacity:0.75">
+            <div style="font:700 11px 'JetBrains Mono',monospace; color:#9ba0d4">docs-1</div>
+            <div style="font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">done · 12k tok</div>
+            <div style="position:absolute; left:-4px; top:50%; width:7px; height:7px; border-radius:50%; background:#3d4179; border:1.5px solid #0d0f26; transform:translateY(-50%)"></div>
+          </div>
+        </div>
+        <div style="position:absolute; left:14px; bottom:14px; display:flex; flex-direction:column; gap:4px; z-index:2">
+          <div style="width:26px; height:26px; background:#14163a; border:1px solid #23264a; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#9ba0d4; font-size:14px">+</div>
+          <div style="width:26px; height:26px; background:#14163a; border:1px solid #23264a; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#9ba0d4; font-size:14px">−</div>
+          <div style="width:26px; height:26px; background:#14163a; border:1px solid #23264a; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#9ba0d4; font-size:11px">▢</div>
+        </div>
+        <div style="position:absolute; right:14px; bottom:14px; width:96px; height:64px; background:#10122c; border:1px solid #23264a; border-radius:6px; z-index:2">
+          <div style="position:absolute; left:8px; top:26px; width:18px; height:9px; background:#8f88ff; border-radius:2px; opacity:0.9"></div>
+          <div style="position:absolute; left:38px; top:12px; width:16px; height:7px; background:#3d4179; border-radius:2px"></div>
+          <div style="position:absolute; left:38px; top:44px; width:16px; height:7px; background:#3d4179; border-radius:2px"></div>
+          <div style="position:absolute; left:68px; top:8px; width:18px; height:7px; background:#59d8ff; border-radius:2px; opacity:0.8"></div>
+          <div style="position:absolute; left:68px; top:26px; width:18px; height:7px; background:#59d8ff; border-radius:2px; opacity:0.8"></div>
+          <div style="position:absolute; left:68px; top:47px; width:18px; height:7px; background:#3d4179; border-radius:2px"></div>
+          <div style="position:absolute; inset:4px; border:1px solid #3d4179; border-radius:4px; opacity:0.6"></div>
+        </div>
+      </div>
+      <div>
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">LIVE MAP</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; margin:0">See the whole operation breathe.</h2>
+        <p style="font-size:15.5px; line-height:1.7; color:#9ba0d4; margin:18px 0 0">Team lead, projects, running threads — one graph, updating live. Every node carries its pid, token count, dirty state, and PR checks. Pan, zoom, and click any node to jump straight into its thread.</p>
       </div>
     </div>
-  </section>
 
-  <!-- ═══════════════ Pricing ═══════════════ -->
-  <section class="section section-alt" id="pricing">
-    <div class="container">
-      <h6 class="kicker">Pricing</h6>
-      <h2>Free to run yourself. Paid if we run it for you.</h2>
-      <p class="lede-sm center">Same product on every plan — the paid tiers buy operations, not features.</p>
-
-      <div class="grid grid-3 plans">
-        <div class="card plan">
-          <h4>Self-host</h4>
-          <div class="price">$0 <span>forever</span></div>
-          <p class="plan-tag">The full product, on your hardware.</p>
-          <ul>
-            <li>Every feature — nothing gated</li>
-            <li>MIT license, audit every line</li>
-            <li>Desktop app + daemon + relay</li>
-            <li>Updates when you <code>git pull</code></li>
-            <li>Community support on GitHub</li>
-          </ul>
-          <a class="btn btn-ghost btn-block" href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">Clone the repo</a>
-        </div>
-
-        <div class="card plan plan-featured">
-          <span class="plan-badge">Early access</span>
-          <h4>Hosted</h4>
-          <div class="price">$29 <span>/ month</span></div>
-          <p class="plan-tag">We run AgentDeck. You just delegate.</p>
-          <ul>
-            <li>Everything in Self-host</li>
-            <li>Your daemon on a managed VPS</li>
-            <li>Continuous updates, applied for you</li>
-            <li>Nightly backups of your workspace</li>
-            <li>Mobile relay configured out of the box</li>
-            <li>Email support</li>
-          </ul>
-          <a class="btn btn-solid btn-block" href="mailto:hello@agentdeck.run?subject=AgentDeck%20Hosted%20—%20early%20access">Request early access</a>
-        </div>
-
-        <div class="card plan">
-          <h4>Concierge</h4>
-          <div class="price">$199 <span>/ month</span></div>
-          <p class="plan-tag">Your whole fleet, set up and tuned.</p>
-          <ul>
-            <li>Everything in Hosted</li>
-            <li>Onboarding across your repos</li>
-            <li>Custom MCP servers, skills &amp; agents wired for you</li>
-            <li>Priority support, direct line</li>
-            <li>Migration &amp; workflow design help</li>
-          </ul>
-          <a class="btn btn-ghost btn-block" href="mailto:hello@agentdeck.run?subject=AgentDeck%20Concierge%20—%20early%20access">Talk to us</a>
+    <!-- Mobile -->
+    <div data-reveal class="row2" style="display:grid; grid-template-columns:1fr 0.9fr; gap:64px; align-items:center; padding:60px 0">
+      <div>
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">MOBILE COMPANION</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; margin:0">Approve from anywhere.</h2>
+        <p style="font-size:15.5px; line-height:1.7; color:#9ba0d4; margin:18px 0 0">The relay pairs your daemon with your phone. Approvals arrive as push notifications you answer with a tap, threads keep streaming, and the board stays live — from the couch, the train, the queue for coffee. iOS first.</p>
+        <div style="display:flex; gap:10px; margin-top:22px; font:500 11.5px 'JetBrains Mono',monospace; flex-wrap:wrap">
+          <span style="border:1px solid #274b63; color:#59d8ff; border-radius:100px; padding:6px 14px">iOS · in beta</span>
+          <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:6px 14px">end-to-end via your relay</span>
         </div>
       </div>
-
-      <p class="plans-note">
-        Every plan is bring-your-own-Claude: AgentDeck drives Claude Code with your Anthropic
-        account, Anthropic bills your usage directly, and AgentDeck never marks up tokens.
-      </p>
-    </div>
-  </section>
-
-  <!-- ═══════════════ FAQ ═══════════════ -->
-  <section class="section" id="faq">
-    <div class="container container-narrow">
-      <h6 class="kicker">FAQ</h6>
-      <h2>Questions, answered straight.</h2>
-
-      <details>
-        <summary>Do I need a Claude subscription?</summary>
-        <p>Yes. AgentDeck is an orchestrator for Claude Code — it drives the official CLI with your Anthropic account (subscription or API key). Anthropic bills your usage directly; AgentDeck adds no markup and never proxies your tokens.</p>
-      </details>
-      <details>
-        <summary>Does my code leave my machines?</summary>
-        <p>No. The daemon, your repos, your sessions, and the usage ledger live where you deploy them — your Mac or your VPS. The only outbound traffic is Claude Code talking to Anthropic, exactly as it does when you run it by hand.</p>
-      </details>
-      <details>
-        <summary>What's actually different between Self-host and Hosted?</summary>
-        <p>The software is identical. Hosted means we provision a VPS, run your daemon on it, apply every update as it ships, back up your workspace nightly, and wire up the mobile relay — the operations work, so you never SSH into anything.</p>
-      </details>
-      <details>
-        <summary>Is self-hosting really free? What's the catch?</summary>
-        <p>Really free — MIT license, every feature, no telemetry, no seat limits. The catch is you operate it yourself: updates, backups, and uptime are yours. If that stops being fun, Hosted exists.</p>
-      </details>
-      <details>
-        <summary>What platforms does it run on?</summary>
-        <p>The desktop app runs on macOS today. The daemon runs anywhere Node 20+ does — macOS or Linux, local or VPS. An iOS companion app (via the relay) is in development.</p>
-      </details>
-      <details>
-        <summary>Is AgentDeck affiliated with Anthropic?</summary>
-        <p>No. AgentDeck is an independent open-source project built on top of Claude Code. Claude is a trademark of Anthropic, PBC.</p>
-      </details>
-    </div>
-  </section>
-
-  <!-- ═══════════════ Final CTA ═══════════════ -->
-  <section class="section section-cta">
-    <div class="container center">
-      <h2>Stop babysitting terminals.<br />Start directing.</h2>
-      <div class="hero-ctas">
-        <a class="btn btn-solid btn-lg" href="#pricing">Get AgentDeck hosted</a>
-        <a class="btn btn-ghost btn-lg" href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">Star on GitHub</a>
+      <div style="display:flex; justify-content:center">
+        <div style="position:relative; width:252px; height:512px; background:#0e1023; border:1px solid #303359; border-radius:40px; box-shadow:0 30px 70px rgba(0,0,0,0.55); overflow:hidden">
+          <div style="position:absolute; top:10px; left:50%; transform:translateX(-50%); width:84px; height:22px; background:#0b0c1a; border-radius:100px; z-index:3"></div>
+          <div style="display:flex; justify-content:space-between; padding:14px 24px 0; font:500 10px 'JetBrains Mono',monospace; color:#5c6094"><span>21:47</span><span>●●●</span></div>
+          <div style="margin:18px 14px 0; background:#171a3e; border:1px solid #3d4179; border-radius:12px; padding:12px 14px; animation:mNotif 10s infinite; box-shadow:0 12px 30px rgba(0,0,0,0.45)">
+            <div style="display:flex; align-items:center; gap:7px; font:500 9.5px 'JetBrains Mono',monospace; color:#5c6094"><span style="width:12px; height:12px; border-radius:3px; background:linear-gradient(140deg,#8f88ff,#59d8ff); display:inline-block"></span>AGENTDECK · now</div>
+            <div style="font-size:12px; color:#dfe1f5; margin-top:7px; line-height:1.45"><b>Approval needed</b><br><span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#9ba0d4">git push origin spwn-32</span></div>
+            <div style="display:flex; gap:8px; margin-top:10px">
+              <span style="flex:1; text-align:center; background:#59d8ff; color:#0b0c1a; font:700 11px 'JetBrains Mono',monospace; border-radius:6px; padding:7px">Allow</span>
+              <span style="flex:1; text-align:center; border:1px solid #303359; color:#9ba0d4; font:500 11px 'JetBrains Mono',monospace; border-radius:6px; padding:7px">Deny</span>
+            </div>
+          </div>
+          <div style="margin:16px 14px 0; font:500 9.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em">RUNNING · 3</div>
+          <div style="margin:8px 14px 0; display:flex; flex-direction:column; gap:7px">
+            <div style="background:#14163a; border:1px solid #23264a; border-radius:9px; padding:10px 12px; font-size:11px"><span style="display:inline-block; width:5px; height:5px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span><b style="color:#8f88ff; font:700 10px 'JetBrains Mono',monospace">SPWN-31</b> <span style="color:#dfe1f5">Marketing site</span><div style="font:400 9px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">opus · 212k tok</div></div>
+            <div style="background:#14163a; border:1px solid #23264a; border-radius:9px; padding:10px 12px; font-size:11px"><span style="display:inline-block; width:5px; height:5px; border-radius:50%; background:#59d8ff; margin-right:6px; animation:adPulse 1.5s infinite"></span><b style="color:#8f88ff; font:700 10px 'JetBrains Mono',monospace">SPWN-32</b> <span style="color:#dfe1f5">Relay reconnect</span><div style="font:400 9px 'JetBrains Mono',monospace; color:#5c6094; margin-top:4px">sonnet · 48k tok</div></div>
+            <div style="background:#14163a; border:1px solid #23264a; border-radius:9px; padding:10px 12px; font-size:11px"><b style="color:#8f88ff; font:700 10px 'JetBrains Mono',monospace">SPWN-29</b> <span style="color:#9ba0d4">Notifications</span><div style="font:400 9px 'JetBrains Mono',monospace; color:#59d8ff; margin-top:4px">PR #48 · checks ✓</div></div>
+          </div>
+          <div style="position:absolute; bottom:0; left:0; right:0; display:flex; border-top:1px solid #1b1e3d; background:#101230; padding:12px 0 18px; font:500 9px 'JetBrains Mono',monospace; text-align:center">
+            <span style="flex:1; color:#59d8ff">Board</span><span style="flex:1; color:#5c6094">Threads</span><span style="flex:1; color:#5c6094">Approvals</span><span style="flex:1; color:#5c6094">Usage</span>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
 
-</main>
-
-<footer class="footer">
-  <div class="container footer-inner">
-    <div class="brand brand-sm">
-      <svg class="brand-glyph" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 6 v6 M16 12 L7 20 M16 12 L16 20 M16 12 L25 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-        <circle cx="16" cy="5" r="3.2" fill="currentColor"/>
-        <circle cx="7" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-        <circle cx="16" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-        <circle cx="25" cy="22" r="2.6" fill="currentColor" opacity="0.85"/>
-      </svg>
-      <span>AgentDeck</span>
+    <!-- Usage -->
+    <div data-reveal style="padding:60px 0">
+      <div style="text-align:center; max-width:620px; margin:0 auto 44px">
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">USAGE LEDGER</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; margin:0">Know where every token goes.</h2>
+        <p style="font-size:15.5px; line-height:1.7; color:#9ba0d4; margin:18px 0 0">A real ledger, not estimates — every token and turn attributed by hour, model, and project. Live sessions show each agent's context window filling in real time.</p>
+      </div>
+      <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:26px 28px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+          <span style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em">USAGE — LAST 7 DAYS</span>
+          <div style="display:flex; gap:6px; font:500 10.5px 'JetBrains Mono',monospace">
+            <span style="color:#5c6094; border:1px solid #23264a; border-radius:5px; padding:4px 10px">today</span>
+            <span style="color:#0b0c1a; background:#8f88ff; border-radius:5px; padding:4px 10px">7d</span>
+            <span style="color:#5c6094; border:1px solid #23264a; border-radius:5px; padding:4px 10px">30d</span>
+          </div>
+        </div>
+        <div class="grid-stats" style="display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:28px">
+          <div><div style="font:700 30px 'Space Grotesk',sans-serif"><span data-count="18.4" data-dec="1" data-suf="M">0M</span></div><div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:2px">tokens</div></div>
+          <div><div style="font:700 30px 'Space Grotesk',sans-serif; color:#59d8ff"><span data-count="84">0</span></div><div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:2px">threads</div></div>
+          <div><div style="font:700 30px 'Space Grotesk',sans-serif"><span data-count="1212">0</span></div><div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:2px">turns</div></div>
+          <div><div style="font:700 30px 'Space Grotesk',sans-serif"><span data-count="37">0</span></div><div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:2px">PRs opened</div></div>
+        </div>
+        <div class="grid-usage" style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:28px">
+          <div>
+            <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:12px">TOKENS BY DAY</div>
+            <div style="display:flex; align-items:flex-end; gap:8px; height:120px">
+              <div data-grow style="flex:1; height:34%; background:#23264a; border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:52%; background:#23264a; border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:41%; background:#2c3060; border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:76%; background:#2c3060; border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:58%; background:#3d4179; border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:90%; background:linear-gradient(180deg,#8f88ff,#3d4179); border-radius:3px 3px 0 0"></div>
+              <div data-grow style="flex:1; height:66%; background:linear-gradient(180deg,#59d8ff,#2c5f79); border-radius:3px 3px 0 0"></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px; font:400 9.5px 'JetBrains Mono',monospace; color:#5c6094">
+              <span style="flex:1; text-align:center">Thu</span><span style="flex:1; text-align:center">Fri</span><span style="flex:1; text-align:center">Sat</span><span style="flex:1; text-align:center">Sun</span><span style="flex:1; text-align:center">Mon</span><span style="flex:1; text-align:center">Tue</span><span style="flex:1; text-align:center">Wed</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:18px">
+            <div>
+              <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:12px">BY MODEL</div>
+              <div style="display:flex; flex-direction:column; gap:9px; font:400 11px 'JetBrains Mono',monospace">
+                <div style="display:flex; align-items:center; gap:10px"><span style="width:52px; color:#9ba0d4">opus</span><div style="flex:1; height:6px; background:#1b1e3d; border-radius:3px; overflow:hidden"><div data-grow style="width:49%; height:100%; background:#8f88ff; border-radius:3px"></div></div><span style="color:#dfe1f5">9.6M</span></div>
+                <div style="display:flex; align-items:center; gap:10px"><span style="width:52px; color:#9ba0d4">sonnet</span><div style="flex:1; height:6px; background:#1b1e3d; border-radius:3px; overflow:hidden"><div data-grow style="width:45%; height:100%; background:#59d8ff; border-radius:3px"></div></div><span style="color:#dfe1f5">8.1M</span></div>
+                <div style="display:flex; align-items:center; gap:10px"><span style="width:52px; color:#9ba0d4">haiku</span><div style="flex:1; height:6px; background:#1b1e3d; border-radius:3px; overflow:hidden"><div data-grow style="width:6%; height:100%; background:#3d4179; border-radius:3px"></div></div><span style="color:#dfe1f5">0.7M</span></div>
+              </div>
+            </div>
+            <div>
+              <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:12px">LIVE SESSIONS · CONTEXT</div>
+              <div style="display:flex; flex-direction:column; gap:9px; font:400 11px 'JetBrains Mono',monospace">
+                <div style="display:flex; align-items:center; gap:10px"><span style="width:64px; color:#9ba0d4">spwn-31</span><div style="flex:1; height:6px; background:#1b1e3d; border-radius:3px; overflow:hidden"><div style="height:100%; background:linear-gradient(90deg,#8f88ff,#59d8ff); border-radius:3px; animation:uCtx1 18s infinite"></div></div></div>
+                <div style="display:flex; align-items:center; gap:10px"><span style="width:64px; color:#9ba0d4">spwn-32</span><div style="flex:1; height:6px; background:#1b1e3d; border-radius:3px; overflow:hidden"><div style="height:100%; background:linear-gradient(90deg,#8f88ff,#59d8ff); border-radius:3px; animation:uCtx2 14s infinite"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <nav class="footer-links">
-      <a href="#features">Features</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#faq">FAQ</a>
-      <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener">GitHub</a>
-      <a href="mailto:hello@agentdeck.run">Contact</a>
-    </nav>
-    <p class="footer-legal">
-      © 2026 AgentDeck &middot; agentdeck.run &middot; MIT licensed.<br />
-      Not affiliated with Anthropic. Claude is a trademark of Anthropic, PBC.
-    </p>
+
+    <!-- Also in the box -->
+    <div data-reveal style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; padding:0 0 30px; font:500 12px 'JetBrains Mono',monospace">
+      <span style="color:#5c6094; align-self:center; margin-right:6px">also in the box:</span>
+      <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:7px 15px">approvals inbox</span>
+      <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:7px 15px">team-lead agent</span>
+      <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:7px 15px">⌘K palette</span>
+      <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:7px 15px">native notifications</span>
+      <span style="border:1px solid #23264a; color:#9ba0d4; border-radius:100px; padding:7px 15px">per-project MCP + skills</span>
+    </div>
   </div>
-</footer>
+
+  <!-- ═══ How it works ═══ -->
+  <div id="how" style="border-top:1px solid #1b1e3d; background:#0d0e20">
+    <div data-reveal class="pad-x" style="max-width:1180px; margin:0 auto; padding:90px 32px">
+      <div style="text-align:center; margin-bottom:48px">
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">HOW IT WORKS</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; letter-spacing:-0.02em; margin:0">Three pieces. You control all of them.</h2>
+      </div>
+      <div class="grid-how" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px">
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:26px">
+          <div style="font:700 13px 'JetBrains Mono',monospace; color:#8f88ff">01</div>
+          <h3 style="font-size:20px; font-weight:700; margin:12px 0 10px">Run the daemon</h3>
+          <p style="font-size:14px; line-height:1.65; color:#9ba0d4; margin:0">A small background process owns your Claude Code sessions, tickets, and the usage ledger — SQLite, on your Mac or a VPS. Node 20+, one command.</p>
+        </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:26px">
+          <div style="font:700 13px 'JetBrains Mono',monospace; color:#8f88ff">02</div>
+          <h3 style="font-size:20px; font-weight:700; margin:12px 0 10px">Open the app</h3>
+          <p style="font-size:14px; line-height:1.65; color:#9ba0d4; margin:0">The desktop app connects to your daemon — board, threads, map, usage. It even starts the daemon for you if it isn't running.</p>
+        </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:26px">
+          <div style="font:700 13px 'JetBrains Mono',monospace; color:#8f88ff">03</div>
+          <h3 style="font-size:20px; font-weight:700; margin:12px 0 10px">Delegate</h3>
+          <p style="font-size:14px; line-height:1.65; color:#9ba0d4; margin:0">Write a ticket, pick a model, hit go. AgentDeck drives Claude Code with your account — Anthropic bills you directly, zero markup.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Open source ═══ -->
+  <div id="opensource" style="border-top:1px solid #1b1e3d">
+    <div data-reveal class="grid-2 pad-x" style="max-width:1180px; margin:0 auto; padding:90px 32px; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center">
+      <div>
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">OPEN SOURCE</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; margin:0">The whole product is public. Nothing held back.</h2>
+        <p style="font-size:15.5px; line-height:1.7; color:#9ba0d4; margin:18px 0 0">Daemon, desktop app, mobile relay — MIT-licensed, every line auditable. Self-host forever for free, or pay us to run it and never think about updates or backups again.</p>
+        <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" class="btn-ghost" style="display:inline-block; margin-top:24px; border:1px solid #303359; padding:12px 24px; border-radius:8px; font-size:14px">Read the source →</a>
+      </div>
+      <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; overflow:hidden">
+        <div style="display:flex; gap:7px; padding:12px 16px; border-bottom:1px solid #1b1e3d"><span style="width:10px; height:10px; border-radius:50%; background:#2c3060"></span><span style="width:10px; height:10px; border-radius:50%; background:#2c3060"></span><span style="width:10px; height:10px; border-radius:50%; background:#2c3060"></span></div>
+        <div style="padding:20px; font:400 13px 'JetBrains Mono',monospace; line-height:2; position:relative">
+          <div style="color:#5c6094"># self-host in three commands</div>
+          <div><span style="color:#59d8ff">$</span> git clone https://github.com/MarcK98/agentdeck.git</div>
+          <div><span style="color:#59d8ff">$</span> cd agentdeck &amp;&amp; npm install</div>
+          <div><span style="color:#59d8ff">$</span> npm run desktop<span style="display:inline-block; width:8px; height:15px; background:#59d8ff; margin-left:8px; vertical-align:-2px; animation:adBlink 1s infinite"></span></div>
+          <div style="color:#8f88ff">✓ daemon up · desktop connected · delegate your first ticket</div>
+          <button data-copy="git clone https://github.com/MarcK98/agentdeck.git && cd agentdeck && npm install && npm run desktop" class="btn-ghost" style="position:absolute; top:14px; right:14px; background:#14163a; border:1px solid #23264a; color:#9ba0d4; border-radius:6px; padding:5px 11px; font:500 11px 'JetBrains Mono',monospace; cursor:pointer">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Pricing ═══ -->
+  <div id="pricing" style="border-top:1px solid #1b1e3d; background:#0d0e20">
+    <div data-reveal class="pad-x" style="max-width:1180px; margin:0 auto; padding:90px 32px">
+      <div style="text-align:center; margin-bottom:14px">
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">PRICING</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; letter-spacing:-0.02em; margin:0">Free to run yourself. Paid if we run it.</h2>
+        <p style="font-size:15px; color:#9ba0d4; margin:14px 0 0">Same product on every plan — paid tiers buy operations, not features.</p>
+      </div>
+      <div style="text-align:center; margin-bottom:40px"><span style="display:inline-block; font:500 11.5px 'JetBrains Mono',monospace; color:#0b0c1a; background:linear-gradient(120deg,#8f88ff,#59d8ff); border-radius:100px; padding:6px 16px">EARLY ACCESS — LOCKED-IN DISCOUNT</span></div>
+      <div class="grid-price" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:16px; align-items:stretch">
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:28px; display:flex; flex-direction:column">
+          <h3 style="font-size:19px; font-weight:700; margin:0">Self-host</h3>
+          <div style="font-size:34px; font-weight:700; margin:14px 0 2px">$0 <span style="font-size:14px; font-weight:400; color:#5c6094">forever</span></div>
+          <div style="font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin-bottom:18px">the full product, your hardware</div>
+          <div style="display:flex; flex-direction:column; gap:9px; font-size:13.5px; color:#9ba0d4; flex:1">
+            <span>→ every feature, nothing gated</span>
+            <span>→ MIT license, audit every line</span>
+            <span>→ desktop + daemon + relay</span>
+            <span>→ updates when you git pull</span>
+          </div>
+          <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" class="btn-ghost" style="margin-top:22px; text-align:center; border:1px solid #303359; padding:12px; border-radius:8px; font-size:14px">Clone the repo</a>
+        </div>
+        <div style="background:linear-gradient(140deg,#8f88ff,#59d8ff); border-radius:13px; padding:1.5px; display:flex">
+          <div style="background:#111332; border-radius:11.5px; padding:28px; display:flex; flex-direction:column; flex:1">
+            <h3 style="font-size:19px; font-weight:700; margin:0">Hosted</h3>
+            <div style="font-size:34px; font-weight:700; margin:14px 0 2px"><s style="color:#5c6094; font-size:19px; font-weight:400; margin-right:7px">$30</s>$20 <span style="font-size:14px; font-weight:400; color:#5c6094">/mo</span></div>
+            <div style="font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin-bottom:18px">we run AgentDeck, you delegate</div>
+            <div style="display:flex; flex-direction:column; gap:9px; font-size:13.5px; color:#dfe1f5; flex:1">
+              <span>→ everything in Self-host</span>
+              <span>→ your daemon on a managed VPS</span>
+              <span>→ continuous updates, applied for you</span>
+              <span>→ mobile relay out of the box</span>
+            </div>
+            <a href="subscribe.html" class="btn-primary" style="margin-top:22px; text-align:center; background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; padding:12px; border-radius:8px; font-size:14px">Get hosted</a>
+          </div>
+        </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:28px; display:flex; flex-direction:column">
+          <h3 style="font-size:19px; font-weight:700; margin:0">Concierge</h3>
+          <div style="font-size:34px; font-weight:700; margin:14px 0 2px"><s style="color:#5c6094; font-size:19px; font-weight:400; margin-right:7px">$200</s>$100 <span style="font-size:14px; font-weight:400; color:#5c6094">/mo</span></div>
+          <div style="font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin-bottom:18px">your fleet, set up and tuned</div>
+          <div style="display:flex; flex-direction:column; gap:9px; font-size:13.5px; color:#9ba0d4; flex:1">
+            <span>→ everything in Hosted</span>
+            <span>→ onboarding across your repos</span>
+            <span>→ custom MCPs, skills &amp; agents wired</span>
+            <span>→ priority support, direct line</span>
+          </div>
+          <a href="subscribe.html?plan=concierge" class="btn-ghost" style="margin-top:22px; text-align:center; border:1px solid #303359; padding:12px; border-radius:8px; font-size:14px">Get Concierge</a>
+        </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:28px; display:flex; flex-direction:column">
+          <h3 style="font-size:19px; font-weight:700; margin:0">Enterprise</h3>
+          <div style="font-size:34px; font-weight:700; margin:14px 0 2px">Custom</div>
+          <div style="font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin-bottom:18px">your whole team on one fleet</div>
+          <div style="display:flex; flex-direction:column; gap:9px; font-size:13.5px; color:#9ba0d4; flex:1">
+            <span>→ everything in Hosted</span>
+            <span>→ team-wide deployment, your infra or ours</span>
+            <span>→ custom MCPs, skills &amp; agents wired</span>
+            <span>→ onboarding across your repos</span>
+            <span>→ priority support, direct line &amp; SLA</span>
+          </div>
+          <a href="mailto:hello@agentdeck.run?subject=AgentDeck%20Enterprise" class="btn-ghost" style="margin-top:22px; text-align:center; border:1px solid #303359; padding:12px; border-radius:8px; font-size:14px">Talk to us</a>
+        </div>
+      </div>
+      <p style="text-align:center; font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin:28px 0 0">every plan is bring-your-own-Claude — Anthropic bills your usage directly, AgentDeck never marks up a token</p>
+    </div>
+  </div>
+
+  <!-- ═══ Contact ═══ -->
+  <div id="contact" style="border-top:1px solid #1b1e3d">
+    <div data-reveal class="pad-x" style="max-width:1180px; margin:0 auto; padding:90px 32px">
+      <div style="text-align:center; margin-bottom:44px">
+        <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">CONTACT</div>
+        <h2 class="sec-h2" style="font-size:40px; font-weight:700; letter-spacing:-0.02em; margin:0">Talk to a human.</h2>
+        <p style="font-size:15px; color:#9ba0d4; margin:14px 0 0">No forms, no funnel — mail lands in a real inbox.</p>
+      </div>
+      <div class="grid-contact" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px">
+        <a href="mailto:hello@agentdeck.run" class="card-link" style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:24px; display:block">
+          <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">GENERAL · EARLY ACCESS</div>
+          <div style="font:500 15px 'JetBrains Mono',monospace; color:#59d8ff">hello@agentdeck.run</div>
+          <p style="font-size:13px; color:#9ba0d4; margin:10px 0 0">Questions, feedback, early-access requests — anything goes.</p>
+        </a>
+        <a href="mailto:support@agentdeck.run" class="card-link" style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:24px; display:block">
+          <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">HOSTED SUPPORT</div>
+          <div style="font:500 15px 'JetBrains Mono',monospace; color:#59d8ff">support@agentdeck.run</div>
+          <p style="font-size:13px; color:#9ba0d4; margin:10px 0 0">For Hosted and Concierge customers — your daemon, our problem.</p>
+        </a>
+        <a href="https://github.com/MarcK98/agentdeck/issues" target="_blank" rel="noopener" class="card-link" style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:24px; display:block">
+          <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">BUGS · FEATURES</div>
+          <div style="font:500 15px 'JetBrains Mono',monospace; color:#59d8ff">GitHub issues →</div>
+          <p style="font-size:13px; color:#9ba0d4; margin:10px 0 0">Found a bug or want a feature? File it in the open, like everything else.</p>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Final CTA ═══ -->
+  <div style="border-top:1px solid #1b1e3d; position:relative; overflow:hidden">
+    <div style="position:absolute; bottom:-220px; left:50%; transform:translateX(-50%); width:800px; max-width:100%; height:400px; background:radial-gradient(ellipse, rgba(110,102,255,0.22), transparent 70%); pointer-events:none"></div>
+    <div data-reveal class="pad-x" style="max-width:1180px; margin:0 auto; padding:110px 32px; text-align:center; position:relative">
+      <h2 class="final-h2" style="font-size:52px; font-weight:700; line-height:1.08; letter-spacing:-0.025em; margin:0">Stop babysitting terminals.<br><span style="background:linear-gradient(100deg,#8f88ff,#59d8ff); -webkit-background-clip:text; background-clip:text; color:transparent">Start directing.</span></h2>
+      <div style="display:flex; gap:14px; justify-content:center; margin-top:34px; flex-wrap:wrap">
+        <a href="#pricing" class="btn-primary" style="background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; font-size:15px; padding:14px 28px; border-radius:9px">Get hosted — $20/mo</a>
+        <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" class="btn-ghost" style="border:1px solid #303359; font-size:15px; padding:14px 28px; border-radius:9px">Star on GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Footer ═══ -->
+  <div style="border-top:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; padding:36px 32px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:18px">
+      <div style="display:flex; align-items:center; gap:10px">
+        <div style="position:relative; width:20px; height:22px">
+          <div style="position:absolute; left:50%; top:1px; width:11px; height:11px; background:#2c3060; transform:translateX(-50%) rotate(45deg); border-radius:3px"></div>
+          <div style="position:absolute; left:50%; top:7px; width:11px; height:11px; background:linear-gradient(140deg,#8f88ff,#59d8ff); transform:translateX(-50%) rotate(45deg); border-radius:3px"></div>
+        </div>
+        <span style="font-weight:700; font-size:15px">AgentDeck</span>
+      </div>
+      <div style="display:flex; gap:24px; font-size:13px; flex-wrap:wrap">
+        <a href="#features" style="color:#9ba0d4">Features</a>
+        <a href="#pricing" style="color:#9ba0d4">Pricing</a>
+        <a href="https://github.com/MarcK98/agentdeck" target="_blank" rel="noopener" style="color:#9ba0d4">GitHub</a>
+        <a href="#contact" style="color:#9ba0d4">Contact</a>
+        <a href="privacy.html" style="color:#9ba0d4">Privacy</a>
+      </div>
+      <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; text-align:right">© 2026 AgentDeck · agentdeck.run · MIT<br>Not affiliated with Anthropic. Claude is a trademark of Anthropic, PBC.</div>
+    </div>
+  </div>
+
+</div>
 
 <script src="site.js" defer></script>
 </body>

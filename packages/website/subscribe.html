@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Get AgentDeck hosted — early access</title>
+  <meta name="description" content="Start an AgentDeck Hosted or Concierge subscription. We provision your VPS, run your daemon, apply every update, and keep backups. Early-access pricing locked in." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0b0c1a" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+
+<div data-checkout style="background:#0b0c1a; min-height:100vh">
+  <div style="position:sticky; top:0; z-index:50; background:rgba(11,12,26,0.78); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 32px">
+      <a href="index.html" style="display:flex; align-items:center; gap:11px; color:#dfe1f5">
+        <div style="position:relative; width:24px; height:26px">
+          <div style="position:absolute; left:50%; top:1px; width:14px; height:14px; background:#2c3060; transform:translateX(-50%) rotate(45deg); border-radius:3.5px"></div>
+          <div style="position:absolute; left:50%; top:8px; width:14px; height:14px; background:linear-gradient(140deg,#8f88ff,#59d8ff); transform:translateX(-50%) rotate(45deg); border-radius:3.5px"></div>
+        </div>
+        <span style="font-weight:700; font-size:17px; letter-spacing:-0.01em">AgentDeck</span>
+      </a>
+      <a href="index.html" style="color:#9ba0d4; font-size:13.5px">← Back to site</a>
+    </div>
+  </div>
+
+  <div class="pad-x" style="max-width:980px; margin:0 auto; padding:64px 32px 100px">
+    <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">EARLY ACCESS</div>
+    <h1 style="font-size:42px; font-weight:700; letter-spacing:-0.025em; line-height:1.08; margin:0">Get AgentDeck hosted.</h1>
+    <p style="font-size:15.5px; line-height:1.65; color:#9ba0d4; margin:16px 0 0; max-width:560px">We provision your VPS, run your daemon, apply every update, and keep backups. Early-access pricing is locked in for as long as you stay subscribed.</p>
+
+    <div class="subscribe-grid" style="display:grid; grid-template-columns:1fr 400px; gap:40px; margin-top:44px; align-items:start">
+      <form data-pay-form onsubmit="return false" novalidate>
+        <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:12px">1 · PICK A PLAN</div>
+        <div class="pick-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:14px">
+          <div data-plan="hosted" class="plan-pick" style="background:#0e1023; border:1.5px solid #59d8ff; border-radius:12px; padding:20px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <span style="font-weight:700; font-size:16px">Hosted</span>
+              <span data-dot style="width:16px; height:16px; border-radius:50%; border:1.5px solid #59d8ff; display:inline-block; position:relative"><span style="position:absolute; inset:3px; border-radius:50%; background:#59d8ff"></span></span>
+            </div>
+            <div style="font-size:26px; font-weight:700; margin-top:10px"><s style="color:#5c6094; font-size:15px; font-weight:400; margin-right:6px">$30</s>$20 <span style="font-size:12px; font-weight:400; color:#5c6094">/mo</span></div>
+            <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:6px">managed VPS · updates · backups · relay</div>
+          </div>
+          <div data-plan="concierge" class="plan-pick" style="background:#0e1023; border:1.5px solid #23264a; border-radius:12px; padding:20px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <span style="font-weight:700; font-size:16px">Concierge</span>
+              <span data-dot style="width:16px; height:16px; border-radius:50%; border:1.5px solid #23264a; display:inline-block; position:relative"><span style="position:absolute; inset:3px; border-radius:50%; background:transparent"></span></span>
+            </div>
+            <div style="font-size:26px; font-weight:700; margin-top:10px"><s style="color:#5c6094; font-size:15px; font-weight:400; margin-right:6px">$200</s>$100 <span style="font-size:12px; font-weight:400; color:#5c6094">/mo</span></div>
+            <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:6px">everything in Hosted + setup, tuning, priority line</div>
+          </div>
+        </div>
+
+        <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin:32px 0 12px">2 · ACCOUNT</div>
+        <input class="inp" type="email" required placeholder="you@company.com" autocomplete="email" style="width:100%; box-sizing:border-box; background:#0e1023; border:1px solid #23264a; border-radius:9px; padding:14px 16px; font-size:14px; color:#dfe1f5">
+
+        <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin:32px 0 12px">3 · PAYMENT</div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px">
+          <input class="inp" type="text" required placeholder="Name on card" autocomplete="cc-name" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5">
+          <input class="inp" type="text" required inputmode="numeric" placeholder="1234 1234 1234 1234" autocomplete="cc-number" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:12px">
+            <input class="inp" type="text" required placeholder="MM / YY" autocomplete="cc-exp" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
+            <input class="inp" type="text" required inputmode="numeric" placeholder="CVC" autocomplete="cc-csc" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
+            <input class="inp" type="text" required placeholder="Country" autocomplete="country-name" style="background:#0b0c1a; border:1px solid #23264a; border-radius:8px; padding:13px 15px; font-size:13.5px; color:#dfe1f5; min-width:0">
+          </div>
+        </div>
+        <div style="font:400 11px 'JetBrains Mono',monospace; color:#5c6094; margin-top:12px">processed by Stripe · we never see your card number</div>
+      </form>
+
+      <div class="order-summary" style="position:sticky; top:96px">
+        <div style="background:linear-gradient(140deg,#8f88ff,#59d8ff); border-radius:13px; padding:1.5px">
+          <div data-summary-card style="background:#111332; border-radius:11.5px; padding:24px">
+            <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:16px">ORDER SUMMARY</div>
+            <div style="display:flex; justify-content:space-between; font-size:14.5px; margin-bottom:10px"><span data-out="name">AgentDeck Hosted</span><span data-out="was" style="font-family:'JetBrains Mono',monospace">$30/mo</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:14.5px; color:#59d8ff; margin-bottom:10px"><span>Early-access discount</span><span data-out="off" style="font-family:'JetBrains Mono',monospace">−$10/mo</span></div>
+            <div style="border-top:1px solid #23264a; margin:14px 0; padding-top:14px; display:flex; justify-content:space-between; font-weight:700; font-size:17px"><span>Due today</span><span data-out="price" style="font-family:'JetBrains Mono',monospace">$20</span></div>
+            <button data-pay type="button" class="btn-primary" style="width:100%; border:none; margin-top:16px; background:linear-gradient(120deg,#8f88ff,#59d8ff); color:#0b0c1a; font-weight:700; font-size:14.5px; font-family:'Space Grotesk',sans-serif; text-align:center; border-radius:8px; padding:13px; cursor:pointer">Start subscription</button>
+            <div style="font:400 10.5px 'JetBrains Mono',monospace; color:#5c6094; margin-top:12px; line-height:1.6">renews monthly at <span data-out="renew">$20</span> · price locked while subscribed · cancel anytime, workspace destroyed within 30 days</div>
+          </div>
+        </div>
+        <div style="background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:18px 20px; margin-top:14px">
+          <div style="font:500 10.5px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:10px">HEADS UP</div>
+          <p style="font-size:13px; line-height:1.65; color:#9ba0d4; margin:0">Every plan is bring-your-own-Claude: AgentDeck drives Claude Code with your Anthropic account. Anthropic bills your usage directly — we never mark up a token.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; padding:28px 32px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font:400 11px 'JetBrains Mono',monospace; color:#5c6094">
+      <span>© 2026 AgentDeck · MIT · <a href="privacy.html" style="color:#9ba0d4">privacy</a></span>
+      <span>Not affiliated with Anthropic. Claude is a trademark of Anthropic, PBC.</span>
+    </div>
+  </div>
+</div>
+
+<script src="site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy — AgentDeck</title>
+  <meta name="description" content="AgentDeck privacy policy. Self-hosted AgentDeck sends us nothing — no telemetry, no analytics. This site sets no tracking cookies. On Hosted plans we store only your account email and operate your VPS; we never read your code." />
+  <meta name="theme-color" content="#0b0c1a" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+  <style>
+    /* Privacy links inside body copy read as cyan (matches design build). */
+    .prose a { color: #59d8ff; }
+    .prose a:hover { opacity: .8; }
+  </style>
+</head>
+<body>
+
+<div style="background:#0b0c1a; min-height:100vh">
+  <div style="position:sticky; top:0; z-index:50; background:rgba(11,12,26,0.78); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 32px">
+      <a href="index.html" style="display:flex; align-items:center; gap:11px; color:#dfe1f5">
+        <div style="position:relative; width:24px; height:26px">
+          <div style="position:absolute; left:50%; top:1px; width:14px; height:14px; background:#2c3060; transform:translateX(-50%) rotate(45deg); border-radius:3.5px"></div>
+          <div style="position:absolute; left:50%; top:8px; width:14px; height:14px; background:linear-gradient(140deg,#8f88ff,#59d8ff); transform:translateX(-50%) rotate(45deg); border-radius:3.5px"></div>
+        </div>
+        <span style="font-weight:700; font-size:17px; letter-spacing:-0.01em">AgentDeck</span>
+      </a>
+      <a href="index.html" style="color:#9ba0d4; font-size:13.5px">← Back to site</a>
+    </div>
+  </div>
+
+  <div class="prose pad-x" style="max-width:760px; margin:0 auto; padding:72px 32px 100px">
+    <div style="font:500 12px 'JetBrains Mono',monospace; color:#59d8ff; letter-spacing:0.12em; margin-bottom:14px">PRIVACY POLICY</div>
+    <h1 style="font-size:44px; font-weight:700; letter-spacing:-0.025em; line-height:1.08; margin:0">Short version: your code is none of our business.</h1>
+    <div style="font:400 12px 'JetBrains Mono',monospace; color:#5c6094; margin:18px 0 0">last updated · July 23, 2026 · applies to agentdeck.run and the AgentDeck software</div>
+
+    <div style="margin-top:44px; background:#0e1023; border:1px solid #23264a; border-radius:12px; padding:24px 26px">
+      <div style="font:500 11px 'JetBrains Mono',monospace; color:#5c6094; letter-spacing:0.1em; margin-bottom:12px">TL;DR</div>
+      <div style="display:flex; flex-direction:column; gap:8px; font-size:14.5px; line-height:1.6; color:#9ba0d4">
+        <span>→ Self-hosted AgentDeck sends us nothing. No telemetry, no analytics, no phone-home.</span>
+        <span>→ This website sets no tracking cookies.</span>
+        <span>→ On Hosted plans we store your account email and operate your VPS — we don't read your code or sessions.</span>
+        <span>→ Payments are handled by our payment processor; we never see your card number.</span>
+      </div>
+    </div>
+
+    <h2 style="font-size:24px; font-weight:700; margin:48px 0 0; letter-spacing:-0.015em">1. What AgentDeck is</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">AgentDeck is open-source software that orchestrates Claude Code on machines you control. Your repositories, agent sessions, tickets, and usage ledger live in the daemon's SQLite database on your Mac or your VPS. AgentDeck drives Claude Code with <i>your</i> Anthropic account — traffic between Claude Code and Anthropic is governed by Anthropic's own terms and privacy policy, exactly as when you run the CLI by hand.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">2. Self-hosting: we collect nothing</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">The self-hosted daemon, desktop app, and mobile relay contain no telemetry, no analytics, no crash reporting, and no account system. They make no network requests to us. The only outbound traffic is Claude Code talking to Anthropic, and — if you enable it — your own relay talking to your own devices.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">3. This website</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">agentdeck.run sets no tracking cookies and runs no third-party analytics. Standard web-server logs (IP address, user agent, requested page) are kept briefly for abuse prevention and then discarded.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">4. Hosted and Concierge plans</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">When we run AgentDeck for you, we collect and store the minimum needed to operate the service:</p>
+    <div style="display:flex; flex-direction:column; gap:8px; font-size:15px; line-height:1.6; color:#9ba0d4; margin:14px 0 0">
+      <span>→ <b style="color:#dfe1f5">Account details</b> — your email address and plan.</span>
+      <span>→ <b style="color:#dfe1f5">Billing</b> — handled entirely by our payment processor. We receive a customer reference and subscription status, never your card number.</span>
+      <span>→ <b style="color:#dfe1f5">Your workspace</b> — your daemon, repositories, and sessions run on a VPS we provision for you. We administer the machine (updates, uptime, restores); we do not open, read, or analyze your code or agent sessions, except with your explicit permission during a support request.</span>
+      <span>→ <b style="color:#dfe1f5">Operational metadata</b> — service health metrics (disk, CPU, daemon up/down) needed to keep your instance running. These contain no code or session content.</span>
+    </div>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">5. What we never do</h2>
+    <div style="display:flex; flex-direction:column; gap:8px; font-size:15px; line-height:1.6; color:#9ba0d4; margin:12px 0 0">
+      <span>→ Sell or share your data with third parties for marketing.</span>
+      <span>→ Train models on your code, tickets, or sessions.</span>
+      <span>→ Proxy or inspect your Claude traffic — your Anthropic key or subscription talks to Anthropic directly.</span>
+      <span>→ Add telemetry to the open-source builds.</span>
+    </div>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">6. Retention and deletion</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">Cancel a hosted plan and your VPS — including your entire workspace — is destroyed within 30 days, immediately on request. Email us and we'll delete your account records; billing records are retained only as long as tax law requires.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">7. Third parties</h2>
+    <div style="display:flex; flex-direction:column; gap:8px; font-size:15px; line-height:1.6; color:#9ba0d4; margin:12px 0 0">
+      <span>→ <b style="color:#dfe1f5">Payment processor</b> — subscription billing.</span>
+      <span>→ <b style="color:#dfe1f5">Infrastructure provider</b> — the datacenter your hosted VPS runs in.</span>
+      <span>→ <b style="color:#dfe1f5">Anthropic</b> — via your own account, under your own agreement with them.</span>
+    </div>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">8. Security</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">Hosted instances are single-tenant — one VPS per customer, no shared daemons. Disks are encrypted at rest, access is over SSH with keys only, and administrative access is limited to what operations require. Found a vulnerability? Mail <a href="mailto:hello@agentdeck.run">hello@agentdeck.run</a> — we respond fast.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">9. Changes</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">If this policy changes materially, we'll note it here with a new date and announce it in the repository. The Git history of this page is the changelog.</p>
+
+    <h2 style="font-size:24px; font-weight:700; margin:44px 0 0; letter-spacing:-0.015em">10. Contact</h2>
+    <p style="font-size:15px; line-height:1.75; color:#9ba0d4; margin:12px 0 0">Privacy questions: <a href="mailto:hello@agentdeck.run">hello@agentdeck.run</a>.</p>
+  </div>
+
+  <div style="border-top:1px solid #1b1e3d">
+    <div class="pad-x" style="max-width:1180px; margin:0 auto; padding:28px 32px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font:400 11px 'JetBrains Mono',monospace; color:#5c6094">
+      <span>© 2026 AgentDeck · MIT</span>
+      <span>Not affiliated with Anthropic. Claude is a trademark of Anthropic, PBC.</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
