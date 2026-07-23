@@ -18,7 +18,7 @@ import { RelayClient } from "./api";
 import { useOnReady, useSpawnEvents } from "./hooks";
 import { messagesGet, messagesPut } from "./db";
 import { Btn, Dot, S, tapHaptic } from "./ui";
-import { C } from "./theme";
+import { C, F } from "./theme";
 
 const GROUP_WINDOW_MS = 5 * 60_000;
 
@@ -34,37 +34,39 @@ const dayKey = (iso: string) => {
 };
 
 const mdStyles = {
-  body: { color: C.text, fontSize: 14, lineHeight: 20 },
+  body: { color: C.text, fontSize: 14, lineHeight: 20, fontFamily: F.ui },
   code_inline: {
-    backgroundColor: C.n900,
-    color: C.accent200,
+    backgroundColor: C.inset,
+    color: C.accent,
     borderRadius: 4,
     paddingHorizontal: 4,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontFamily: F.mono,
     fontSize: 13,
   },
   code_block: {
-    backgroundColor: C.n900,
-    color: C.n300,
+    backgroundColor: C.inset,
+    color: C.muted,
     borderRadius: 8,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: C.line,
     padding: 10,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontFamily: F.mono,
     fontSize: 12.5,
   },
   fence: {
-    backgroundColor: C.n900,
-    color: C.n300,
+    backgroundColor: C.inset,
+    color: C.muted,
     borderRadius: 8,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: C.line,
     padding: 10,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontFamily: F.mono,
     fontSize: 12.5,
   },
-  blockquote: { backgroundColor: "transparent", borderLeftColor: C.accent700, paddingLeft: 10 },
+  blockquote: { backgroundColor: "transparent", borderLeftColor: C.borderStrong, paddingLeft: 10 },
   bullet_list: { marginBottom: 4 },
-  link: { color: C.accent300 },
-  hr: { backgroundColor: C.n800 },
+  link: { color: C.cyan },
+  hr: { backgroundColor: C.border },
 } as const;
 
 type Row =
@@ -76,9 +78,9 @@ const MessageRow = memo(function MessageRow({ row }: { row: Row }) {
   if (row.kind === "day") {
     return (
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 10 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.n800 }} />
-        <Text style={{ color: C.n600, fontSize: 11 }}>{row.label}</Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.n800 }} />
+        <View style={{ flex: 1, height: 1, backgroundColor: C.line }} />
+        <Text style={{ color: C.dim, fontSize: 10, fontFamily: F.mono }}>{row.label}</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: C.line }} />
       </View>
     );
   }
@@ -89,17 +91,19 @@ const MessageRow = memo(function MessageRow({ row }: { row: Row }) {
     <View style={{ marginTop: row.grouped ? 2 : 12 }}>
       {!row.grouped && m.role !== "system" && (
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
-          <Text style={{ color: mine ? C.accent300 : C.ok, fontSize: 12, fontWeight: "600" }}>
+          <Text style={{ color: mine ? C.accent : C.good, fontSize: 11.5, fontWeight: "700", fontFamily: F.uiBold }}>
             {mine ? "you" : "agent"}
           </Text>
-          {m.created_at ? <Text style={{ color: C.n600, fontSize: 10 }}>{hhmm(m.created_at)}</Text> : null}
+          {m.created_at ? (
+            <Text style={{ color: C.dim, fontSize: 9.5, fontFamily: F.mono }}>{hhmm(m.created_at)}</Text>
+          ) : null}
         </View>
       )}
       {m.pending ? (
-        <Text style={{ color: C.n400, fontSize: 14, lineHeight: 20 }}>{m.text}</Text>
+        <Text style={{ color: C.muted, fontSize: 14, lineHeight: 20, fontFamily: F.ui }}>{m.text}</Text>
       ) : mine || m.role === "system" ? (
         <Text
-          style={{ color: m.role === "system" ? C.n500 : C.text, fontSize: 14, lineHeight: 20 }}
+          style={{ color: m.role === "system" ? C.dim : C.text, fontSize: 14, lineHeight: 20, fontFamily: F.ui }}
           selectable
         >
           {m.text}
@@ -153,18 +157,20 @@ function ToolRow({ msg }: { msg: any }) {
       }}
       style={({ pressed }) => ({ marginTop: 6, opacity: pressed ? 0.6 : 1 })}
     >
-      <Text style={[S.dim, { fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", fontSize: 11 }]} numberOfLines={open ? undefined : 1}>
-        ⚙ {msg.tool_name}
+      <Text style={{ color: C.muted, fontSize: 11, fontFamily: F.mono }} numberOfLines={open ? undefined : 1}>
+        <Text style={{ color: C.accent, fontFamily: F.monoBold }}>⚙ {msg.tool_name}</Text>
         {hint ? `  ${hint}` : ""}
       </Text>
       {open && msg.tool_input ? (
         <Text
           style={{
-            color: C.n400,
+            color: C.muted,
             fontSize: 11,
-            fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-            backgroundColor: C.n900,
-            borderRadius: 6,
+            fontFamily: F.mono,
+            backgroundColor: C.inset,
+            borderWidth: 1,
+            borderColor: C.line,
+            borderRadius: 8,
             padding: 8,
             marginTop: 4,
           }}
@@ -194,16 +200,18 @@ function LiveTail({ client, threadId }: { client: RelayClient; threadId: number 
   if (live !== "") {
     return (
       <View style={{ marginTop: 12 }}>
-        <Text style={{ color: C.ok, fontSize: 12, fontWeight: "600", marginBottom: 2 }}>agent</Text>
-        <Text style={{ color: C.text, fontSize: 14, lineHeight: 20 }}>{live}▌</Text>
+        <Text style={{ color: C.good, fontSize: 11.5, fontWeight: "700", fontFamily: F.uiBold, marginBottom: 2 }}>
+          agent
+        </Text>
+        <Text style={{ color: C.text, fontSize: 14, lineHeight: 20, fontFamily: F.ui }}>{live}▌</Text>
       </View>
     );
   }
   if (busy) {
     return (
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
-        <Dot color={C.ok} />
-        <Text style={S.dim}>working…</Text>
+        <Dot color={C.good} pulse />
+        <Text style={[S.dim, { color: C.good }]}>working…</Text>
       </View>
     );
   }
@@ -336,16 +344,16 @@ export function ThreadScreen({
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 14,
-          paddingVertical: 10,
+          paddingVertical: 11,
           gap: 10,
           borderBottomWidth: 1,
-          borderBottomColor: C.n800,
+          borderBottomColor: C.line,
         }}
       >
         <Pressable onPress={onBack} hitSlop={12} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-          <Text style={{ color: C.accent, fontSize: 15 }}>‹ Back</Text>
+          <Text style={{ color: C.accent, fontSize: 14, fontFamily: F.ui }}>‹ Back</Text>
         </Pressable>
-        <Text style={[S.title, { flex: 1 }]} numberOfLines={1}>
+        <Text style={[S.title, { flex: 1, fontWeight: "700", fontFamily: F.uiBold }]} numberOfLines={1}>
           {title}
         </Text>
       </View>
@@ -390,15 +398,15 @@ export function ThreadScreen({
               flexDirection: "row",
               alignItems: "center",
               gap: 6,
-              backgroundColor: pressed ? C.accent700 : C.accent800,
+              backgroundColor: pressed ? C.borderStrong : C.selected,
               borderColor: C.accent,
               borderWidth: 1,
-              borderRadius: 16,
+              borderRadius: 100,
               paddingHorizontal: 14,
-              paddingVertical: 6,
+              paddingVertical: 7,
             })}
           >
-            <Text style={{ color: C.accent200, fontSize: 12, fontWeight: "600" }}>
+            <Text style={{ color: C.accent, fontSize: 12, fontWeight: "700", fontFamily: F.uiBold }}>
               ↓ {unseen > 0 ? `${unseen} new` : "latest"}
             </Text>
           </Pressable>
@@ -406,7 +414,7 @@ export function ThreadScreen({
       </View>
 
       {sendError !== "" && (
-        <Text style={{ color: C.err, fontSize: 12, paddingHorizontal: 14, paddingTop: 6 }}>
+        <Text style={{ color: C.bad, fontSize: 12, fontFamily: F.ui, paddingHorizontal: 14, paddingTop: 6 }}>
           ⚠ {sendError} — draft restored
         </Text>
       )}
@@ -424,22 +432,24 @@ export function ThreadScreen({
         <TextInput
           style={{
             flex: 1,
-            backgroundColor: C.surface,
-            borderRadius: 12,
+            backgroundColor: C.panel,
+            borderRadius: 11,
             color: C.text,
+            fontFamily: F.ui,
+            fontSize: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
             maxHeight: 120,
             borderWidth: 1,
-            borderColor: C.n800,
+            borderColor: C.border,
           }}
           multiline
           value={draft}
           placeholder={busy ? "Queue a message…" : "Steer the agent…"}
-          placeholderTextColor={C.n600}
+          placeholderTextColor={C.dim}
           onChangeText={setDraft}
         />
-        <Btn label={busy ? "Queue" : "Send"} color={C.accent} onPress={send} disabled={!draft.trim()} />
+        <Btn label={busy ? "Queue" : "Send"} color={C.accent} onPress={send} disabled={!draft.trim()} fill />
       </View>
     </KeyboardAvoidingView>
   );

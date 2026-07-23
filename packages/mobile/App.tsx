@@ -9,18 +9,30 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
+import {
+  useFonts,
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_700Bold,
+} from "@expo-google-fonts/space-grotesk";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
 import { RelayClient } from "./src/api";
-import { C } from "./src/theme";
+import { C, F } from "./src/theme";
 import { kvGet, kvSet } from "./src/db";
-import { fmtTok } from "./src/ui";
+import { fmtTok, tapHaptic } from "./src/ui";
 import {
   ApprovalsScreen,
   BoardScreen,
@@ -108,6 +120,117 @@ const TAB_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   Settings: "settings-outline",
 };
 
+// Diamond logo mark — two 45°-rotated rounded squares: sunken back + brand front
+// (gradient flattened to accent purple, no LinearGradient dep).
+function Logo({ scale = 1 }: { scale?: number }) {
+  const w = 19 * scale;
+  const h = 21 * scale;
+  const sq = 11 * scale;
+  const r = 2.5 * scale;
+  const box = (top: number, bg: string, extra?: object): ViewStyle => ({
+    position: "absolute",
+    left: "50%",
+    top: top * scale,
+    marginLeft: -sq / 2,
+    width: sq,
+    height: sq,
+    backgroundColor: bg,
+    borderRadius: r,
+    transform: [{ rotate: "45deg" }],
+    ...extra,
+  });
+  return (
+    <View style={{ width: w, height: h }}>
+      <View style={box(1, C.sunken)} />
+      <View
+        style={box(6.5, C.accent, {
+          shadowColor: C.accent,
+          shadowOpacity: 0.45,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+        })}
+      />
+    </View>
+  );
+}
+
+// Floating rounded pill tab bar — translucent panel, icon + label per tab,
+// tinted active tab, purple approval badge. Matches the mockup's bottom bar.
+function FloatingTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: Math.max(insets.bottom, 12),
+        flexDirection: "row",
+        backgroundColor: "rgba(16,18,48,0.92)",
+        borderWidth: 1,
+        borderColor: C.border,
+        borderRadius: 18,
+        padding: 6,
+      }}
+    >
+      {state.routes.map((route: any, index: number) => {
+        const { options } = descriptors[route.key];
+        const focused = state.index === index;
+        const label = (options.title ?? route.name) as string;
+        const badge = options.tabBarBadge;
+        const color = focused ? C.accent : C.dim;
+        const onPress = () => {
+          tapHaptic();
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+        };
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityState={focused ? { selected: true } : {}}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 3,
+              paddingVertical: 7,
+              borderRadius: 13,
+              backgroundColor: focused ? "rgba(143,136,255,0.14)" : "transparent",
+            }}
+          >
+            <View>
+              <Ionicons name={TAB_ICON[route.name] ?? "ellipse-outline"} size={18} color={color} />
+              {badge != null && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -10,
+                    minWidth: 15,
+                    height: 15,
+                    borderRadius: 100,
+                    paddingHorizontal: 3,
+                    backgroundColor: C.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ color: "#0b0c1a", fontSize: 8.5, fontWeight: "700", fontFamily: F.monoBold }}>
+                    {badge}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ color, fontSize: 9, fontWeight: "500", fontFamily: F.ui }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function Tabs({
   approvalCount,
   liveTotal,
@@ -121,16 +244,44 @@ function Tabs({
 }) {
   return (
     <View style={{ flex: 1 }}>
-      {/* Top bar */}
-      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}>
-        <Text style={{ color: C.text, fontSize: 17, fontWeight: "600" }}>AgentDeck</Text>
-        <Dot color={status === "ready" ? C.ok : status === "daemon-offline" ? C.warn : C.n600} />
+      {/* Top bar — diamond logo, wordmark, status dot, cyan token pill, log out. */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingTop: 6,
+          paddingBottom: 12,
+          gap: 9,
+          borderBottomWidth: 1,
+          borderBottomColor: C.line,
+        }}
+      >
+        <Logo />
+        <Text style={{ color: C.text, fontSize: 16, fontWeight: "700", fontFamily: F.uiBold, letterSpacing: -0.2 }}>
+          AgentDeck
+        </Text>
+        <Dot color={status === "ready" ? C.good : status === "daemon-offline" ? C.warn : C.dim} />
         <View style={{ flex: 1 }} />
         {liveTotal > 0 && (
-          <Text style={{ color: C.ok, fontSize: 12 }}>⚡ {fmtTok(liveTotal)} in flight</Text>
+          <Text
+            style={{
+              color: C.cyan,
+              fontFamily: F.monoMed,
+              fontSize: 10.5,
+              borderWidth: 1,
+              borderColor: C.cyanBorder,
+              borderRadius: 100,
+              paddingHorizontal: 11,
+              paddingVertical: 5,
+              overflow: "hidden",
+            }}
+          >
+            ▲ {fmtTok(liveTotal)}
+          </Text>
         )}
         <Pressable onPress={onLogout} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-          <Text style={{ color: C.n600, fontSize: 12 }}>log out</Text>
+          <Text style={{ color: C.dim, fontSize: 12, fontFamily: F.ui }}>log out</Text>
         </Pressable>
       </View>
       {/* Reconnect banner — Discord-style strip while the socket is down. */}
@@ -157,7 +308,8 @@ function Tabs({
         </View>
       )}
       <Tab.Navigator
-        screenOptions={({ route }) => ({
+        tabBar={(props) => <FloatingTabBar {...props} />}
+        screenOptions={{
           headerShown: false,
           // Lazy-mount tabs: cold start renders only Board + fires its one RPC,
           // instead of mounting all 6 screens and firing ~6 list fetches at
@@ -166,14 +318,7 @@ function Tabs({
           // (approvals, in-flight tokens) run at the App root off the event
           // stream, so they stay live without the screens being mounted.
           lazy: true,
-          tabBarActiveTintColor: C.accent300,
-          tabBarInactiveTintColor: C.n500,
-          tabBarStyle: { backgroundColor: C.bg, borderTopColor: C.n800 },
-          tabBarLabelStyle: { fontSize: 10.5 },
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={TAB_ICON[route.name] ?? "ellipse-outline"} size={size - 4} color={color} />
-          ),
-        })}
+        }}
       >
         <Tab.Screen name="Board" component={BoardTab} />
         <Tab.Screen name="Map" component={MapTab} />
@@ -181,7 +326,7 @@ function Tabs({
         <Tab.Screen
           name="Approvals"
           component={ApprovalsTab}
-          options={approvalCount > 0 ? { tabBarBadge: approvalCount, tabBarBadgeStyle: { backgroundColor: C.accent, color: C.text, fontSize: 10 } } : {}}
+          options={approvalCount > 0 ? { tabBarBadge: approvalCount } : {}}
         />
         <Tab.Screen name="Usage" component={UsageTab} />
         <Tab.Screen name="Settings" component={SettingsTab} />
@@ -217,6 +362,16 @@ export default function App() {
   const [liveTotal, setLiveTotal] = useState(0);
   const liveMap = useRef(new Map<number, number>());
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Space Grotesk (UI) + JetBrains Mono (labels/metrics) from the design. Gate
+  // the app behind the load so text never flashes in the system font first.
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_700Bold,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_700Bold,
+  });
 
   const client = useMemo(() => (conn ? new RelayClient(conn.url, conn.token) : null), [conn]);
 
@@ -322,11 +477,12 @@ export default function App() {
     };
   }, [client]);
 
-  if (booting) {
+  if (booting || !fontsLoaded) {
     return (
       <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", gap: 22 }}>
           <StatusBar barStyle="light-content" />
+          <Logo scale={1.7} />
           <ActivityIndicator color={C.accent} />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -340,11 +496,29 @@ export default function App() {
           <StatusBar barStyle="light-content" />
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <ScrollView
-              contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, gap: 12 }}
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 28, gap: 12 }}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={{ color: C.text, fontSize: 28, fontWeight: "600" }}>AgentDeck</Text>
-              <Text style={{ color: C.n500, fontSize: 13, marginBottom: 8 }}>Sign in to your relay.</Text>
+              <View style={{ alignItems: "center", gap: 13, marginBottom: 14 }}>
+                <Logo scale={1.8} />
+                <Text
+                  style={{ color: C.text, fontSize: 23, fontWeight: "700", fontFamily: F.uiBold, letterSpacing: -0.4 }}
+                >
+                  Connect to your deck
+                </Text>
+                <Text
+                  style={{
+                    color: C.muted,
+                    fontSize: 13,
+                    fontFamily: F.ui,
+                    lineHeight: 20,
+                    textAlign: "center",
+                    maxWidth: 280,
+                  }}
+                >
+                  Sign in to your relay — the phone pairs with the daemon running on your desktop.
+                </Text>
+              </View>
               <TextInput
                 style={inputStyle}
                 value={email}
@@ -353,7 +527,7 @@ export default function App() {
                 keyboardType="email-address"
                 textContentType="username"
                 placeholder="email"
-                placeholderTextColor={C.n600}
+                placeholderTextColor={C.dim}
                 onChangeText={setEmail}
               />
               <TextInput
@@ -364,35 +538,33 @@ export default function App() {
                 secureTextEntry
                 textContentType="password"
                 placeholder="password"
-                placeholderTextColor={C.n600}
+                placeholderTextColor={C.dim}
                 onChangeText={setPassword}
                 onSubmitEditing={doLogin}
               />
-              {authError !== "" && <Text style={{ color: C.err, fontSize: 12 }}>{authError}</Text>}
+              {authError !== "" && <Text style={{ color: C.bad, fontSize: 12, fontFamily: F.ui }}>{authError}</Text>}
               <Pressable
                 onPress={doLogin}
                 disabled={!email.trim() || !password || loggingIn}
                 style={({ pressed }) => ({
-                  backgroundColor: pressed ? C.accent700 : C.accent800,
-                  borderColor: C.accent,
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  paddingVertical: 12,
+                  backgroundColor: pressed ? `${C.accent}cc` : C.accent,
+                  borderRadius: 11,
+                  paddingVertical: 14,
                   alignItems: "center",
                   opacity: !email.trim() || !password || loggingIn ? 0.4 : 1,
                 })}
               >
-                <Text style={{ color: C.accent200, fontSize: 15, fontWeight: "600" }}>
-                  {loggingIn ? "Signing in…" : "Sign in"}
+                <Text style={{ color: "#0b0c1a", fontSize: 15, fontWeight: "700", fontFamily: F.uiBold }}>
+                  {loggingIn ? "Connecting…" : "Sign in"}
                 </Text>
               </Pressable>
               <TextInput
-                style={[inputStyle, { fontSize: 12, marginTop: 8, color: C.n500 }]}
+                style={[inputStyle, { fontSize: 12, marginTop: 8, color: C.dim, fontFamily: F.mono }]}
                 value={url}
                 autoCapitalize="none"
                 autoCorrect={false}
                 placeholder="relay url (advanced)"
-                placeholderTextColor={C.n600}
+                placeholderTextColor={C.dim}
                 onChangeText={setUrl}
               />
             </ScrollView>
@@ -426,12 +598,13 @@ export default function App() {
 }
 
 const inputStyle = {
-  backgroundColor: C.surface,
-  borderRadius: 10,
+  backgroundColor: C.panel,
+  borderRadius: 11,
   borderWidth: 1,
-  borderColor: C.n800,
+  borderColor: C.border,
   color: C.text,
+  fontFamily: F.ui,
   paddingHorizontal: 14,
-  paddingVertical: 12,
+  paddingVertical: 13,
   fontSize: 14,
 } as const;

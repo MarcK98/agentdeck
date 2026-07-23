@@ -13,9 +13,9 @@ import {
   View,
 } from "react-native";
 import { RelayClient } from "./api";
-import { C } from "./theme";
+import { C, F } from "./theme";
 import { useCachedRpc, useSpawnEvents } from "./hooks";
-import { Btn, Card, Center, Chip, Dot, ErrorBar, Field, S, fmtTok, tapHaptic } from "./ui";
+import { Btn, Card, Center, Chip, Dot, ErrorBar, Field, S, TAB_SPACE, fmtTok, tapHaptic } from "./ui";
 
 const MODELS = ["haiku", "sonnet", "opus", "fable"];
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -89,13 +89,14 @@ function ProjectPicker({
 }
 
 const sheetInput = {
-  backgroundColor: C.n900,
-  borderRadius: 8,
+  backgroundColor: C.inset,
+  borderRadius: 9,
   borderWidth: 1,
-  borderColor: C.n800,
+  borderColor: C.border,
   color: C.text,
+  fontFamily: F.ui,
   paddingHorizontal: 12,
-  paddingVertical: 10,
+  paddingVertical: 11,
   fontSize: 14,
 } as const;
 
@@ -107,15 +108,15 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Tap outside to dismiss. */}
-        <Pressable style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#000a" }} onPress={onClose} />
+        <Pressable style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(5,6,16,0.6)" }} onPress={onClose} />
         <View
           style={{
-            backgroundColor: C.bg,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
+            backgroundColor: C.panel,
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
             maxHeight: "92%",
             borderTopWidth: 1,
-            borderColor: C.n800,
+            borderColor: C.borderStrong,
           }}
         >
           <View
@@ -124,12 +125,12 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
               alignItems: "center",
               padding: 16,
               borderBottomWidth: 1,
-              borderColor: C.n800,
+              borderColor: C.line,
             }}
           >
-            <Text style={{ color: C.text, fontSize: 16, fontWeight: "600", flex: 1 }}>{title}</Text>
+            <Text style={{ color: C.text, fontSize: 15, fontWeight: "700", fontFamily: F.uiBold, flex: 1 }}>{title}</Text>
             <Pressable onPress={onClose} hitSlop={12} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-              <Text style={{ color: C.n500, fontSize: 20 }}>✕</Text>
+              <Text style={{ color: C.dim, fontSize: 18 }}>✕</Text>
             </Pressable>
           </View>
           <ScrollView
@@ -300,18 +301,19 @@ function TicketSheet({
         <Btn label="Save" color={C.n400} onPress={doSave} disabled={!title.trim() || projectId === "" || busy !== ""} busy={busy === "save"} />
         {canDelegate && (
           <Btn
-            label={editing ? "Delegate" : "Create & delegate"}
+            label={editing ? "⌁ Delegate" : "⌁ Create & delegate"}
             color={C.accent}
             onPress={doDelegate}
             disabled={!title.trim() || projectId === "" || busy !== ""}
             busy={busy === "delegate"}
+            fill
           />
         )}
       </View>
 
       {editing && (
         <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: C.n800, paddingTop: 14, gap: 12 }}>
-          <Text style={{ color: C.n500, fontSize: 11 }}>
+          <Text style={S.cap}>
             Comments{detail?.comments?.length ? ` · ${detail.comments.length}` : ""}
           </Text>
 
@@ -327,7 +329,7 @@ function TicketSheet({
             />
             <View style={{ flexDirection: "row" }}>
               <View style={{ flex: 1 }} />
-              <Btn label="Comment" color={C.accent} onPress={postComment} disabled={!comment.trim() || posting} busy={posting} />
+              <Btn label="Comment" color={C.accent} onPress={postComment} disabled={!comment.trim() || posting} busy={posting} fill />
             </View>
           </View>
 
@@ -340,12 +342,12 @@ function TicketSheet({
             [...detail.comments].reverse().map((c: any) => (
               <View key={c.id} style={{ gap: 3 }}>
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-                  <Text style={{ color: AUTHOR_COLOR[c.author_kind] ?? C.n400, fontSize: 12, fontWeight: "600" }}>
+                  <Text style={{ color: AUTHOR_COLOR[c.author_kind] ?? C.muted, fontSize: 11.5, fontWeight: "700", fontFamily: F.uiBold }}>
                     {AUTHOR_LABEL[c.author_kind] ?? c.author_kind}
                   </Text>
-                  <Text style={{ color: C.n600, fontSize: 10 }}>{fmtCommentTime(c.created_at)}</Text>
+                  <Text style={{ color: C.dim, fontSize: 9.5, fontFamily: F.mono }}>{fmtCommentTime(c.created_at)}</Text>
                 </View>
-                <Text style={{ color: C.text, fontSize: 14, lineHeight: 20 }} selectable>
+                <Text style={{ color: C.text, fontSize: 13, lineHeight: 20, fontFamily: F.ui }} selectable>
                   {c.body}
                 </Text>
               </View>
@@ -418,7 +420,7 @@ function DelegateSheet({
       {error !== "" && <Text style={{ color: C.err, fontSize: 12 }}>⚠ {error}</Text>}
       <View style={{ flexDirection: "row", marginTop: 4 }}>
         <View style={{ flex: 1 }} />
-        <Btn label="Delegate" color={C.accent} onPress={send} disabled={!task.trim() || projectId === "" || busy} busy={busy} />
+        <Btn label="⌁ Delegate" color={C.accent} onPress={send} disabled={!task.trim() || projectId === "" || busy} busy={busy} fill />
       </View>
     </Sheet>
   );
@@ -446,24 +448,28 @@ export function BoardScreen({
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
-        <Btn label="⚡ Delegate" color={C.accent} onPress={() => setSheet({ kind: "delegate" })} />
-        <View style={{ flex: 1 }} />
-        <Btn label="+ Ticket" color={C.n400} onPress={() => setSheet({ kind: "ticket", ticket: null })} />
+        <View style={{ flex: 1 }}>
+          <Btn label="⌁ Delegate" color={C.accent} onPress={() => setSheet({ kind: "delegate" })} fill />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Btn label="+ Ticket" color={C.muted} onPress={() => setSheet({ kind: "ticket", ticket: null })} />
+        </View>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }} refreshControl={refreshControl}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: TAB_SPACE }} refreshControl={refreshControl}>
         {COLUMNS.map((col) => {
           const rows = tickets.filter((t) => t.status === col);
           if (!rows.length) return null;
           return (
             <View key={col} style={{ marginBottom: 18 }}>
               <Text
-                style={{
-                  color: col === "in-progress" ? C.ok : col === "blocked" ? C.warn : C.n500,
-                  fontSize: 11,
-                  letterSpacing: 1,
-                  textTransform: "uppercase",
-                  marginBottom: 8,
-                }}
+                style={[
+                  S.cap,
+                  {
+                    color: col === "in-progress" ? C.good : col === "blocked" ? C.warn : C.dim,
+                    letterSpacing: 1.2,
+                    marginBottom: 8,
+                  },
+                ]}
               >
                 {col.replace("-", " ")} · {rows.length}
               </Text>
@@ -475,22 +481,22 @@ export function BoardScreen({
                   // comment thread was otherwise unreachable on mobile.
                   onPress={() => setSheet({ kind: "ticket", ticket: t })}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-                    {t.running && <Dot color={C.ok} />}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    {t.running && <Dot color={C.good} pulse />}
                     <Text style={[S.title, { flex: 1 }]} numberOfLines={2}>
                       {t.title}
                     </Text>
                   </View>
-                  <View style={{ flexDirection: "row", gap: 8, marginTop: 7, alignItems: "center" }}>
-                    <Text style={S.dim}>SPWN-{t.id}</Text>
+                  <View style={{ flexDirection: "row", gap: 9, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <Text style={{ color: C.accent, fontSize: 10.5, fontFamily: F.monoMed }}>SPWN-{t.id}</Text>
                     <Text style={S.dim}>{t.project_name}</Text>
                     {t.branch && (
-                      <Text style={[S.dim, { color: C.accent300 }]} numberOfLines={1}>
+                      <Text style={{ color: C.cyan, fontSize: 10, fontFamily: F.mono }} numberOfLines={1}>
                         ⎇ {String(t.branch).replace(/^ticket\//, "")}
                       </Text>
                     )}
                     {t.running && (
-                      <Text style={[S.dim, { color: C.ok, marginLeft: "auto" }]}>running…</Text>
+                      <Text style={{ color: C.good, fontSize: 10.5, fontFamily: F.mono, marginLeft: "auto" }}>running…</Text>
                     )}
                   </View>
                 </Card>
@@ -553,17 +559,26 @@ export function ApprovalsScreen({ client }: { client: RelayClient }) {
   if (pending == null && error) return <ErrorBar message={error} onRetry={refresh} />;
   if (pending == null) return <Center spinner />;
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14 }} refreshControl={refreshControl}>
-      {answerError !== "" && <Text style={{ color: C.err, fontSize: 12, marginBottom: 8 }}>⚠ {answerError}</Text>}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: TAB_SPACE }} refreshControl={refreshControl}>
+      {answerError !== "" && <Text style={{ color: C.bad, fontSize: 12, fontFamily: F.ui, marginBottom: 8 }}>⚠ {answerError}</Text>}
       {pending.map((a) => (
-        <View key={a.id} style={[S.card, { borderColor: C.warn, borderWidth: 1 }]}>
-          <Text style={S.title}>✋ {a.tool}</Text>
-          <Text style={[S.dim, { marginTop: 6 }]} numberOfLines={6}>
-            {JSON.stringify(a.input, null, 2)}
-          </Text>
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-            <Btn label="Allow" color={C.ok} onPress={() => answer(a.id, true)} disabled={answering != null} busy={answering === a.id} />
-            <Btn label="Deny" color={C.err} onPress={() => answer(a.id, false)} disabled={answering != null} />
+        <View key={a.id} style={[S.card, { backgroundColor: C.panel, borderColor: C.warnBorder, borderWidth: 1, borderRadius: 12, padding: 14 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ color: C.warn, fontSize: 14 }}>✋</Text>
+            <Text style={[S.title, { fontWeight: "700", fontFamily: F.uiBold }]}>{a.tool}</Text>
+          </View>
+          <View style={{ backgroundColor: C.inset, borderWidth: 1, borderColor: C.line, borderRadius: 8, padding: 10, marginTop: 10 }}>
+            <Text style={{ color: C.muted, fontSize: 11, fontFamily: F.mono, lineHeight: 16 }} numberOfLines={6}>
+              {JSON.stringify(a.input, null, 2)}
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 9, marginTop: 11 }}>
+            <View style={{ flex: 1 }}>
+              <Btn label="Allow" color={C.good} onPress={() => answer(a.id, true)} disabled={answering != null} busy={answering === a.id} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Btn label="Deny" color={C.bad} onPress={() => answer(a.id, false)} disabled={answering != null} />
+            </View>
           </View>
         </View>
       ))}
@@ -584,16 +599,16 @@ const RunRow = React.memo(function RunRow({
 }) {
   return (
     <Card onPress={() => openThread(t.id, t.title)}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-        <Dot color={t.running ? C.ok : C.n600} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Dot color={t.running ? C.good : C.dim} pulse={t.running} />
         <Text style={[S.title, { flex: 1 }]} numberOfLines={1}>
           {t.title}
         </Text>
         {t.running && liveTokens != null && liveTokens > 0 && (
-          <Text style={{ color: C.ok, fontSize: 12 }}>⚡ {fmtTok(liveTokens)}</Text>
+          <Text style={{ color: C.good, fontSize: 10, fontFamily: F.monoMed }}>⚡ {fmtTok(liveTokens)}</Text>
         )}
       </View>
-      <Text style={[S.dim, { marginTop: 4 }]}>
+      <Text style={[S.dim, { marginTop: 5 }]}>
         {t.project_name} · {t.kind}
         {t.branch ? ` · ${String(t.branch).replace(/^ticket\//, "")}` : ""}
       </Text>
@@ -626,7 +641,7 @@ export function RunsScreen({
   if (runs == null && error) return <ErrorBar message={error} onRetry={refresh} />;
   if (runs == null) return <Center spinner />;
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14 }} refreshControl={refreshControl}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: TAB_SPACE }} refreshControl={refreshControl}>
       {runs.map((t) => (
         <RunRow key={t.id} t={t} liveTokens={live.get(t.id) ?? t.liveTokens ?? null} openThread={openThread} />
       ))}
@@ -675,12 +690,12 @@ export function MapScreen({
   const leadName = projects.find((p) => p.id === map.teamLeadProjectId)?.name;
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }} refreshControl={refreshControl}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: TAB_SPACE }} refreshControl={refreshControl}>
       {leadName && (
-        <View style={[S.card, { flexDirection: "row", alignItems: "center", gap: 8, borderColor: C.accent700, borderWidth: 1 }]}>
+        <View style={[S.card, { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.selected, borderColor: C.accent, borderWidth: 1 }]}>
           <Text style={{ fontSize: 15 }}>🧭</Text>
-          <Text style={[S.title, { flex: 1 }]}>{leadName}</Text>
-          <Text style={{ color: liveTotal ? C.ok : C.n600, fontSize: 12 }}>● {liveTotal} live</Text>
+          <Text style={[S.title, { flex: 1, fontWeight: "700", fontFamily: F.uiBold }]}>{leadName}</Text>
+          <Text style={{ color: liveTotal ? C.good : C.dim, fontSize: 10.5, fontFamily: F.monoMed }}>● {liveTotal} live</Text>
         </View>
       )}
       {projects.map((p) => {
@@ -690,39 +705,39 @@ export function MapScreen({
         return (
           <View key={p.id} style={{ marginTop: 14 }}>
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Text style={{ color: C.n500, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", flex: 1 }}>
+              <Text style={[S.cap, { flex: 1, letterSpacing: 1.2 }]} numberOfLines={1}>
                 {p.name}
               </Text>
-              {live > 0 && <Text style={{ color: C.ok, fontSize: 11 }}>● {live}</Text>}
+              {live > 0 && <Text style={{ color: C.good, fontSize: 10.5, fontFamily: F.monoMed }}>● {live}</Text>}
             </View>
             {rows.map((t) => (
               <Card key={t.id} onPress={() => openThread(t.id, t.title)}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-                  <Dot color={t.running ? C.ok : C.n600} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Dot color={t.running ? C.good : C.dim} pulse={t.running} />
                   <Text style={[S.title, { flex: 1 }]} numberOfLines={1}>
                     {t.title}
                   </Text>
                   {t.running && t.model && <Text style={S.tag}>{t.model}</Text>}
                 </View>
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 7, alignItems: "center", flexWrap: "wrap" }}>
+                <View style={{ flexDirection: "row", gap: 9, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                   {t.branch && (
-                    <Text style={[S.dim, { color: C.accent300 }]} numberOfLines={1}>
+                    <Text style={{ color: C.cyan, fontSize: 10, fontFamily: F.mono }} numberOfLines={1}>
                       ⎇ {String(t.branch).replace(/^ticket\//, "")}
                     </Text>
                   )}
                   {t.dirty != null && t.dirty > 0 && <Text style={[S.dim, { color: C.warn }]}>±{t.dirty}</Text>}
-                  {t.turns > 0 && <Text style={S.dim}>${Number(t.costUsd ?? 0).toFixed(2)}</Text>}
+                  {t.turns > 0 && <Text style={{ color: C.dim, fontSize: 10.5, fontFamily: F.mono }}>${Number(t.costUsd ?? 0).toFixed(2)}</Text>}
                   {t.pr ? (
                     <Pressable onPress={() => t.pr.url && Linking.openURL(t.pr.url)} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                      <Text style={{ color: t.pr.state === "OPEN" ? C.ok : t.pr.state === "MERGED" ? C.n400 : C.err, fontSize: 12 }}>
+                      <Text style={{ color: t.pr.state === "OPEN" ? C.good : t.pr.state === "MERGED" ? C.muted : C.bad, fontSize: 10.5, fontFamily: F.mono }}>
                         ⑂ #{t.pr.number} {String(t.pr.state).toLowerCase()}
                         {t.pr.checks ? ` · ${t.pr.checks}` : ""}
                       </Text>
                     </Pressable>
                   ) : (
-                    <Text style={[S.dim, { color: C.n600 }]}>no PR</Text>
+                    <Text style={[S.dim, { color: C.dim }]}>no PR</Text>
                   )}
-                  {t.running && t.pid && <Text style={[S.dim, { color: C.ok, marginLeft: "auto" }]}>pid {t.pid}</Text>}
+                  {t.running && t.pid && <Text style={{ color: C.good, fontSize: 10.5, fontFamily: F.mono, marginLeft: "auto" }}>pid {t.pid}</Text>}
                 </View>
               </Card>
             ))}
@@ -751,8 +766,8 @@ export function UsageScreen({ client }: { client: RelayClient }) {
   const maxProject = u ? Math.max(...u.byProject.map((p: any) => p.tokens), 1) : 1;
   const totalModel = u ? Math.max(u.byModel.reduce((a: number, m: any) => a + m.tokens, 0), 1) : 1;
 
-  const bar = (frac: number, color = C.accent500) => (
-    <View style={{ height: 4, backgroundColor: C.n800, borderRadius: 2, overflow: "hidden" }}>
+  const bar = (frac: number, color: string = C.accent) => (
+    <View style={{ height: 4, backgroundColor: C.line, borderRadius: 2, overflow: "hidden" }}>
       <View style={{ height: 4, width: `${Math.min(frac * 100, 100)}%`, backgroundColor: color }} />
     </View>
   );
@@ -767,19 +782,21 @@ export function UsageScreen({ client }: { client: RelayClient }) {
       {u == null && error !== "" && <ErrorBar message={error} onRetry={refresh} />}
       {u == null && error === "" && <Center spinner />}
       {u != null && (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: 40, gap: 14 }} refreshControl={refreshControl}>
-        <View style={S.card}>
-          <Text style={{ color: C.text, fontSize: 26, fontWeight: "600" }}>{fmtTok(u.totalTokens)}</Text>
-          <Text style={S.dim}>{`tokens · ${u.turns} turns · ${u.threads} threads · $${u.totalCost.toFixed(2)}`}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: TAB_SPACE, gap: 12 }} refreshControl={refreshControl}>
+        <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 9 }}>
+            <Text style={{ color: C.text, fontSize: 26, fontFamily: F.monoBold, letterSpacing: -0.5 }}>{fmtTok(u.totalTokens)}</Text>
+            <Text style={S.dim}>{`${u.turns} turns · ${u.threads} threads · $${u.totalCost.toFixed(2)}`}</Text>
+          </View>
           {u.series.length > 0 && (
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 2, height: 70, marginTop: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 74, marginTop: 14 }}>
               {u.series.map((pt: any, i: number) => (
                 <View
                   key={pt.ts}
                   style={{
                     flex: 1,
                     height: Math.max((pt.tokens / maxSeries) * 66, 2),
-                    backgroundColor: i === u.series.length - 1 ? C.accent500 : C.accent700,
+                    backgroundColor: i === u.series.length - 1 ? C.accent : C.accent700,
                     borderRadius: 2,
                   }}
                 />
@@ -788,13 +805,13 @@ export function UsageScreen({ client }: { client: RelayClient }) {
           )}
         </View>
 
-        <View style={S.card}>
-          <Text style={[S.title, { marginBottom: 10 }]}>By model</Text>
+        <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+          <Text style={[S.title, { fontWeight: "700", fontFamily: F.uiBold, marginBottom: 11 }]}>By model</Text>
           {(u.byModel ?? []).map((m: any) => (
-            <View key={m.model} style={{ marginBottom: 9 }}>
-              <View style={{ flexDirection: "row", marginBottom: 3 }}>
-                <Text style={[S.dim, { flex: 1, color: C.text }]}>{m.model}</Text>
-                <Text style={S.dim}>
+            <View key={m.model} style={{ marginBottom: 11 }}>
+              <View style={{ flexDirection: "row", marginBottom: 4 }}>
+                <Text style={{ flex: 1, color: C.text, fontSize: 11.5, fontFamily: F.monoMed }}>{m.model}</Text>
+                <Text style={{ color: C.dim, fontSize: 10.5, fontFamily: F.mono }}>
                   {fmtTok(m.tokens)} · {Math.round((m.tokens / totalModel) * 100)}%
                 </Text>
               </View>
@@ -804,15 +821,15 @@ export function UsageScreen({ client }: { client: RelayClient }) {
           {u.byModel.length === 0 && <Text style={S.dim}>No runs yet.</Text>}
         </View>
 
-        <View style={S.card}>
-          <Text style={[S.title, { marginBottom: 10 }]}>By project</Text>
+        <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+          <Text style={[S.title, { fontWeight: "700", fontFamily: F.uiBold, marginBottom: 11 }]}>By project</Text>
           {(u.byProject ?? []).map((p: any) => (
-            <View key={p.project} style={{ marginBottom: 9 }}>
-              <View style={{ flexDirection: "row", marginBottom: 3 }}>
-                <Text style={[S.dim, { flex: 1, color: C.text }]} numberOfLines={1}>
+            <View key={p.project} style={{ marginBottom: 11 }}>
+              <View style={{ flexDirection: "row", marginBottom: 4 }}>
+                <Text style={{ flex: 1, color: C.text, fontSize: 12, fontFamily: F.ui }} numberOfLines={1}>
                   {p.project}
                 </Text>
-                <Text style={S.dim}>
+                <Text style={{ color: C.dim, fontSize: 10.5, fontFamily: F.mono }}>
                   {p.threads}t · {p.turns}r · {fmtTok(p.tokens)}
                 </Text>
               </View>
@@ -822,16 +839,16 @@ export function UsageScreen({ client }: { client: RelayClient }) {
           {u.byProject.length === 0 && <Text style={S.dim}>Nothing in this window.</Text>}
         </View>
 
-        <View style={S.card}>
-          <Text style={[S.title, { marginBottom: 10 }]}>Live sessions</Text>
+        <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+          <Text style={[S.title, { fontWeight: "700", fontFamily: F.uiBold, marginBottom: 11 }]}>Live sessions</Text>
           {(u.sessions ?? []).map((s: any) => (
             <View key={s.threadId} style={{ marginBottom: 11 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                {s.running && <Dot color={C.ok} />}
-                <Text style={[S.dim, { flex: 1, color: C.text }]} numberOfLines={1}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                {s.running && <Dot color={C.good} pulse />}
+                <Text style={{ flex: 1, color: C.text, fontSize: 12, fontFamily: F.ui }} numberOfLines={1}>
                   {s.kind === "teamlead" ? "team lead" : s.title}
                 </Text>
-                <Text style={S.dim}>
+                <Text style={{ color: C.dim, fontSize: 10, fontFamily: F.mono }}>
                   {s.contextTokens != null ? `${fmtTok(s.contextTokens)} ctx` : "no ctx"}
                   {s.model ? ` · ${s.model}` : ""}
                 </Text>
@@ -843,10 +860,10 @@ export function UsageScreen({ client }: { client: RelayClient }) {
                   hitSlop={8}
                   style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
                 >
-                  <Text style={{ color: C.accent300, fontSize: 14 }}>↺</Text>
+                  <Text style={{ color: C.accent, fontSize: 14 }}>↺</Text>
                 </Pressable>
               </View>
-              {s.contextTokens != null && <View style={{ marginTop: 4 }}>{bar(s.contextTokens / 200_000, C.accent500)}</View>}
+              {s.contextTokens != null && <View style={{ marginTop: 5 }}>{bar(s.contextTokens / 200_000, C.cyan)}</View>}
             </View>
           ))}
           {u.sessions.length === 0 && <Text style={S.dim}>No live sessions.</Text>}
@@ -931,11 +948,11 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: 40, gap: 16 }}
+          contentContainerStyle={{ padding: 14, paddingTop: 6, paddingBottom: TAB_SPACE, gap: 16 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 10 }]}>Models & effort</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 10, fontWeight: "700", fontFamily: F.uiBold }]}>Models & effort</Text>
             <Field label="Allowed models">
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {MODELS.map((m) => (
@@ -953,8 +970,8 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
             </Field>
           </View>
 
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 10 }]}>Approvals</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 10, fontWeight: "700", fontFamily: F.uiBold }]}>Approvals</Text>
             <View style={{ flexDirection: "row", gap: 6 }}>
               <Chip label="Prompt me" on={s.approvalMode === "prompt"} onPress={() => patch({ approvalMode: "prompt" })} />
               <Chip label="Auto-allow" on={s.approvalMode === "auto"} onPress={() => patch({ approvalMode: "auto" })} />
@@ -971,8 +988,8 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
             </View>
           </View>
 
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 4 }]}>MCP servers</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 4, fontWeight: "700", fontFamily: F.uiBold }]}>MCP servers</Text>
             {(s.mcpServers ?? []).map((m: any) => {
               const connected = !!m.account || (m.secretsSet?.length ?? 0) > 0;
               const status = !m.provider ? m.transport : m.account ? m.account : connected ? "connected" : "not connected";
@@ -999,8 +1016,8 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
             {(s.mcpServers ?? []).length === 0 && <Text style={[S.dim, { marginTop: 8 }]}>None. Add + connect on desktop.</Text>}
           </View>
 
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 8 }]}>Skills</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 8, fontWeight: "700", fontFamily: F.uiBold }]}>Skills</Text>
             {skills.map((sk) => (
               <View key={`${sk.scope}-${sk.name}`} style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <Text style={{ color: C.text, fontSize: 13, flex: 1 }} numberOfLines={1}>
@@ -1017,8 +1034,8 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
             {skills.length === 0 && <Text style={S.dim}>No skills found.</Text>}
           </View>
 
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 8 }]}>Rules</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 8, fontWeight: "700", fontFamily: F.uiBold }]}>Rules</Text>
             <TextInput
               style={[sheetInput, { minHeight: 80, textAlignVertical: "top" }]}
               multiline
@@ -1029,8 +1046,8 @@ export function SettingsScreen({ client, projects }: { client: RelayClient; proj
               onBlur={() => rules !== s.rules && patch({ rules })}
             />
           </View>
-          <View style={S.card}>
-            <Text style={[S.title, { marginBottom: 8 }]}>Memory</Text>
+          <View style={[S.card, { backgroundColor: C.panel, borderRadius: 12, padding: 16 }]}>
+            <Text style={[S.title, { marginBottom: 8, fontWeight: "700", fontFamily: F.uiBold }]}>Memory</Text>
             <TextInput
               style={[sheetInput, { minHeight: 80, textAlignVertical: "top" }]}
               multiline
