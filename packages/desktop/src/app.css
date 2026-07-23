@@ -177,7 +177,7 @@ code.pill { font-size: 11px; background: var(--color-neutral-900); padding: 1px 
 .run-row:hover { background: color-mix(in srgb, var(--color-surface) 70%, var(--color-neutral-800)); }
 .run-row.paused { outline: 1px solid color-mix(in srgb, oklch(0.75 0.11 80) 45%, transparent); }
 .run-row .body { min-width: 0; flex: 1; }
-.run-row .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-row .t { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .run-row .m { font-size: 10.5px; color: var(--color-neutral-500); }
 .run-row .bar { margin-top: 4px; height: 2px; }
 .today-box { margin-top: auto; background: var(--color-surface); border-radius: var(--radius-md); padding: 11px 13px; }
