@@ -61,7 +61,11 @@ resource "aws_s3_bucket_public_access_block" "site" {
 # ── ACM cert for the CloudFront aliases (must be us-east-1; provider already is).
 resource "aws_acm_certificate" "site" {
   domain_name               = var.site_domain
-  subject_alternative_names = ["www.${var.site_domain}"]
+  # Wildcard SAN instead of just www: ACM validates "*.agentdeck.run" with the
+  # SAME DNS CNAME as the apex (agentdeck.run), which is already live + SUCCESS
+  # at Namecheap — so the cert issues with no additional record to enter. The
+  # wildcard still covers www.agentdeck.run (and any future subdomain).
+  subject_alternative_names = ["*.${var.site_domain}"]
   validation_method         = "DNS"
 
   lifecycle {
