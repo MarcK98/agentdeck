@@ -99,14 +99,14 @@ export function createApprovalHub({
     // Don't take the daemon down over a busy port — run without approvals
     // (prompts will auto-deny with "Could not reach approval bridge").
     if (err.code === "EADDRINUSE") {
-      log.warn(`[spawn-daemon] approval port ${port} busy — approval prompts disabled`);
+      log.warn(`[agentdeck-daemon] approval port ${port} busy — approval prompts disabled`);
     } else {
-      log.warn(`[spawn-daemon] approval hub error: ${err.message}`);
+      log.warn(`[agentdeck-daemon] approval hub error: ${err.message}`);
     }
   });
 
   server.listen(port, "127.0.0.1", () => {
-    log.info(`[spawn-daemon] approval hub on 127.0.0.1:${port}`);
+    log.info(`[agentdeck-daemon] approval hub on 127.0.0.1:${port}`);
   });
 
   return {
@@ -119,7 +119,7 @@ export function createApprovalHub({
       if (!entry) return false;
       const body = allow
         ? { allow: true, updatedInput: updatedInput ?? entry.input }
-        : { allow: false, message: "Denied in Spawn." };
+        : { allow: false, message: "Denied in AgentDeck." };
       return settle(entry, body, Boolean(allow));
     },
 
@@ -135,7 +135,7 @@ export function createApprovalHub({
 
     close() {
       for (const entry of [...pending.values()]) {
-        settle(entry, { allow: false, message: "Spawn daemon shutting down." }, false);
+        settle(entry, { allow: false, message: "AgentDeck daemon shutting down." }, false);
       }
       server.close();
     },

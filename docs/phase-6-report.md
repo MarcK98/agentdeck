@@ -1,4 +1,4 @@
-# Spawn — Phase 6 report: mobile (plan B), local-first
+# AgentDeck — Phase 6 report: mobile (plan B), local-first
 
 Plan B (relay + native app) is built and working end-to-end **without any
 account**: the relay runs locally, auth is a dev token with the Supabase seam
@@ -38,7 +38,7 @@ phone (Expo app) ──WS + token──▶ relay ◀──outbound WS + key─�
 
 ```bash
 # 1. relay (Mac, any terminal)
-RELAY_DAEMON_KEY=<random-a> RELAY_DEV_TOKEN=<random-b> npm start -w @spawn/relay
+RELAY_DAEMON_KEY=<random-a> RELAY_DEV_TOKEN=<random-b> npm start -w @agentdeck/relay
 # 2. daemon with relay dial-out (add to .env or env):
 SPAWN_RELAY_URL=ws://127.0.0.1:8820 SPAWN_RELAY_DAEMON_KEY=<random-a> node packages/core/src/daemon/server.js
 # 3. app (phone with Expo Go, same wifi)

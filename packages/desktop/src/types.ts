@@ -1,4 +1,4 @@
-// Mirrors @spawn/core daemon rows/events (the IPC payloads are the SQLite rows).
+// Mirrors @agentdeck/core daemon rows/events (the IPC payloads are the SQLite rows).
 
 export interface Project {
   id: number;
@@ -267,7 +267,7 @@ export interface UsageSummary {
   }[];
 }
 
-export type SpawnEvent =
+export type AgentDeckEvent =
   | { type: "thread:created"; payload: Thread }
   | { type: "thread:updated"; payload: Thread }
   | { type: "thread:deleted"; payload: { id: number } }
@@ -303,7 +303,7 @@ export type SpawnEvent =
 
 declare global {
   interface Window {
-    spawn: {
+    agentdeck: {
       listProjects(): Promise<Project[]>;
       listThreads(projectId: number): Promise<Thread[]>;
       listAllThreads(): Promise<ProjectThread[]>;
@@ -400,7 +400,7 @@ declare global {
       // preference and pushes it here; testNotification fires one immediately.
       setNotificationsEnabled(on: boolean): Promise<void>;
       testNotification(): Promise<void>;
-      onEvent(fn: (ev: SpawnEvent) => void): () => void;
+      onEvent(fn: (ev: AgentDeckEvent) => void): () => void;
       // Subscribe to OS-notification clicks so the UI can jump to what the
       // notification was about. Optional — absent in the browser mock.
       onNotificationClick?(fn: (c: NotifyClick) => void): () => void;

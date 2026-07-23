@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { ensureDaemon, rpc, subscribeEvents } from "./daemon-client.js";
 
-// Spawn desktop — a client of the Spawn daemon (its own background process,
-// see @spawn/core daemon/server.js). This process holds NO sessions and no
+// AgentDeck desktop — a client of the AgentDeck daemon (its own background process,
+// see @agentdeck/core daemon/server.js). This process holds NO sessions and no
 // database; it renders state and relays daemon events to the window. The
 // renderer talks through the preload IPC surface, which mirrors the daemon
 // API 1:1.
@@ -13,8 +13,8 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // The OS notification header/app label (macOS uses the app name; Windows needs
 // an explicit AppUserModelID) — otherwise dev builds surface as "Electron".
-app.setName("Spawn");
-if (process.platform === "win32") app.setAppUserModelId("com.spawn.desktop");
+app.setName("AgentDeck");
+if (process.platform === "win32") app.setAppUserModelId("com.agentdeck.desktop");
 
 let win = null;
 
@@ -41,7 +41,7 @@ const focusTo = (payload) => {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-  win.webContents.send("spawn:notify-click", payload);
+  win.webContents.send("agentdeck:notify-click", payload);
 };
 
 const showNotification = ({ title, subtitle, body, onClick }) => {
@@ -86,7 +86,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 840,
-    title: "Spawn",
+    title: "AgentDeck",
     // Nocturne ground (--color-bg) — also paints the pre-load flash.
     backgroundColor: "#161826",
     // No native (white) title bar: traffic lights float over the app's own
@@ -115,70 +115,70 @@ function createWindow() {
 }
 
 // IPC surface = daemon RPC, JSON in/out only.
-ipcMain.handle("spawn:listProjects", () => rpc("listProjects"));
-ipcMain.handle("spawn:listThreads", (_e, projectId) => rpc("listThreads", projectId));
-ipcMain.handle("spawn:listAllThreads", () => rpc("listAllThreads"));
-ipcMain.handle("spawn:createThread", (_e, args) => rpc("createThread", args));
-ipcMain.handle("spawn:renameThread", (_e, threadId, title) => rpc("renameThread", threadId, title));
-ipcMain.handle("spawn:setThreadStatus", (_e, threadId, status) => rpc("setThreadStatus", threadId, status));
-ipcMain.handle("spawn:deleteThread", (_e, threadId) => rpc("deleteThread", threadId));
-ipcMain.handle("spawn:listMessages", (_e, threadId, opts) => rpc("listMessages", threadId, opts));
-ipcMain.handle("spawn:sendMessage", (_e, threadId, text) => rpc("sendMessage", threadId, text));
-ipcMain.handle("spawn:cancelTurn", (_e, threadId) => rpc("cancelTurn", threadId));
-ipcMain.handle("spawn:resolveApproval", (_e, id, allow, updatedInput) =>
+ipcMain.handle("agentdeck:listProjects", () => rpc("listProjects"));
+ipcMain.handle("agentdeck:listThreads", (_e, projectId) => rpc("listThreads", projectId));
+ipcMain.handle("agentdeck:listAllThreads", () => rpc("listAllThreads"));
+ipcMain.handle("agentdeck:createThread", (_e, args) => rpc("createThread", args));
+ipcMain.handle("agentdeck:renameThread", (_e, threadId, title) => rpc("renameThread", threadId, title));
+ipcMain.handle("agentdeck:setThreadStatus", (_e, threadId, status) => rpc("setThreadStatus", threadId, status));
+ipcMain.handle("agentdeck:deleteThread", (_e, threadId) => rpc("deleteThread", threadId));
+ipcMain.handle("agentdeck:listMessages", (_e, threadId, opts) => rpc("listMessages", threadId, opts));
+ipcMain.handle("agentdeck:sendMessage", (_e, threadId, text) => rpc("sendMessage", threadId, text));
+ipcMain.handle("agentdeck:cancelTurn", (_e, threadId) => rpc("cancelTurn", threadId));
+ipcMain.handle("agentdeck:resolveApproval", (_e, id, allow, updatedInput) =>
   rpc("resolveApproval", id, allow, updatedInput)
 );
-ipcMain.handle("spawn:getProjectSettings", (_e, projectId) => rpc("getProjectSettings", projectId));
-ipcMain.handle("spawn:updateProjectSettings", (_e, projectId, patch) =>
+ipcMain.handle("agentdeck:getProjectSettings", (_e, projectId) => rpc("getProjectSettings", projectId));
+ipcMain.handle("agentdeck:updateProjectSettings", (_e, projectId, patch) =>
   rpc("updateProjectSettings", projectId, patch)
 );
-ipcMain.handle("spawn:setProjectMcpSecret", (_e, projectId, serverName, envKey, value) =>
+ipcMain.handle("agentdeck:setProjectMcpSecret", (_e, projectId, serverName, envKey, value) =>
   rpc("setProjectMcpSecret", projectId, serverName, envKey, value)
 );
-ipcMain.handle("spawn:clearProjectMcpSecret", (_e, projectId, serverName, envKey) =>
+ipcMain.handle("agentdeck:clearProjectMcpSecret", (_e, projectId, serverName, envKey) =>
   rpc("clearProjectMcpSecret", projectId, serverName, envKey)
 );
-ipcMain.handle("spawn:listTickets", () => rpc("listTickets"));
-ipcMain.handle("spawn:createTicket", (_e, args) => rpc("createTicket", args));
-ipcMain.handle("spawn:updateTicket", (_e, ticketId, patch) => rpc("updateTicket", ticketId, patch));
-ipcMain.handle("spawn:deleteTicket", (_e, ticketId) => rpc("deleteTicket", ticketId));
-ipcMain.handle("spawn:delegateTicket", (_e, ticketId, opts) => rpc("delegateTicket", ticketId, opts));
-ipcMain.handle("spawn:getTicket", (_e, ticketId) => rpc("getTicket", ticketId));
-ipcMain.handle("spawn:listTicketComments", (_e, ticketId) => rpc("listTicketComments", ticketId));
+ipcMain.handle("agentdeck:listTickets", () => rpc("listTickets"));
+ipcMain.handle("agentdeck:createTicket", (_e, args) => rpc("createTicket", args));
+ipcMain.handle("agentdeck:updateTicket", (_e, ticketId, patch) => rpc("updateTicket", ticketId, patch));
+ipcMain.handle("agentdeck:deleteTicket", (_e, ticketId) => rpc("deleteTicket", ticketId));
+ipcMain.handle("agentdeck:delegateTicket", (_e, ticketId, opts) => rpc("delegateTicket", ticketId, opts));
+ipcMain.handle("agentdeck:getTicket", (_e, ticketId) => rpc("getTicket", ticketId));
+ipcMain.handle("agentdeck:listTicketComments", (_e, ticketId) => rpc("listTicketComments", ticketId));
 // Desktop comments are always authored by the human (server-enforced kind).
-ipcMain.handle("spawn:addTicketComment", (_e, ticketId, body) =>
+ipcMain.handle("agentdeck:addTicketComment", (_e, ticketId, body) =>
   rpc("addTicketComment", ticketId, { authorKind: "human", authorName: "you", body })
 );
-ipcMain.handle("spawn:listTicketAttachments", (_e, ticketId) => rpc("listTicketAttachments", ticketId));
-ipcMain.handle("spawn:addTicketAttachment", (_e, ticketId, sourcePath) =>
+ipcMain.handle("agentdeck:listTicketAttachments", (_e, ticketId) => rpc("listTicketAttachments", ticketId));
+ipcMain.handle("agentdeck:addTicketAttachment", (_e, ticketId, sourcePath) =>
   rpc("addTicketAttachment", ticketId, sourcePath, "you")
 );
-ipcMain.handle("spawn:getTeamLeadProject", () => rpc("getTeamLeadProject"));
-ipcMain.handle("spawn:delegateTask", (_e, args) => rpc("delegateTask", args));
-ipcMain.handle("spawn:listActiveThreads", () => rpc("listActiveThreads"));
-ipcMain.handle("spawn:getThreadContext", (_e, threadId) => rpc("getThreadContext", threadId));
-ipcMain.handle("spawn:cleanupThread", (_e, threadId, force) => rpc("cleanupThread", threadId, force));
-ipcMain.handle("spawn:getMap", () => rpc("getMap"));
-ipcMain.handle("spawn:listApprovals", () => rpc("listApprovals"));
-ipcMain.handle("spawn:listDecisions", () => rpc("listDecisions"));
-ipcMain.handle("spawn:getUsage", (_e, days) => rpc("getUsage", days));
-ipcMain.handle("spawn:resetThreadSession", (_e, threadId) => rpc("resetThreadSession", threadId));
-ipcMain.handle("spawn:listSkills", (_e, projectId) => rpc("listSkills", projectId));
-ipcMain.handle("spawn:listDeliverables", (_e, threadId) => rpc("listDeliverables", threadId));
+ipcMain.handle("agentdeck:getTeamLeadProject", () => rpc("getTeamLeadProject"));
+ipcMain.handle("agentdeck:delegateTask", (_e, args) => rpc("delegateTask", args));
+ipcMain.handle("agentdeck:listActiveThreads", () => rpc("listActiveThreads"));
+ipcMain.handle("agentdeck:getThreadContext", (_e, threadId) => rpc("getThreadContext", threadId));
+ipcMain.handle("agentdeck:cleanupThread", (_e, threadId, force) => rpc("cleanupThread", threadId, force));
+ipcMain.handle("agentdeck:getMap", () => rpc("getMap"));
+ipcMain.handle("agentdeck:listApprovals", () => rpc("listApprovals"));
+ipcMain.handle("agentdeck:listDecisions", () => rpc("listDecisions"));
+ipcMain.handle("agentdeck:getUsage", (_e, days) => rpc("getUsage", days));
+ipcMain.handle("agentdeck:resetThreadSession", (_e, threadId) => rpc("resetThreadSession", threadId));
+ipcMain.handle("agentdeck:listSkills", (_e, projectId) => rpc("listSkills", projectId));
+ipcMain.handle("agentdeck:listDeliverables", (_e, threadId) => rpc("listDeliverables", threadId));
 // Finder integration — local shell, not daemon RPC.
-ipcMain.handle("spawn:openDir", (_e, dir) => shell.openPath(dir));
-ipcMain.handle("spawn:revealFile", (_e, p) => shell.showItemInFolder(p));
+ipcMain.handle("agentdeck:openDir", (_e, dir) => shell.openPath(dir));
+ipcMain.handle("agentdeck:revealFile", (_e, p) => shell.showItemInFolder(p));
 
 // Native notifications — a host capability, not daemon RPC. The renderer owns
 // the on/off preference (localStorage) and pushes it here; the test button
 // fires one immediately, bypassing the focus gate so it works with the app in
 // the foreground (also nudges macOS to ask for notification permission).
-ipcMain.handle("spawn:setNotificationsEnabled", (_e, on) => {
+ipcMain.handle("agentdeck:setNotificationsEnabled", (_e, on) => {
   notificationsEnabled = !!on;
 });
-ipcMain.handle("spawn:testNotification", () => {
+ipcMain.handle("agentdeck:testNotification", () => {
   showNotification({
-    title: "Spawn notifications are on",
+    title: "AgentDeck notifications are on",
     body: "You'll be pinged here when a comment lands on a ticket.",
     onClick: () => focusTo({ kind: "test" }),
   });
@@ -186,11 +186,11 @@ ipcMain.handle("spawn:testNotification", () => {
 
 // Provider connect — local host capabilities (browser, clipboard, file picker).
 // Not daemon RPC: they touch the machine the user is sitting at.
-ipcMain.handle("spawn:openExternal", (_e, url) =>
+ipcMain.handle("agentdeck:openExternal", (_e, url) =>
   /^https?:/i.test(url) ? shell.openExternal(url) : Promise.resolve()
 );
-ipcMain.handle("spawn:readClipboard", () => clipboard.readText());
-ipcMain.handle("spawn:pickFile", async (_e, opts) => {
+ipcMain.handle("agentdeck:readClipboard", () => clipboard.readText());
+ipcMain.handle("agentdeck:pickFile", async (_e, opts) => {
   const res = await dialog.showOpenDialog(win, {
     properties: ["openFile"],
     filters: opts?.filters ?? [],
@@ -198,13 +198,13 @@ ipcMain.handle("spawn:pickFile", async (_e, opts) => {
   return res.canceled ? null : res.filePaths[0] ?? null;
 });
 // Connect flows that need the daemon (cred isolation, gcloud login) — rpc.
-ipcMain.handle("spawn:connectGcloud", (_e, projectId, serverName) =>
+ipcMain.handle("agentdeck:connectGcloud", (_e, projectId, serverName) =>
   rpc("connectGcloud", projectId, serverName)
 );
-ipcMain.handle("spawn:importAppleKey", (_e, projectId, serverName, sourcePath) =>
+ipcMain.handle("agentdeck:importAppleKey", (_e, projectId, serverName, sourcePath) =>
   rpc("importAppleKey", projectId, serverName, sourcePath)
 );
-ipcMain.handle("spawn:disconnectProvider", (_e, projectId, serverName) =>
+ipcMain.handle("agentdeck:disconnectProvider", (_e, projectId, serverName) =>
   rpc("disconnectProvider", projectId, serverName)
 );
 
@@ -227,7 +227,7 @@ app.whenReady().then(async () => {
 
   await ensureDaemon();
   subscribeEvents((ev) => {
-    win?.webContents.send("spawn:event", ev);
+    win?.webContents.send("agentdeck:event", ev);
     maybeNotify(ev);
   });
   createWindow();

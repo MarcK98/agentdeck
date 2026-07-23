@@ -1,4 +1,4 @@
-# Spawn — Nocturne redesign report (checkpoint for Marc)
+# AgentDeck — Nocturne redesign report (checkpoint for Marc)
 
 Your proposed UI (the Nocturne design pack) is implemented on branch
 `redesign-nocturne` (built on `phase-4-live-map`, commit `dfe955e`). I read the
@@ -16,7 +16,7 @@ projects list with live running dots. Nocturne throughout: vendored tokens
 fading rules, outlined buttons, the blurple accent.
 
 **Orchestrate** — the board cockpit. Trello columns (read-only while the bridge
-owns sync) or TASKS.md; Spawn's own live ticket threads render as live cards
+owns sync) or TASKS.md; AgentDeck's own live ticket threads render as live cards
 pinned at the top of "in progress" with pulse dots; "New ticket" ghost card and
 ⌘N open the delegate sheet (design 3a: task, project, model/effort tag pickers,
 isolation preview with the branch slug). Right dock: quick delegate box,
@@ -56,7 +56,7 @@ ground); same data and click-to-jump behavior as Phase 4.
 - Project settings: `defaultEffort`, `isolation`; `resetThreadSession` exposed
   to the app.
 - **Your running daemon was restarted onto this code** (new pid in
-  `spawn-daemon.pid`) so the app works immediately.
+  `agentdeck-daemon.pid`) so the app works immediately.
 
 ## Verified
 - `tsc --noEmit` clean; `vite build` clean.
@@ -82,7 +82,7 @@ ground); same data and click-to-jump behavior as Phase 4.
   later.
 - **First-run / auth screen (3e)** — skipped: your CLI is already signed in and
   the app auto-starts/pairs with the daemon.
-- **Board title-match** — Trello cards and Spawn ticket threads are separate
+- **Board title-match** — Trello cards and AgentDeck ticket threads are separate
   sources (no shared key while the bridge owns Trello writes), so a live ticket
   and its Trello card can both appear in "in progress". Unifies at the
   Discord hard-cut.

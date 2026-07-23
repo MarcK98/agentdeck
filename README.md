@@ -1,17 +1,17 @@
-# Spawn (claude-spawn monorepo)
+# AgentDeck (claude-spawn monorepo)
 
 A **mastermind for Claude** — local orchestration interface to Claude Code
-team-lead/agents, working toward **spawnmy.ai**. Claude-specific by design:
+team-lead/agents, working toward **agentdeck.ai**. Claude-specific by design:
 no multi-provider abstraction.
 
 Daemon: `npm run daemon` (auto-started by the desktop app if not running).
 
 ```
-packages/core     @spawn/core — the Spawn daemon (a separate background
+packages/core     @agentdeck/core — the AgentDeck daemon (a separate background
                   process owning Claude sessions, threads, SQLite store) plus
                   orchestration: projects, team lead, approvals, usage.
                   Also still hosts the legacy Discord bridge (src/index.js).
-packages/desktop  @spawn/desktop — Electron + React client of the daemon.
+packages/desktop  @agentdeck/desktop — Electron + React client of the daemon.
 src/              compatibility shims only (keep `node src/index.js` working
                   for the running bridge until the Discord hard-cut).
 ```

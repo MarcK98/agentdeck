@@ -1,7 +1,7 @@
 {
-  "name": "@spawn/relay",
+  "name": "@agentdeck/relay",
   "version": "0.1.0",
-  "description": "Spawn relay — bridges phones to the local Spawn daemon. The daemon dials OUT to this hub; mobile clients authenticate in. Runs locally in dev, deploys to any Node host (Fly/Railway) unchanged.",
+  "description": "AgentDeck relay — bridges phones to the local AgentDeck daemon. The daemon dials OUT to this hub; mobile clients authenticate in. Runs locally in dev, deploys to any Node host (Fly/Railway) unchanged.",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

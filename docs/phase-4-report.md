@@ -1,4 +1,4 @@
-# Spawn — Phase 4 report (checkpoint for Marc)
+# AgentDeck — Phase 4 report (checkpoint for Marc)
 
 Phase 4 (Live map) of `docs/desktop-app-plan.md` §8 is done, on branch
 `phase-4-live-map` (built on `phase-3-ticket-isolation`, commit `ac3b85a`).
@@ -64,7 +64,7 @@ Built and committed with **fable**.
   if you want it, it's a ~50-line serializer over the same `getMap` data.
 
 ## Gate (awaiting your direction)
-Plan §8 says Phase 5 = pluggable providers (**cancelled by you** — Spawn is
+Plan §8 says Phase 5 = pluggable providers (**cancelled by you** — AgentDeck is
 Claude-only by design) and Phase 6 = mobile companion (needs Supabase Auth in
 front of the daemon, i.e. the hosted-infra step you said you'd provision).
 Nothing left in the plan is purely local. Options: Discord hard-cut prep,

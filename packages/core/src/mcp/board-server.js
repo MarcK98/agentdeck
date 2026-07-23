@@ -6,7 +6,7 @@
 //  - a working agent the ability to comment progress on / attach files to its
 //    own ticket (id defaults to SPAWN_BOARD_TICKET_ID).
 //
-// Talks to the local Spawn daemon's /rpc using the per-start token file
+// Talks to the local AgentDeck daemon's /rpc using the per-start token file
 // (same-user read), so there is exactly one reader of the SQLite store.
 import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -20,7 +20,7 @@ const DEFAULT_TICKET = Number(process.env.SPAWN_BOARD_TICKET_ID) || null;
 const AUTHOR_NAME = ROLE === "lead" ? "team lead" : "agent";
 
 const rpc = async (method, ...args) => {
-  const token = readFileSync(dataPath("spawn-daemon.token"), "utf8").trim();
+  const token = readFileSync(dataPath("agentdeck-daemon.token"), "utf8").trim();
   const res = await fetch(`http://127.0.0.1:${PORT}/rpc`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-spawn-token": token },
@@ -59,7 +59,7 @@ const guard = async (fn) => {
 
 server.tool(
   "search_tickets",
-  "Search the Spawn board — ALL tickets, including the Done archive (which is omitted from your standing context). Use when asked about past/finished work. `query` matches title and body; optional `status` (todo|in-progress|blocked|in-review|done) and `project` (project name) filters; `limit` default 20.",
+  "Search the AgentDeck board — ALL tickets, including the Done archive (which is omitted from your standing context). Use when asked about past/finished work. `query` matches title and body; optional `status` (todo|in-progress|blocked|in-review|done) and `project` (project name) filters; `limit` default 20.",
   {
     query: z.string().optional(),
     status: z.enum(["todo", "in-progress", "blocked", "in-review", "done"]).optional(),
@@ -75,7 +75,7 @@ server.tool(
 
 server.tool(
   "get_ticket",
-  "Fetch one Spawn ticket by its number (the N in SPWN-N): full body, its comment thread, attachments, and the closing messages of its run. Works for archived (done) tickets.",
+  "Fetch one AgentDeck ticket by its number (the N in SPWN-N): full body, its comment thread, attachments, and the closing messages of its run. Works for archived (done) tickets.",
   { id: z.number().optional() },
   ({ id }) =>
     guard(async () => {
@@ -98,7 +98,7 @@ server.tool(
 
 server.tool(
   "comment_on_ticket",
-  "Post a comment on a Spawn ticket — this is how you reply to Marc (the human) or leave progress notes. `id` defaults to the ticket this run is working on. Keep it short.",
+  "Post a comment on a AgentDeck ticket — this is how you reply to Marc (the human) or leave progress notes. `id` defaults to the ticket this run is working on. Keep it short.",
   { id: z.number().optional(), comment: z.string() },
   ({ id, comment }) =>
     guard(async () => {
@@ -110,7 +110,7 @@ server.tool(
 
 server.tool(
   "list_ticket_comments",
-  "List the comment thread of a Spawn ticket (human + lead + agent). `id` defaults to this run's ticket.",
+  "List the comment thread of a AgentDeck ticket (human + lead + agent). `id` defaults to this run's ticket.",
   { id: z.number().optional() },
   ({ id }) =>
     guard(async () => {
@@ -121,7 +121,7 @@ server.tool(
 
 server.tool(
   "upload_ticket_attachment",
-  "Attach a file (report, screenshot, export, log) to a Spawn ticket so Marc sees it. `path` is an absolute path to a file on this machine; it is copied into the ticket. `id` defaults to this run's ticket.",
+  "Attach a file (report, screenshot, export, log) to a AgentDeck ticket so Marc sees it. `path` is an absolute path to a file on this machine; it is copied into the ticket. `id` defaults to this run's ticket.",
   { id: z.number().optional(), path: z.string() },
   ({ id, path }) =>
     guard(async () => {
@@ -133,7 +133,7 @@ server.tool(
 
 server.tool(
   "list_ticket_attachments",
-  "List files attached to a Spawn ticket. `id` defaults to this run's ticket.",
+  "List files attached to a AgentDeck ticket. `id` defaults to this run's ticket.",
   { id: z.number().optional() },
   ({ id }) =>
     guard(async () => {

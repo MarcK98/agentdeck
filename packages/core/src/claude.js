@@ -5,7 +5,7 @@ import { config, dataPath } from "./config.js";
 import { log } from "./logger.js";
 import { recordUsage } from "./usage-log.js";
 
-// Which sessions file this process owns. The bridge and the Spawn daemon are
+// Which sessions file this process owns. The bridge and the AgentDeck daemon are
 // SEPARATE processes sharing dataDir; whole-file writes would clobber each
 // other, so each process gets its own file (daemon sets SPAWN_SESSIONS_FILE).
 const SESSIONS_FILE = dataPath(process.env.SPAWN_SESSIONS_FILE || "sessions.json");
@@ -34,7 +34,7 @@ const queues = new Map();
 // while a permission prompt is waiting on a human.
 const activeRuns = new Map(); // sessionKey -> { pause, resume, cancel, pid, startedAt, model }
 
-// Live process info for a session's in-flight run (the Spawn per-thread
+// Live process info for a session's in-flight run (the AgentDeck per-thread
 // process view). Null when nothing is running.
 export const getActiveRun = (sessionKey) => {
   const run = activeRuns.get(sessionKey);
@@ -126,7 +126,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
   const model = opts.model || modelOverrides.get(sessionKey) || config.claude.model;
   const effort = opts.effort || config.claude.effort;
   const cwd = cwdOverride || config.claude.cwd;
-  // Approval routing overrides (the Spawn daemon points prompts at its own
+  // Approval routing overrides (the AgentDeck daemon points prompts at its own
   // hub; the bridge passes none of these, so its behavior is unchanged).
   const approvals = opts.approvals ?? config.approvals.enabled;
   const permissionMode = opts.permissionMode ?? config.claude.permissionMode;
@@ -175,7 +175,7 @@ function run(sessionKey, prompt, cwdOverride, onText, opts = {}) {
       args: browserMcpArgs(),
     };
   }
-  // Per-run extra servers (the Spawn daemon's per-project MCP settings).
+  // Per-run extra servers (the AgentDeck daemon's per-project MCP settings).
   // Merged last but never over the built-ins above.
   for (const [name, def] of Object.entries(opts.mcpServers ?? {})) {
     if (!(name in mcpServers)) mcpServers[name] = def;

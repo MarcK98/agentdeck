@@ -1,4 +1,4 @@
-# Spawn — Phase 0 report (checkpoint for Marc)
+# AgentDeck — Phase 0 report (checkpoint for Marc)
 
 Phase 0 of `docs/desktop-app-plan.md` is done, on branch `phase-0-scaffold`.
 Per your instruction this is a hard stop — no Phase 1 work starts until you say go.
@@ -6,12 +6,12 @@ Per your instruction this is a hard stop — no Phase 1 work starts until you sa
 ## Delivered
 
 **Monorepo restructure (decision #3)**
-- `src/` → `packages/core` (`@spawn/core`), `public/` and `scripts/` moved with it.
+- `src/` → `packages/core` (`@agentdeck/core`), `public/` and `scripts/` moved with it.
 - Root `src/` now holds two compatibility shims (`index.js`, `mcp/approval-server.js`)
   so the RUNNING bridge and the muscle-memory `node src/index.js` restart keep working
   untouched until the Discord hard-cut. Verified: shim MCP handshake works under the
   bridge's actual runtime (asdf node v20.9.0).
-- Runtime state (sessions.json, usage.jsonl, projects.json, .trello-state.json, spawn.db)
+- Runtime state (sessions.json, usage.jsonl, projects.json, .trello-state.json, agentdeck.db)
   now resolves through one `dataDir` (default repo root, override `SPAWN_DATA_DIR`).
 
 **SQLite store (decision #4)**
@@ -23,7 +23,7 @@ Per your instruction this is a hard stop — no Phase 1 work starts until you sa
   Electron-vs-node ABI collision at all, and no electron-rebuild step.
 
 **Direct Claude wiring (decision update: NO provider abstraction)**
-- Per Marc: Spawn is **a mastermind for Claude**, not a multi-provider platform.
+- Per Marc: AgentDeck is **a mastermind for Claude**, not a multi-provider platform.
   The earlier AgentProvider seam was built, then deleted on his update — the daemon
   now calls the existing `askClaude` pipeline (queueing, --resume, stream parsing,
   timeouts, cancel, usage recording) directly. Zero abstraction layers.
@@ -33,7 +33,7 @@ Per your instruction this is a hard stop — no Phase 1 work starts until you sa
   session ledgers.
 
 **Real daemon process (decision update: separate process, not in-process)**
-- `packages/core/src/daemon/server.js` — the Spawn daemon runs as its OWN
+- `packages/core/src/daemon/server.js` — the AgentDeck daemon runs as its OWN
   background process and owns Claude sessions, threads, and the SQLite store.
   Localhost-only API: `GET /health`, `POST /rpc` (method allow-list), `WS /events`.
   Remote/mobile later = an authenticated layer (Supabase Auth) in front of this
@@ -47,7 +47,7 @@ Per your instruction this is a hard stop — no Phase 1 work starts until you sa
 - Run it: `npm run daemon` — or don't: the desktop app auto-starts it (detached,
   survives the app closing).
 
-**Desktop client (Spawn branding, decision #10)**
+**Desktop client (AgentDeck branding, decision #10)**
 - `packages/desktop` — Electron is a pure CLIENT of the daemon
   (`electron/daemon-client.js`: health-check → auto-spawn → HTTP RPC + WS events).
   Renderer is React+TS+Vite, Discord-shaped three panes: projects rail / threads /

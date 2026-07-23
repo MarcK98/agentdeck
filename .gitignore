@@ -9,18 +9,25 @@ projects.json
 # Trello sync poll cursor (runtime state)
 .trello-state.json
 
-# Spawn desktop / monorepo
-spawn.db
-spawn.db-*
+# AgentDeck desktop / monorepo
+agentdeck.db
+agentdeck.db-*
 packages/desktop/dist/
-spawn-daemon.token
-spawn-daemon-sessions.json
+agentdeck-daemon.token
+agentdeck-daemon-sessions.json
 # AES key for encrypted MCP secrets — NEVER commit (loses/leaks all stored tokens)
-spawn-secret.key
+agentdeck-secret.key
 # Per-ticket attachment files live under the data dir
 ticket-files/
 # Per-ticket git worktrees (default SPAWN_WORKTREES_DIR under the data dir)
 worktrees/
+agentdeck-daemon.pid
+# Legacy pre-rebrand runtime files (kept ignored during migration)
+spawn.db
+spawn.db-*
+spawn-daemon.token
+spawn-daemon-sessions.json
+spawn-secret.key
 spawn-daemon.pid
 # Expo/mobile artifacts
 .expo/

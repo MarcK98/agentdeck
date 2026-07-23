@@ -21,13 +21,13 @@ export default function ApprovalsView({
   const [decisions, setDecisions] = useState<ApprovalDecision[]>([]);
 
   const refresh = useCallback(() => {
-    window.spawn.listApprovals().then(setPending).catch(() => {});
-    window.spawn.listDecisions().then(setDecisions).catch(() => {});
+    window.agentdeck.listApprovals().then(setPending).catch(() => {});
+    window.agentdeck.listDecisions().then(setDecisions).catch(() => {});
   }, []);
 
   useEffect(refresh, [refresh]);
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (ev.type === "approval:request" || ev.type === "approval:resolved") refresh();
     });
   }, [refresh]);
@@ -39,7 +39,7 @@ export default function ApprovalsView({
     if (resolving != null) return;
     setResolving(id);
     try {
-      await window.spawn.resolveApproval(id, allow);
+      await window.agentdeck.resolveApproval(id, allow);
     } finally {
       setResolving(null);
       refresh();

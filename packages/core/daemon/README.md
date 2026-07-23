@@ -1,12 +1,12 @@
-# Spawn daemon under launchd (optional, manual)
+# AgentDeck daemon under launchd (optional, manual)
 
 Phase 1 does **not** auto-install this. The desktop app already spawns the
-daemon on demand (detached, logs to `spawn-daemon.log`); use launchd only if
+daemon on demand (detached, logs to `agentdeck-daemon.log`); use launchd only if
 you want the daemon up at login regardless of the app.
 
 ## Install
 
-1. Copy `com.spawn.daemon.plist` to `~/Library/LaunchAgents/` and replace the
+1. Copy `com.agentdeck.daemon.plist` to `~/Library/LaunchAgents/` and replace the
    placeholders:
    - `__NODE_BIN__` — absolute path to plain Node >= 20 (e.g. `/opt/homebrew/bin/node`)
    - `__SERVER_JS__` — absolute path to `packages/core/src/daemon/server.js`
@@ -15,7 +15,7 @@ you want the daemon up at login regardless of the app.
 2. Load it:
 
    ```sh
-   launchctl load -w ~/Library/LaunchAgents/com.spawn.daemon.plist
+   launchctl load -w ~/Library/LaunchAgents/com.agentdeck.daemon.plist
    ```
 
 The daemon single-instances itself via the port bind (a second start exits 0),
@@ -24,6 +24,6 @@ so launchd and an app-spawned daemon can coexist — whoever binds first wins.
 ## Uninstall
 
 ```sh
-launchctl unload -w ~/Library/LaunchAgents/com.spawn.daemon.plist
-rm ~/Library/LaunchAgents/com.spawn.daemon.plist
+launchctl unload -w ~/Library/LaunchAgents/com.agentdeck.daemon.plist
+rm ~/Library/LaunchAgents/com.agentdeck.daemon.plist
 ```

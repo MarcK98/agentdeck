@@ -18,11 +18,11 @@ export default function ContextRail({ threadId }: { threadId: number }) {
   const [live, setLive] = useState<number | null>(null);
 
   const refresh = useCallback(() => {
-    window.spawn
+    window.agentdeck
       .getThreadContext(threadId)
       .then(setCtx)
       .catch(() => setCtx(null));
-    window.spawn
+    window.agentdeck
       .listDeliverables(threadId)
       .then(setOutputs)
       .catch(() => setOutputs({ dir: null, files: [] }));
@@ -35,7 +35,7 @@ export default function ContextRail({ threadId }: { threadId: number }) {
   }, [refresh]);
 
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (ev.type === "turn:usage" && ev.payload.threadId === threadId) {
         setLive(ev.payload.liveTokens);
         return;
@@ -50,7 +50,7 @@ export default function ContextRail({ threadId }: { threadId: number }) {
   }, [threadId, refresh]);
 
   const cleanup = async (force: boolean) => {
-    const r = await window.spawn.cleanupThread(threadId, force);
+    const r = await window.agentdeck.cleanupThread(threadId, force);
     if (!r.ok && r.reason === "dirty") {
       setDirtyCount(r.dirty ?? 0);
       return;
@@ -104,14 +104,14 @@ export default function ContextRail({ threadId }: { threadId: number }) {
         </span>
         <span className="btns">
           {ctx.process.running && (
-            <button className="btn btn-ghost small-btn" onClick={() => window.spawn.cancelTurn(threadId)}>
+            <button className="btn btn-ghost small-btn" onClick={() => window.agentdeck.cancelTurn(threadId)}>
               Stop
             </button>
           )}
           <button
             className="btn btn-ghost small-btn"
             title="Forget this thread's session — next message starts fresh"
-            onClick={() => window.spawn.resetThreadSession(threadId)}
+            onClick={() => window.agentdeck.resetThreadSession(threadId)}
           >
             <i className="ph ph-arrow-counter-clockwise" /> Reset session
           </button>
@@ -186,7 +186,7 @@ export default function ContextRail({ threadId }: { threadId: number }) {
               key={f.path}
               className="row out-file"
               title={`${f.name} · ${fmtSize(f.size)} — reveal in Finder`}
-              onClick={() => window.spawn.revealFile(f.path)}
+              onClick={() => window.agentdeck.revealFile(f.path)}
             >
               <i className="ph ph-file-arrow-down" />
               <span className="ell">{f.name}</span>
@@ -197,7 +197,7 @@ export default function ContextRail({ threadId }: { threadId: number }) {
           ))}
           {outputs.dir && (
             <span className="btns">
-              <button className="btn btn-ghost small-btn" onClick={() => window.spawn.openDir(outputs.dir!)}>
+              <button className="btn btn-ghost small-btn" onClick={() => window.agentdeck.openDir(outputs.dir!)}>
                 <i className="ph ph-folder-open" /> Open folder
               </button>
             </span>

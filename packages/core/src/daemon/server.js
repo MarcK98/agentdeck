@@ -1,4 +1,4 @@
-// Spawn daemon — standalone background process (a mastermind for Claude).
+// AgentDeck daemon — standalone background process (a mastermind for Claude).
 // Owns Claude sessions, threads, and the SQLite store; clients (the desktop
 // app today, mobile later) connect over localhost:
 //
@@ -12,7 +12,7 @@
 //   - Host-header allowlist on every request AND the WS upgrade — defeats DNS
 //     rebinding (a rebound page arrives with the attacker's Host).
 //   - Per-start shared secret: random token written 0600 into SPAWN_DATA_DIR
-//     (spawn-daemon.token); /rpc and /events require it in x-spawn-token.
+//     (agentdeck-daemon.token); /rpc and /events require it in x-spawn-token.
 //     Browsers can't read local files, so a same-machine page can't obtain it
 //     — closes CSRF (including no-preflight text/plain POSTs).
 //   - /health stays tokenless by design: it only reveals liveness, and the
@@ -27,7 +27,7 @@
 // separate process) owns sessions.json; sharing one file would clobber each
 // other's writes. MUST be set before claude.js loads, hence the dynamic
 // imports below (static imports would hoist above this line).
-process.env.SPAWN_SESSIONS_FILE ??= "spawn-daemon-sessions.json";
+process.env.SPAWN_SESSIONS_FILE ??= "agentdeck-daemon-sessions.json";
 
 const { createServer } = await import("node:http");
 const { startRelayClient } = await import("./relay-client.js");
@@ -51,8 +51,8 @@ const BUILD = daemonBuildSig();
 // successful listen (see below) — a second daemon losing the port race must
 // never clobber the live daemon's token.
 const TOKEN = randomBytes(32).toString("hex");
-const TOKEN_FILE = dataPath("spawn-daemon.token");
-const PID_FILE = dataPath("spawn-daemon.pid");
+const TOKEN_FILE = dataPath("agentdeck-daemon.token");
+const PID_FILE = dataPath("agentdeck-daemon.pid");
 
 // Only ever reachable as localhost — any other Host means DNS rebinding or a
 // misrouted request. Applied to both HTTP requests and the WS upgrade.
@@ -67,7 +67,7 @@ const tokenOk = (req) => {
 
 const daemon = createDaemon();
 
-// Optional mobile path: dial out to a Spawn relay (packages/relay) so phones
+// Optional mobile path: dial out to a AgentDeck relay (packages/relay) so phones
 // can reach this daemon without opening any local port. No-op unless
 // SPAWN_RELAY_URL + SPAWN_RELAY_DAEMON_KEY are set.
 const relay = startRelayClient(daemon);
@@ -122,7 +122,7 @@ let bound = false;
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    log.info(`[spawn-daemon] port ${PORT} busy — another daemon already running; exiting`);
+    log.info(`[agentdeck-daemon] port ${PORT} busy — another daemon already running; exiting`);
     process.exit(0);
   }
   throw err;
@@ -144,11 +144,11 @@ server.listen(PORT, "127.0.0.1", () => {
   bound = true;
   writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
   writeFileSync(PID_FILE, String(process.pid), { mode: 0o644 });
-  log.info(`[spawn-daemon] listening on 127.0.0.1:${PORT} (pid ${process.pid})`);
+  log.info(`[agentdeck-daemon] listening on 127.0.0.1:${PORT} (pid ${process.pid})`);
 });
 
 const shutdown = () => {
-  log.info("[spawn-daemon] shutting down");
+  log.info("[agentdeck-daemon] shutting down");
   if (bound) {
     try {
       unlinkSync(TOKEN_FILE);

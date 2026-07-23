@@ -9,7 +9,7 @@ import SettingsView from "./SettingsView";
 import Palette from "./Palette";
 import TicketSheet from "./TicketSheet";
 
-// Spawn — Mission Control shell (design 1a): top bar (⌘K, today's tokens,
+// AgentDeck — Mission Control shell (design 1a): top bar (⌘K, today's tokens,
 // approvals bell), left nav (Orchestrate / Threads / Live map / Approvals /
 // Usage / Settings + projects), views right. Approvals surface as a
 // non-blocking toast + inbox, never a blocking modal.
@@ -139,7 +139,7 @@ export default function App() {
   }, []);
 
   const refreshShared = useCallback(() => {
-    window.spawn
+    window.agentdeck
       .listActiveThreads()
       .then((a) => {
         setActive(a);
@@ -152,8 +152,8 @@ export default function App() {
         });
       })
       .catch(() => {});
-    window.spawn.listApprovals().then(setPendingApprovals).catch(() => {});
-    window.spawn.getUsage(1).then(setUsageToday).catch(() => {});
+    window.agentdeck.listApprovals().then(setPendingApprovals).catch(() => {});
+    window.agentdeck.getUsage(1).then(setUsageToday).catch(() => {});
   }, []);
 
   // Persist where we are (view/project/thread) for relaunch restore.
@@ -166,8 +166,8 @@ export default function App() {
   }, [view, projectId, threadId]);
 
   useEffect(() => {
-    window.spawn.listProjects().then(setProjects);
-    window.spawn
+    window.agentdeck.listProjects().then(setProjects);
+    window.agentdeck
       .getTeamLeadProject()
       .then((p) => setTeamLeadProjectId(p?.id ?? null))
       .catch(() => {});
@@ -182,7 +182,7 @@ export default function App() {
   threadRef.current = threadId;
 
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (
         ev.type === "thread:created" ||
         ev.type === "thread:updated" ||
@@ -246,8 +246,8 @@ export default function App() {
   // defaults on, but honor a prior "off"), and route notification clicks to
   // the thing they're about.
   useEffect(() => {
-    window.spawn.setNotificationsEnabled?.(loadNotifPref());
-    return window.spawn.onNotificationClick?.((c) => {
+    window.agentdeck.setNotificationsEnabled?.(loadNotifPref());
+    return window.agentdeck.onNotificationClick?.((c) => {
       if (c.kind === "ticket") {
         setView("orchestrate");
         setFocusTicketId(c.ticketId);
@@ -326,7 +326,7 @@ export default function App() {
   const answerToast = (allow: boolean) => {
     if (!toast || toastBusy.current) return;
     toastBusy.current = true;
-    window.spawn.resolveApproval(toast.id, allow).finally(() => {
+    window.agentdeck.resolveApproval(toast.id, allow).finally(() => {
       toastBusy.current = false;
     });
     setToast(null);
@@ -337,7 +337,7 @@ export default function App() {
       <header className="topbar fade-b">
         <div className="brand">
           <i className="ph-fill ph-broadcast" />
-          Spawn
+          AgentDeck
         </div>
         <div className="palette-trigger">
           <button onClick={() => setPaletteOpen(true)}>

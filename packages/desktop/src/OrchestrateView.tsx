@@ -98,7 +98,7 @@ export default function OrchestrateView({
   const [sending, setSending] = useState(false);
 
   const refresh = useCallback(() => {
-    window.spawn.listTickets().then(setTickets).catch(() => {});
+    window.agentdeck.listTickets().then(setTickets).catch(() => {});
   }, []);
   useEffect(refresh, [refresh]);
 
@@ -110,7 +110,7 @@ export default function OrchestrateView({
     onFocusHandled?.();
   }, [focusTicketId, onFocusHandled]);
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (
         ev.type === "ticket:created" ||
         ev.type === "ticket:updated" ||
@@ -133,7 +133,7 @@ export default function OrchestrateView({
     const prevStatus = t.status;
     setTickets((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
     try {
-      await window.spawn.updateTicket(id, { status });
+      await window.agentdeck.updateTicket(id, { status });
     } catch {
       // Roll the optimistic move back — the card must not lie about where
       // the daemon thinks it is.
@@ -151,7 +151,7 @@ export default function OrchestrateView({
     if (!text || target === "" || sending) return;
     setSending(true);
     try {
-      const t = await window.spawn.delegateTask({
+      const t = await window.agentdeck.delegateTask({
         projectId: target,
         task: text,
         model: model || undefined,

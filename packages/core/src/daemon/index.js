@@ -46,11 +46,11 @@ import {
   importAppleKeyFile,
 } from "./provider-connect.js";
 
-// The Spawn daemon — a mastermind for Claude. This is the ONE API clients talk
+// The AgentDeck daemon — a mastermind for Claude. This is the ONE API clients talk
 // through; it runs as its OWN background process (server.js) and owns sessions,
 // threads, and the SQLite store. The desktop app is just a client.
 //
-// It is wired DIRECTLY to Claude Code (claude.js) — Spawn orchestrates Claude,
+// It is wired DIRECTLY to Claude Code (claude.js) — AgentDeck orchestrates Claude,
 // it is not a multi-provider platform, so there is deliberately no provider
 // abstraction between here and the spawn/stream pipeline.
 //
@@ -106,7 +106,7 @@ export function createDaemon() {
           }
         }
       } catch (err) {
-        log.warn(`Spawn daemon: cannot read PROJECTS_ROOT ${root}: ${err.message}`);
+        log.warn(`AgentDeck daemon: cannot read PROJECTS_ROOT ${root}: ${err.message}`);
       }
     }
     for (const dir of Object.values(getOverrides())) {
@@ -347,7 +347,7 @@ export function createDaemon() {
           const message = db.addMessage({ threadId, role: "tool", toolName: tool, toolInput: input, seq: seq++ });
           emit("turn:tool", { threadId, message });
         },
-        meta: { source: opts.source || "spawn-daemon", threadId },
+        meta: { source: opts.source || "agentdeck-daemon", threadId },
       }
     );
 
@@ -808,7 +808,7 @@ export function createDaemon() {
           thread = db.updateThread(thread.id, { branch: wt.branch, worktree_path: wt.path });
           emit("thread:updated", thread);
         } catch (err) {
-          log.warn(`Spawn daemon: worktree for thread ${thread.id} failed (${err.message}) — running in project dir`);
+          log.warn(`AgentDeck daemon: worktree for thread ${thread.id} failed (${err.message}) — running in project dir`);
           db.addMessage({
             threadId: thread.id,
             role: "system",

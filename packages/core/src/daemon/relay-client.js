@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 import { log } from "../logger.js";
 
-// Outbound connection from the daemon to a Spawn relay (see
+// Outbound connection from the daemon to a AgentDeck relay (see
 // packages/relay). The daemon's local port stays 127.0.0.1-only; remote
 // clients reach it exclusively through this pipe. Off unless
 // SPAWN_RELAY_URL + SPAWN_RELAY_DAEMON_KEY are set.

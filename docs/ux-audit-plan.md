@@ -1,11 +1,11 @@
-# Spawn UX audit & improvement plan (SPWN-17)
+# AgentDeck UX audit & improvement plan (SPWN-17)
 
 Date: 2026-07-21 · Branch: `ux-overhaul` (off `phase-6-mobile`)
 Benchmark: **Discord, enhanced with Claude dev features.** Audit ran as 4 parallel passes: live browser walkthrough of the desktop app (mock harness + screenshots in `deliverables/claude-spawn/SPWN-17/audit/`), code-level desktop audit, code-level mobile audit, and installation of two UX-review skills for future audits (`~/.claude/skills/design-audit`, `~/.claude/skills/ux-audit`).
 
 ## Verdict
 
-The daemon side is solid — chats/threads/tickets/messages already persist in SQLite (`spawn.db`, cursor pagination built in). The renderer layer is where the Discord feel breaks down:
+The daemon side is solid — chats/threads/tickets/messages already persist in SQLite (`agentdeck.db`, cursor pagination built in). The renderer layer is where the Discord feel breaks down:
 
 - **No motion layer.** 5 keyframes in the entire desktop CSS; views, modals, sheets, toasts and the palette all hard-pop. Hover changes are instant, list rows have no `:active` state.
 - **Chat is plain text.** Agent output (mostly markdown + code) renders as raw `<pre>`. No grouping, no timestamps on text rows, no day dividers, forced scroll-to-bottom on every streamed token, drafts leak across threads and die on view switch, history silently truncates at 200 messages.

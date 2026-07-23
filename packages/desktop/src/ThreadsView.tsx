@@ -55,11 +55,11 @@ export default function ThreadsView({
   useEffect(() => {
     let stale = false;
     (async () => {
-      let list = await window.spawn.listAllThreads();
+      let list = await window.agentdeck.listAllThreads();
       // Make sure the team-lead console exists (in its home project), pin first.
       if (teamLeadProjectId != null && !list.some((t) => t.kind === "teamlead")) {
-        await window.spawn.createThread({ projectId: teamLeadProjectId, title: "Team-lead console", kind: "teamlead" });
-        list = await window.spawn.listAllThreads();
+        await window.agentdeck.createThread({ projectId: teamLeadProjectId, title: "Team-lead console", kind: "teamlead" });
+        list = await window.agentdeck.listAllThreads();
       }
       if (stale) return;
       // DB already orders newest-first; a stable sort just lifts the console up.
@@ -82,7 +82,7 @@ export default function ThreadsView({
 
   const openThread = async () => {
     if (projectId == null) return;
-    const t = await window.spawn.createThread({ projectId, title: "" });
+    const t = await window.agentdeck.createThread({ projectId, title: "" });
     const project_name = projects.find((p) => p.id === projectId)?.name ?? "";
     const row: ProjectThread = { ...t, project_name };
     setThreads((prev) => (prev.some((x) => x.id === t.id) ? prev : [row, ...prev]));
@@ -95,15 +95,15 @@ export default function ThreadsView({
     const title = renaming.text.trim();
     const t = threads.find((x) => x.id === renaming.id);
     setRenaming(null);
-    if (t && title && title !== t.title) await window.spawn.renameThread(renaming.id, title);
+    if (t && title && title !== t.title) await window.agentdeck.renameThread(renaming.id, title);
   };
 
   const setStatus = async (t: Thread, status: Thread["status"]) => {
-    await window.spawn.setThreadStatus(t.id, status);
+    await window.agentdeck.setThreadStatus(t.id, status);
   };
 
   const cleanup = async (t: Thread) => {
-    const r = await window.spawn.cleanupThread(t.id);
+    const r = await window.agentdeck.cleanupThread(t.id);
     if (r.ok) return flash("Worktree cleaned up — thread archived.");
     if (r.reason === "running") return flash("Can't clean up: a run is still active. Stop it first.");
     if (r.reason === "dirty")
@@ -113,7 +113,7 @@ export default function ThreadsView({
 
   const doDelete = async (t: Thread) => {
     setConfirmDelete(null);
-    const r = await window.spawn.deleteThread(t.id);
+    const r = await window.agentdeck.deleteThread(t.id);
     if (r.ok) {
       setThreads((prev) => prev.filter((x) => x.id !== t.id));
       if (threadId === t.id) setThreadId(null);
@@ -130,7 +130,7 @@ export default function ThreadsView({
     const items: MenuEntry[] = [
       { label: "Rename", icon: "ph-pencil-simple", onClick: () => startRename(t) },
       { label: "Reset session", icon: "ph-arrow-counter-clockwise", onClick: async () => {
-          await window.spawn.resetThreadSession(t.id);
+          await window.agentdeck.resetThreadSession(t.id);
           flash("Session reset — next message starts a fresh Claude session.");
         } },
     ];
@@ -149,7 +149,7 @@ export default function ThreadsView({
           flash(`Copied "${t.branch}".`);
         } });
     if (t.worktree_path) {
-      items.push({ label: "Open worktree in Finder", icon: "ph-folder-open", onClick: () => window.spawn.openDir(t.worktree_path!) });
+      items.push({ label: "Open worktree in Finder", icon: "ph-folder-open", onClick: () => window.agentdeck.openDir(t.worktree_path!) });
       if (!isTeamLead)
         items.push({ label: "Clean up worktree", icon: "ph-broom", onClick: () => cleanup(t) });
     }

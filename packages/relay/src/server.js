@@ -1,4 +1,4 @@
-// Spawn relay — the cloud hop between phones and the local Spawn daemon.
+// AgentDeck relay — the cloud hop between phones and the local AgentDeck daemon.
 //
 //   daemon ──(outbound WS, RELAY_DAEMON_KEY)──▶ ┌───────┐ ◀──(WS + user token)── phone
 //                                               │ relay │

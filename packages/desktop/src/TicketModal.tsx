@@ -59,7 +59,7 @@ export default function TicketModal({
   // Refresh the ticket (comments/attachments/status) without clobbering any
   // in-progress edits to the title/body drafts.
   const load = useCallback(() => {
-    window.spawn
+    window.agentdeck
       .getTicket(ticketId)
       .then(setT)
       .catch(() => {});
@@ -67,7 +67,7 @@ export default function TicketModal({
 
   // First load: seed the editable fields from the fetched ticket.
   useEffect(() => {
-    window.spawn
+    window.agentdeck
       .getTicket(ticketId)
       .then((d) => {
         setT(d);
@@ -81,7 +81,7 @@ export default function TicketModal({
   // read) — dims/skips models the project has switched off.
   useEffect(() => {
     if (t == null) return;
-    window.spawn.getProjectSettings(t.project_id).then(setSettings).catch(() => setSettings(null));
+    window.agentdeck.getProjectSettings(t.project_id).then(setSettings).catch(() => setSettings(null));
   }, [t?.project_id]);
 
   // Live: any comment/attachment/status change on THIS ticket re-fetches.
@@ -90,7 +90,7 @@ export default function TicketModal({
   const threadIdRef = useRef<number | null>(null);
   threadIdRef.current = t?.thread_id ?? null;
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (
         ((ev.type === "ticket:comment" || ev.type === "ticket:attachment") && ev.payload.ticketId === ticketId) ||
         (ev.type === "ticket:updated" && ev.payload.id === ticketId) ||
@@ -121,7 +121,7 @@ export default function TicketModal({
   const backlog = t.thread_id == null;
 
   const saveField = async (patch: { title?: string; body?: string; status?: TicketStatus }) => {
-    await window.spawn.updateTicket(ticketId, patch);
+    await window.agentdeck.updateTicket(ticketId, patch);
     onChanged();
     load();
   };
@@ -131,7 +131,7 @@ export default function TicketModal({
     if (!text || posting) return;
     setPosting(true);
     try {
-      await window.spawn.addTicketComment(ticketId, text);
+      await window.agentdeck.addTicketComment(ticketId, text);
       setComment("");
       load();
     } finally {
@@ -140,9 +140,9 @@ export default function TicketModal({
   };
 
   const attach = async () => {
-    const path = await window.spawn.pickFile();
+    const path = await window.agentdeck.pickFile();
     if (!path) return;
-    await window.spawn.addTicketAttachment(ticketId, path);
+    await window.agentdeck.addTicketAttachment(ticketId, path);
     load();
   };
 
@@ -150,7 +150,7 @@ export default function TicketModal({
     if (busy) return;
     setBusy(true);
     try {
-      await window.spawn.delegateTicket(ticketId, {
+      await window.agentdeck.delegateTicket(ticketId, {
         model: model || undefined,
         effort: effort || undefined,
       });
@@ -165,7 +165,7 @@ export default function TicketModal({
     setConfirmingDelete(false);
     setBusy(true);
     try {
-      await window.spawn.deleteTicket(ticketId);
+      await window.agentdeck.deleteTicket(ticketId);
       onChanged();
       onClose();
     } finally {
@@ -287,7 +287,7 @@ export default function TicketModal({
               ) : (
                 <div className="tk-files">
                   {t.attachments.map((a) => (
-                    <button key={a.id} className="tk-file" onClick={() => window.spawn.revealFile(a.path)}>
+                    <button key={a.id} className="tk-file" onClick={() => window.agentdeck.revealFile(a.path)}>
                       <i className="ph ph-file" />
                       <span className="nm">{a.name}</span>
                       <span className="mt">

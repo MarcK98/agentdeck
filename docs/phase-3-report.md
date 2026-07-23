@@ -1,4 +1,4 @@
-# Spawn — Phase 3 report (checkpoint for Marc)
+# AgentDeck — Phase 3 report (checkpoint for Marc)
 
 Phase 3 (Per-ticket isolation surfaced) of `docs/desktop-app-plan.md` §8 is
 done, on branch `phase-3-ticket-isolation` (built on `phase-2-teamlead-board`,

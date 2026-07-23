@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  launchd template for the Spawn daemon (macOS). NOT auto-installed in
+  launchd template for the AgentDeck daemon (macOS). NOT auto-installed in
   Phase 1 — see README.md next to this file. Replace every __PLACEHOLDER__
   before loading:
 
@@ -13,7 +13,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.spawn.daemon</string>
+  <string>com.agentdeck.daemon</string>
 
   <key>ProgramArguments</key>
   <array>
@@ -39,8 +39,8 @@
   </dict>
 
   <key>StandardOutPath</key>
-  <string>__SPAWN_DATA_DIR__/spawn-daemon.log</string>
+  <string>__SPAWN_DATA_DIR__/agentdeck-daemon.log</string>
   <key>StandardErrorPath</key>
-  <string>__SPAWN_DATA_DIR__/spawn-daemon.log</string>
+  <string>__SPAWN_DATA_DIR__/agentdeck-daemon.log</string>
 </dict>
 </plist>

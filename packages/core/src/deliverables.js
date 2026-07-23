@@ -36,7 +36,7 @@ export async function ensureRepo() {
   mkdirSync(root, { recursive: true });
   if (!existsSync(join(root, ".git"))) {
     await git("init", "-q", "-b", "master");
-    await git("config", "user.name", "Spawn");
+    await git("config", "user.name", "AgentDeck");
     await git("config", "user.email", "spawn@local");
   }
   return root;

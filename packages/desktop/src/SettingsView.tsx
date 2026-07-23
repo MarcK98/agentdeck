@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Connection, McpServerDef, Project, ProjectSettings, SkillInfo, SpawnEvent } from "./types";
+import type { Connection, McpServerDef, Project, ProjectSettings, SkillInfo, AgentDeckEvent } from "./types";
 import { MODELS, EFFORTS } from "./constants";
 
 // Connection catalog: developer-infra types with icons and value hints.
@@ -255,7 +255,7 @@ export default function SettingsView({
 
   const reloadSettings = async () => {
     if (projectId == null) return;
-    setSettings(await window.spawn.getProjectSettings(projectId));
+    setSettings(await window.agentdeck.getProjectSettings(projectId));
   };
 
   useEffect(() => {
@@ -263,18 +263,18 @@ export default function SettingsView({
     setSettings(null);
     setSkills([]);
     setMcpDraft(null);
-    window.spawn.getProjectSettings(projectId).then((s) => {
+    window.agentdeck.getProjectSettings(projectId).then((s) => {
       setSettings(s);
       setRulesDraft(s.rules ?? "");
       setMemoryDraft(s.memory ?? "");
     });
-    window.spawn.listSkills(projectId).then(setSkills).catch(() => setSkills([]));
+    window.agentdeck.listSkills(projectId).then(setSkills).catch(() => setSkills([]));
   }, [projectId]);
 
   // Live connect signals from the daemon (real app): surface the gcloud consent
   // URL as a fallback, and reflect connected/failed if the RPC hasn't resolved.
   useEffect(() => {
-    return window.spawn.onEvent((ev: SpawnEvent) => {
+    return window.agentdeck.onEvent((ev: AgentDeckEvent) => {
       if (ev.type === "connect:url") {
         const { serverName, url } = ev.payload;
         setConnecting((c) => (c[serverName] ? { ...c, [serverName]: { ...c[serverName], url } } : c));
@@ -293,7 +293,7 @@ export default function SettingsView({
 
   const patch = async (p: Partial<ProjectSettings>) => {
     if (projectId == null) return;
-    setSettings(await window.spawn.updateProjectSettings(projectId, p));
+    setSettings(await window.agentdeck.updateProjectSettings(projectId, p));
     setSavedTick((n) => n + 1);
   };
 
@@ -339,10 +339,10 @@ export default function SettingsView({
       ...(mcpDraft.environment.trim() ? { environment: mcpDraft.environment.trim() } : {}),
       ...(mcpDraft.secretKeys.length ? { secretKeys: mcpDraft.secretKeys } : {}),
     };
-    await window.spawn.updateProjectSettings(projectId, { mcpServers: [...settings.mcpServers, def] });
+    await window.agentdeck.updateProjectSettings(projectId, { mcpServers: [...settings.mcpServers, def] });
     // Save any tokens the user pasted directly in the add card (always allowed).
     const pasted = Object.entries(mcpDraft.secretVals).filter(([, v]) => v.trim());
-    for (const [k, v] of pasted) await window.spawn.setProjectMcpSecret(projectId, name, k, v.trim());
+    for (const [k, v] of pasted) await window.agentdeck.setProjectMcpSecret(projectId, name, k, v.trim());
     await reloadSettings();
     setSavedTick((n) => n + 1);
     const kind = preset?.connect.kind;
@@ -351,14 +351,14 @@ export default function SettingsView({
     // pasted, it's already saved, so skip the clipboard-capture flow.
     if (kind === "oauth-cli") startGcloud(name);
     else if (kind === "token-page" && preset && pasted.length === 0) startTokenCapture(name, preset);
-    else if (kind === "key-file" && preset?.connect.portalUrl && pasted.length === 0) window.spawn.openExternal(preset.connect.portalUrl);
+    else if (kind === "key-file" && preset?.connect.portalUrl && pasted.length === 0) window.agentdeck.openExternal(preset.connect.portalUrl);
   };
 
   // Google Cloud: browser OAuth into an isolated per-connection config dir.
   const startGcloud = async (name: string) => {
     if (projectId == null) return;
     setConnecting((c) => ({ ...c, [name]: { state: "connecting" } }));
-    const r = await window.spawn.connectGcloud(projectId, name);
+    const r = await window.agentdeck.connectGcloud(projectId, name);
     if (r.ok) {
       await reloadSettings();
       setConnecting((c) => dropKey(c, name));
@@ -375,16 +375,16 @@ export default function SettingsView({
     const tokenKey = preset.secrets[0]?.key;
     const url = preset.connect.tokenPageUrl;
     if (!tokenKey || !url) return;
-    await window.spawn.openExternal(url);
+    await window.agentdeck.openExternal(url);
     setConnecting((c) => ({ ...c, [name]: { state: "waiting" } }));
     clipCancel.current[name] = false;
-    const baseline = (await window.spawn.readClipboard().catch(() => "")).trim();
+    const baseline = (await window.agentdeck.readClipboard().catch(() => "")).trim();
     const deadline = Date.now() + 90_000;
     const poll = async () => {
       if (clipCancel.current[name] || projectId == null) return;
-      const cur = (await window.spawn.readClipboard().catch(() => "")).trim();
+      const cur = (await window.agentdeck.readClipboard().catch(() => "")).trim();
       if (cur && cur !== baseline && looksLikeToken(cur)) {
-        await window.spawn.setProjectMcpSecret(projectId, name, tokenKey, cur);
+        await window.agentdeck.setProjectMcpSecret(projectId, name, tokenKey, cur);
         await reloadSettings();
         setConnecting((c) => dropKey(c, name));
         setSavedTick((n) => n + 1);
@@ -399,9 +399,9 @@ export default function SettingsView({
   // Apple: pick the downloaded .p8; the daemon stores it isolated + wires the path.
   const startAppleImport = async (name: string) => {
     if (projectId == null) return;
-    const path = await window.spawn.pickFile({ filters: [{ name: "App Store Connect key", extensions: ["p8"] }] });
+    const path = await window.agentdeck.pickFile({ filters: [{ name: "App Store Connect key", extensions: ["p8"] }] });
     if (!path) return;
-    await window.spawn.importAppleKey(projectId, name, path);
+    await window.agentdeck.importAppleKey(projectId, name, path);
     await reloadSettings();
     setSavedTick((n) => n + 1);
   };
@@ -409,7 +409,7 @@ export default function SettingsView({
   const disconnectServer = async (name: string) => {
     if (projectId == null) return;
     clipCancel.current[name] = true;
-    await window.spawn.disconnectProvider(projectId, name);
+    await window.agentdeck.disconnectProvider(projectId, name);
     await reloadSettings();
     setConnecting((c) => dropKey(c, name));
   };
@@ -434,7 +434,7 @@ export default function SettingsView({
       ? [...settings.disabledSkills, s.name]
       : settings.disabledSkills.filter((x) => x !== s.name);
     await patch({ disabledSkills: disabled });
-    setSkills(await window.spawn.listSkills(projectId));
+    setSkills(await window.agentdeck.listSkills(projectId));
   };
 
   const addConnection = () => {
@@ -523,7 +523,7 @@ export default function SettingsView({
                   <button
                     className="f-static mono dir-open"
                     title="Open in Finder"
-                    onClick={() => window.spawn.openDir(project.dir)}
+                    onClick={() => window.agentdeck.openDir(project.dir)}
                   >
                     <span className="ell">{project.dir}</span>
                     <i className="ph ph-arrow-square-out" />
@@ -894,11 +894,11 @@ function NotificationsPanel() {
     } catch {
       /* storage unavailable — the pref just won't persist */
     }
-    window.spawn.setNotificationsEnabled?.(next);
+    window.agentdeck.setNotificationsEnabled?.(next);
   };
 
   const test = async () => {
-    await window.spawn.testNotification?.();
+    await window.agentdeck.testNotification?.();
     setTested(true);
     setTimeout(() => setTested(false), 2500);
   };
@@ -915,7 +915,7 @@ function NotificationsPanel() {
       </div>
       <div className="note">
         A macOS notification when a comment lands on a ticket (from the team lead or an agent) or a
-        run asks for approval — shown only while Spawn isn't the focused window. Click one to jump
+        run asks for approval — shown only while AgentDeck isn't the focused window. Click one to jump
         straight to the ticket or the Approvals inbox.
       </div>
       <div style={{ marginTop: 14 }}>
@@ -930,7 +930,7 @@ function NotificationsPanel() {
       </div>
       <div className="note" style={{ marginTop: 10 }}>
         First time, macOS asks for permission — allow it under System Settings → Notifications →
-        Spawn if you missed the prompt.
+        AgentDeck if you missed the prompt.
       </div>
     </div>
   );
@@ -992,7 +992,7 @@ function McpServerCard({
   const saveManual = async () => {
     setSaving(true);
     for (const [k, v] of Object.entries(vals)) {
-      if (v.trim()) await window.spawn.setProjectMcpSecret(projectId, server.name, k, v.trim());
+      if (v.trim()) await window.agentdeck.setProjectMcpSecret(projectId, server.name, k, v.trim());
     }
     setVals({});
     setSaving(false);
@@ -1107,7 +1107,7 @@ function McpServerCard({
               {kind === "key-file" && (
                 <>
                   {meta?.connect.portalUrl && (
-                    <button className="btn btn-secondary small-btn" onClick={() => window.spawn.openExternal(meta.connect.portalUrl!)}>
+                    <button className="btn btn-secondary small-btn" onClick={() => window.agentdeck.openExternal(meta.connect.portalUrl!)}>
                       <i className="ph ph-apple-logo" /> Apple portal
                     </button>
                   )}

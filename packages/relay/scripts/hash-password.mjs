@@ -4,7 +4,7 @@
 //
 // Prints:  scrypt$<saltHex>$<hashHex>
 // Put it in the relay's AUTH_USERS env as JSON, e.g.
-//   AUTH_USERS={"marc@spawnmy.ai":"scrypt$ab12…$cd34…"}
+//   AUTH_USERS={"marc@agentdeck.ai":"scrypt$ab12…$cd34…"}
 // and set AUTH_JWT_SECRET to a long random string (the token signing key).
 import { scryptSync, randomBytes } from "node:crypto";
 

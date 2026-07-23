@@ -15,13 +15,13 @@ import type {
   UsageSummary,
 } from "./types";
 
-// Fixture-backed window.spawn for plain-browser dev (no Electron preload, no
+// Fixture-backed window.agentdeck for plain-browser dev (no Electron preload, no
 // daemon). Purely for eyeballing/screenshotting the UI — every mutation is a
 // no-op or an in-memory echo. Never bundled into behavior: main.tsx installs
-// it only when window.spawn is absent.
+// it only when window.agentdeck is absent.
 
 const projects: Project[] = [
-  { id: 1, name: "spawnmy-ai", dir: "~/dev/spawnmy-ai", created_at: "" },
+  { id: 1, name: "agentdeck-ai", dir: "~/dev/agentdeck-ai", created_at: "" },
   { id: 2, name: "fable-engine", dir: "~/dev/fable-engine", created_at: "" },
   { id: 3, name: "site-refresh", dir: "~/dev/site-refresh", created_at: "" },
   { id: 4, name: "team-lead", dir: "~/dev/team-lead", created_at: "" },
@@ -207,7 +207,7 @@ const attachmentsByTicket = new Map<number, TicketAttachment[]>([
   [
     11,
     [
-      { id: 601, ticket_id: 11, name: "gc-report.md", path: "~/dev/deliverables/spawnmy-ai/SPWN-11/gc-report.md", size: 2048, uploaded_by: "agent", created_at: "2026-07-19T10:41:00Z" },
+      { id: 601, ticket_id: 11, name: "gc-report.md", path: "~/dev/deliverables/agentdeck-ai/SPWN-11/gc-report.md", size: 2048, uploaded_by: "agent", created_at: "2026-07-19T10:41:00Z" },
     ],
   ],
 ]);
@@ -248,13 +248,13 @@ const mkUsage = (days: number): UsageSummary => {
       { model: "haiku", tokens: scale(163_000) },
     ],
     byProject: [
-      { project: "spawnmy-ai", tokens: scale(742_000), turns: Math.round(24 * f), threads: 5 },
+      { project: "agentdeck-ai", tokens: scale(742_000), turns: Math.round(24 * f), threads: 5 },
       { project: "fable-engine", tokens: scale(386_000), turns: Math.round(11 * f), threads: 3 },
       { project: "site-refresh", tokens: scale(112_000), turns: Math.max(1, Math.round(3 * f)), threads: 1 },
     ],
     sessions: [
       { threadId: 10, title: "Team-lead console", project: "team-lead", kind: "teamlead", running: false, model: "opus", contextTokens: 92_000 },
-      { threadId: 11, title: "Worktree GC on daemon boot", project: "spawnmy-ai", kind: "ticket", running: true, model: "opus", contextTokens: 84_000 },
+      { threadId: 11, title: "Worktree GC on daemon boot", project: "agentdeck-ai", kind: "ticket", running: true, model: "opus", contextTokens: 84_000 },
       { threadId: 13, title: "Migrate sessions.json into SQLite", project: "fable-engine", kind: "ticket", running: false, model: "sonnet", contextTokens: 41_000 },
     ],
   };
@@ -289,18 +289,18 @@ const defaultSettings = (): ProjectSettings => ({
   defaultEffort: "medium",
   isolation: true,
   mcpServers: [
-    { name: "trello", transport: "stdio", command: "npx @spawn/mcp-trello", enabled: true },
+    { name: "trello", transport: "stdio", command: "npx @agentdeck/mcp-trello", enabled: true },
     { name: "sentry", transport: "http", url: "https://mcp.sentry.dev", enabled: false },
   ],
   disabledSkills: ["deck-builder"],
   rules: "Always open a PR — never push to main.\nRun npm test before committing.",
-  memory: "Staging lives at staging.spawnmy.dev. Marc reviews all schema changes.",
+  memory: "Staging lives at staging.agentdeck.dev. Marc reviews all schema changes.",
   connections: [
-    { id: "c1", type: "google-account", label: "prod", value: "marc@spawnmy.ai", url: "https://console.cloud.google.com" },
-    { id: "c2", type: "firebase", label: "prod", value: "spawnmy-prod", url: "https://console.firebase.google.com", secretEnv: "FIREBASE_TOKEN" },
+    { id: "c1", type: "google-account", label: "prod", value: "marc@agentdeck.ai", url: "https://console.cloud.google.com" },
+    { id: "c2", type: "firebase", label: "prod", value: "agentdeck-prod", url: "https://console.firebase.google.com", secretEnv: "FIREBASE_TOKEN" },
     { id: "c3", type: "supabase", label: "", value: "xyzabc123ref", secretEnv: "SUPABASE_ACCESS_TOKEN" },
-    { id: "c4", type: "vercel", label: "web", value: "spawnmy-web", url: "https://vercel.com/spawnmy" },
-    { id: "c5", type: "heroku", label: "api", value: "spawnmy-api" },
+    { id: "c4", type: "vercel", label: "web", value: "agentdeck-web", url: "https://vercel.com/agentdeck" },
+    { id: "c5", type: "heroku", label: "api", value: "agentdeck-api" },
   ],
 });
 
@@ -359,7 +359,7 @@ const streamReply = (threadId: number, reply: string) => {
 };
 
 export function installMock() {
-  window.spawn = {
+  window.agentdeck = {
     listProjects: async () => projects,
     listThreads: async (projectId) => threads.filter((t) => t.project_id === projectId),
     listAllThreads: async () =>
@@ -430,7 +430,7 @@ export function installMock() {
     readClipboard: async () => (clipReads++ === 0 ? "" : "sbp_mockclipboardtoken_0000"),
     pickFile: async () => "/Users/you/Downloads/AuthKey_MOCK123.p8",
     connectGcloud: async (projectId, serverName) => {
-      const account = "marc@spawnmy.ai";
+      const account = "marc@agentdeck.ai";
       const s = settingsByProject.get(projectId) ?? defaultSettings();
       s.mcpServers = s.mcpServers.map((m) =>
         m.name === serverName ? { ...m, account, credDir: `/mock/creds/gcloud/${serverName}` } : m
@@ -581,7 +581,7 @@ export function installMock() {
     listDeliverables: async (threadId) =>
       threadId === 11
         ? {
-            dir: "~/dev/deliverables/spawnmy-ai/SPWN-11",
+            dir: "~/dev/deliverables/agentdeck-ai/SPWN-11",
             files: [
               { path: "/tmp/report.pdf", name: "gc-analysis.pdf", size: 482_000, mtime: Date.now() },
               { path: "/tmp/data.xlsx", name: "worktree-audit.xlsx", size: 61_000, mtime: Date.now() - 3600e3 },

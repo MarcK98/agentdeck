@@ -1,7 +1,7 @@
 {
-  "name": "@spawn/core",
+  "name": "@agentdeck/core",
   "version": "0.1.0",
-  "description": "Spawn core — a mastermind for Claude: session orchestration, projects, team lead, approvals, usage, SQLite store, and the Spawn daemon. Also hosts the legacy Discord bridge.",
+  "description": "AgentDeck core — a mastermind for Claude: session orchestration, projects, team lead, approvals, usage, SQLite store, and the AgentDeck daemon. Also hosts the legacy Discord bridge.",
   "type": "module",
   "main": "src/daemon/index.js",
   "exports": {

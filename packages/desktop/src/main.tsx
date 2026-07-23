@@ -11,9 +11,9 @@ import App from "./App";
 import { installMock } from "./mock";
 
 // Outside Electron (plain browser against the Vite dev server) there is no
-// preload bridge — install a fixture-backed window.spawn so the UI can be
+// preload bridge — install a fixture-backed window.agentdeck so the UI can be
 // eyeballed and screenshotted without a daemon.
-const inElectron = Boolean(window.spawn);
+const inElectron = Boolean(window.agentdeck);
 if (!inElectron) installMock();
 
 // In the real app on macOS the title bar is ours (hiddenInset) — pad the top

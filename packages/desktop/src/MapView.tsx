@@ -211,7 +211,7 @@ export default function MapView({
   const [map, setMap] = useState<MapData | null>(null);
 
   const refresh = useCallback(() => {
-    window.spawn.getMap().then(setMap).catch(() => {});
+    window.agentdeck.getMap().then(setMap).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -233,7 +233,7 @@ export default function MapView({
   }, [refresh]);
 
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (
         ev.type === "thread:created" ||
         ev.type === "thread:updated" ||

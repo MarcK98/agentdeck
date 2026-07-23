@@ -2,14 +2,14 @@ import { spawn } from "node:child_process";
 import { closeSync, existsSync, openSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import WebSocket from "ws";
-import { dataPath, daemonBuildSig } from "@spawn/core/config";
+import { dataPath, daemonBuildSig } from "@agentdeck/core/config";
 
-// Client for the Spawn daemon (a separate background process). The desktop
+// Client for the AgentDeck daemon (a separate background process). The desktop
 // app NEVER touches sessions or SQLite directly — everything goes through
 // the daemon's localhost API. If no daemon is running we start one, detached,
 // so it outlives the app window.
 //
-// Auth: the daemon writes a per-start secret to spawn-daemon.token (0600) in
+// Auth: the daemon writes a per-start secret to agentdeck-daemon.token (0600) in
 // SPAWN_DATA_DIR; we read it fresh for every call (it rotates whenever the
 // daemon restarts) and send it as x-spawn-token. Browsers can't read local
 // files, which is the point — see server.js for the threat model.
@@ -18,14 +18,14 @@ const require = createRequire(import.meta.url);
 const PORT = Number(process.env.SPAWN_DAEMON_PORT) || 8810; // must match daemon/server.js
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const SERVER_JS = require.resolve("@spawn/core/package.json").replace(
+const SERVER_JS = require.resolve("@agentdeck/core/package.json").replace(
   /package\.json$/,
   "src/daemon/server.js"
 );
 
 const readToken = () => {
   try {
-    return readFileSync(dataPath("spawn-daemon.token"), "utf8").trim();
+    return readFileSync(dataPath("agentdeck-daemon.token"), "utf8").trim();
   } catch {
     return "";
   }
@@ -81,7 +81,7 @@ export async function ensureDaemon() {
   // A detached daemon has no console — append its stdout+stderr to a log file
   // so crashes/warnings are diagnosable. (`npm run daemon` still logs to the
   // console; this path only runs when the desktop app spawns the daemon.)
-  const logFd = openSync(dataPath("spawn-daemon.log"), "a");
+  const logFd = openSync(dataPath("agentdeck-daemon.log"), "a");
   const child = spawn(nodeBin(), [SERVER_JS], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
@@ -96,7 +96,7 @@ export async function ensureDaemon() {
     // holding the port) is never mistaken for the fresh one we just spawned.
     if (p.up && !p.stale) return { started: true, pid: child.pid, replaced: cur.stale };
   }
-  throw new Error("Spawn daemon did not come up on " + BASE);
+  throw new Error("AgentDeck daemon did not come up on " + BASE);
 }
 
 export async function rpc(method, ...args) {

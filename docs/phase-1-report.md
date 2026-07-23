@@ -1,4 +1,4 @@
-# Spawn — Phase 1 report (checkpoint for Marc)
+# AgentDeck — Phase 1 report (checkpoint for Marc)
 
 Phase 1 (MVP chat hardening) of `docs/desktop-app-plan.md` §8 is done, on branch
 `phase-1-mvp-chat` (built on `phase-0-scaffold`, commit `9384196`). Same rule as
@@ -48,16 +48,16 @@ and committed on Opus.
   the token was written *before* the bind, and the EADDRINUSE handler had to be
   registered before `ws` attaches or it throws first).
 - pid file written on listen, removed on shutdown (only if still ours).
-- The detached daemon's stdout/stderr now append to `spawn-daemon.log` (it had
+- The detached daemon's stdout/stderr now append to `agentdeck-daemon.log` (it had
   none before — crashes were invisible).
-- launchd `com.spawn.daemon.plist` template + `packages/core/daemon/README.md`
+- launchd `com.agentdeck.daemon.plist` template + `packages/core/daemon/README.md`
   (manual install; **not** auto-installed).
 
 ## Verified
 - `tsc --noEmit` clean; `vite build` clean.
 - Isolated daemon E2E (alt ports 8891/8892, temp `SPAWN_DATA_DIR`, Homebrew
   node) — **21/21 assertions**: health + token(0600) + pid(0644) files; full
-  approval round-trip (deny → `Denied in Spawn.`; allow → `updatedInput`) driven
+  approval round-trip (deny → `Denied in AgentDeck.`; allow → `updatedInput`) driven
   the real way (MCP-style `/permission` POST → `approval:request` WS event →
   `resolveApproval` via `/rpc` → answer); `approval:resolved` fires;
   single-instance loser exits 0 with the live token untouched; SIGTERM removes
@@ -73,7 +73,7 @@ and committed on Opus.
    The pin makes prompt actually prompt; auto still uses `bypassPermissions`.
 2. **Busy state is now per-thread** (small add on top of fable's work): streaming
    in one thread no longer shows a phantom "working…" or locks the composer in
-   another — that multi-thread story is the point of Spawn.
+   another — that multi-thread story is the point of AgentDeck.
 
 ## Follow-ups / risks for Phase 2
 - **Port collisions on defaults (worth fixing early):** `SPAWN_DAEMON_PORT`

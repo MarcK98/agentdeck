@@ -25,12 +25,12 @@ export default function UsageView() {
   const [u, setU] = useState<UsageSummary | null>(null);
 
   const refresh = useCallback(() => {
-    window.spawn.getUsage(days).then(setU).catch(() => {});
+    window.agentdeck.getUsage(days).then(setU).catch(() => {});
   }, [days]);
 
   useEffect(refresh, [refresh]);
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (ev.type === "turn:done") refresh();
     });
   }, [refresh]);
@@ -177,7 +177,7 @@ export default function UsageView() {
                   <button
                     className="reset"
                     title="Reset this thread's session (fresh context next turn)"
-                    onClick={() => window.spawn.resetThreadSession(s.threadId).then(refresh)}
+                    onClick={() => window.agentdeck.resetThreadSession(s.threadId).then(refresh)}
                   >
                     <i className="ph ph-arrow-counter-clockwise" />
                   </button>

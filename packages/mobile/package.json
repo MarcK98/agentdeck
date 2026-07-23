@@ -1,7 +1,7 @@
 {
-  "name": "spawn-mobile",
+  "name": "agentdeck-mobile",
   "version": "0.1.0",
-  "description": "Spawn mobile — Expo client of the Spawn daemon via the relay. Runs in Expo Go today (npx expo start); TestFlight + push once Apple/Supabase accounts land.",
+  "description": "AgentDeck mobile — Expo client of the AgentDeck daemon via the relay. Runs in Expo Go today (npx expo start); TestFlight + push once Apple/Supabase accounts land.",
   "main": "index.ts",
   "private": true,
   "scripts": {

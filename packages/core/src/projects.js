@@ -15,7 +15,7 @@ try {
 }
 
 // Explicit projects.json overrides (name-or-channel-id -> dir), for consumers
-// beyond channel resolution (the Spawn daemon unions these into its registry).
+// beyond channel resolution (the AgentDeck daemon unions these into its registry).
 export const getOverrides = () => ({ ...overrides });
 
 const isDir = (p) => {

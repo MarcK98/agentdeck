@@ -1,4 +1,4 @@
-# Spawn — Phase 2 report (checkpoint for Marc)
+# AgentDeck — Phase 2 report (checkpoint for Marc)
 
 Phase 2 (Team-lead workspace + board) of `docs/desktop-app-plan.md` §8 is done,
 on branch `phase-2-teamlead-board` (built on `phase-1-mvp-chat`, commit

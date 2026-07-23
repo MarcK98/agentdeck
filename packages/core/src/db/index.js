@@ -1,9 +1,22 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, renameSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dataPath } from "../config.js";
 
-// SQLite store for Spawn threads/messages (better-sqlite3: synchronous, WAL,
+// One-time rebrand migration: the store was named `spawn.db` before the
+// AgentDeck rename. If the new file is absent but a legacy one is present, move
+// it (plus its WAL/SHM sidecars) in place so existing installs keep every
+// thread/ticket/secret. Same directory → rename is atomic; no data copy.
+function migrateLegacyDb(newFile) {
+  const legacy = dataPath("spawn.db");
+  if (newFile !== dataPath("agentdeck.db")) return; // only auto-migrate the default location
+  if (existsSync(newFile) || !existsSync(legacy)) return;
+  for (const suffix of ["", "-wal", "-shm"]) {
+    if (existsSync(legacy + suffix)) renameSync(legacy + suffix, newFile + suffix);
+  }
+}
+
+// SQLite store for AgentDeck threads/messages (better-sqlite3: synchronous, WAL,
 // fastest embedded option and trivially scalable to this workload).
 //
 // ABI NOTE: better-sqlite3 is a native module compiled per runtime. The
@@ -13,7 +26,7 @@ import { dataPath } from "../config.js";
 // so the bridge keeps running regardless of which ABI is on disk. Keep it
 // that way until the hard-cut.
 //
-// Loaded lazily so importing @spawn/core for bridge purposes never touches
+// Loaded lazily so importing @agentdeck/core for bridge purposes never touches
 // the native module.
 
 const require = createRequire(import.meta.url);
@@ -81,8 +94,9 @@ const MIGRATIONS = [
 
 let db = null;
 
-export function openDb(file = dataPath("spawn.db")) {
+export function openDb(file = dataPath("agentdeck.db")) {
   if (db) return db;
+  migrateLegacyDb(file);
   const Database = require("better-sqlite3");
   db = new Database(file);
   db.pragma("journal_mode = WAL");

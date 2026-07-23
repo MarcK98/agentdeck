@@ -48,7 +48,7 @@ export default function TicketSheet({
 
   useEffect(() => {
     if (projectId === "") return setSettings(null);
-    window.spawn.getProjectSettings(projectId).then(setSettings).catch(() => setSettings(null));
+    window.agentdeck.getProjectSettings(projectId).then(setSettings).catch(() => setSettings(null));
   }, [projectId]);
 
   useEscapeToClose(onClose);
@@ -59,7 +59,7 @@ export default function TicketSheet({
   // so the ticket-sheet toggle flips it on the project — same as SettingsView.
   const toggleIsolation = async () => {
     if (projectId === "" || !settings) return;
-    setSettings(await window.spawn.updateProjectSettings(projectId, { isolation: settings.isolation === false }));
+    setSettings(await window.agentdeck.updateProjectSettings(projectId, { isolation: settings.isolation === false }));
   };
 
   const allowed = settings?.allowedModels ?? MODELS.filter((m) => m !== "fable");
@@ -69,9 +69,9 @@ export default function TicketSheet({
   const save = async (): Promise<Ticket | null> => {
     if (!title.trim() || projectId === "") return null;
     if (editing) {
-      return window.spawn.updateTicket(ticket.id, { title: title.trim(), body, status });
+      return window.agentdeck.updateTicket(ticket.id, { title: title.trim(), body, status });
     }
-    return window.spawn.createTicket({ projectId, title: title.trim(), body, status });
+    return window.agentdeck.createTicket({ projectId, title: title.trim(), body, status });
   };
 
   const create = async () => {
@@ -92,7 +92,7 @@ export default function TicketSheet({
     try {
       const saved = await save();
       if (!saved) return;
-      const thread = await window.spawn.delegateTicket(saved.id, {
+      const thread = await window.agentdeck.delegateTicket(saved.id, {
         model: model || undefined,
         effort: effort || undefined,
       });
@@ -110,7 +110,7 @@ export default function TicketSheet({
     setBusyAction("delete");
     setError("");
     try {
-      await window.spawn.deleteTicket(ticket.id);
+      await window.agentdeck.deleteTicket(ticket.id);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

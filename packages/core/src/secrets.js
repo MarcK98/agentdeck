@@ -1,6 +1,6 @@
 // Symmetric encryption for per-project MCP secrets (the tokens users paste on
 // the settings page). Ciphertext lives in SQLite (project_secrets, v4); the
-// key does NOT — it sits in a 0600 keyfile beside the db, so copying spawn.db
+// key does NOT — it sits in a 0600 keyfile beside the db, so copying agentdeck.db
 // alone never yields plaintext.
 //
 // AES-256-GCM (authenticated). The daemon is plain Node (not Electron), so
@@ -8,10 +8,11 @@
 // adds no native deps. Packed value = base64(iv[12] | tag[16] | ciphertext).
 
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
-import { readFileSync, writeFileSync, existsSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, chmodSync, renameSync } from "node:fs";
 import { dataPath } from "./config.js";
 
-const KEY_FILE = dataPath("spawn-secret.key");
+const KEY_FILE = dataPath("agentdeck-secret.key");
+const LEGACY_KEY_FILE = dataPath("spawn-secret.key"); // pre-rebrand name
 const IV_LEN = 12;
 const TAG_LEN = 16;
 
@@ -20,6 +21,10 @@ let cachedKey = null;
 // 32-byte key, created on first use (0600). Cached for the process lifetime.
 function key() {
   if (cachedKey) return cachedKey;
+  // Rebrand migration: adopt the legacy keyfile so already-stored ciphertext
+  // stays decryptable. Must run before the "generate a fresh key" branch — a
+  // new key would silently orphan every existing secret.
+  if (!existsSync(KEY_FILE) && existsSync(LEGACY_KEY_FILE)) renameSync(LEGACY_KEY_FILE, KEY_FILE);
   if (existsSync(KEY_FILE)) {
     cachedKey = Buffer.from(readFileSync(KEY_FILE, "utf8").trim(), "hex");
   } else {
@@ -27,7 +32,7 @@ function key() {
     writeFileSync(KEY_FILE, cachedKey.toString("hex"), { mode: 0o600 });
     chmodSync(KEY_FILE, 0o600); // enforce even if the file pre-existed with a looser umask
   }
-  if (cachedKey.length !== 32) throw new Error("spawn-secret.key is malformed (expected 32 bytes hex)");
+  if (cachedKey.length !== 32) throw new Error("agentdeck-secret.key is malformed (expected 32 bytes hex)");
   return cachedKey;
 }
 

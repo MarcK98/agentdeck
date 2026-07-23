@@ -108,7 +108,31 @@ const MessageRow = memo(function MessageRow({ row }: { row: Row }) {
       )}
     </View>
   );
-});
+}, sameRow);
+
+// The rows array is rebuilt (fresh objects) on every message append, which by
+// default re-renders — and re-parses the markdown of — every visible row. The
+// content of an existing row never changes, so compare by value: only genuinely
+// changed rows re-render, keeping append + scroll cheap on long threads.
+function sameRow(a: { row: Row }, b: { row: Row }) {
+  const x = a.row;
+  const y = b.row;
+  if (x.kind !== y.kind || x.key !== y.key) return false;
+  if (x.kind === "day") return true; // key encodes the label
+  if (x.kind === "tool" && y.kind === "tool") return x.msg.id === y.msg.id && x.msg.tool_input === y.msg.tool_input;
+  if (x.kind === "msg" && y.kind === "msg")
+    return (
+      x.grouped === y.grouped &&
+      x.msg.id === y.msg.id &&
+      x.msg.text === y.msg.text &&
+      x.msg.role === y.msg.role &&
+      x.msg.pending === y.msg.pending &&
+      x.msg.created_at === y.msg.created_at
+    );
+  return false;
+}
+
+const renderRow = ({ item }: { item: Row }) => <MessageRow row={item} />;
 
 function ToolRow({ msg }: { msg: any }) {
   const [open, setOpen] = useState(false);
@@ -321,10 +345,13 @@ export function ThreadScreen({
           inverted
           data={rows}
           keyExtractor={(r) => r.key}
-          renderItem={({ item }) => <MessageRow row={item} />}
+          renderItem={renderRow}
           contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 10 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          initialNumToRender={14}
+          maxToRenderPerBatch={10}
+          windowSize={11}
           onScroll={(e) => {
             const y = e.nativeEvent.contentOffset.y;
             setAway(y > 120);

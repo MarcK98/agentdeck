@@ -1,7 +1,7 @@
 {
-  "name": "@spawn/desktop",
+  "name": "@agentdeck/desktop",
   "version": "0.1.0",
-  "description": "Spawn desktop — Electron client of the Spawn daemon (a mastermind for Claude).",
+  "description": "AgentDeck desktop — Electron client of the AgentDeck daemon (a mastermind for Claude).",
   "type": "module",
   "main": "electron/main.js",
   "private": true,
@@ -13,7 +13,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@phosphor-icons/web": "^2.1.2",
-    "@spawn/core": "*",
+    "@agentdeck/core": "*",
     "@xyflow/react": "^12.11.2",
     "highlight.js": "^11.11.1",
     "react": "^18.3.1",

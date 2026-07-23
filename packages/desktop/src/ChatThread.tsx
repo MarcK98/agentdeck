@@ -155,7 +155,7 @@ const LiveTail = memo(function LiveTail({
   onGrowRef.current = onGrow;
   useEffect(() => {
     setLive("");
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (ev.type === "turn:delta" && ev.payload.threadId === threadId) {
         setLive((prev) => prev + ev.payload.text);
         onGrowRef.current();
@@ -218,7 +218,7 @@ export default function ChatThread({
     setUnseen(0);
     atBottomRef.current = true;
     setDraft(localStorage.getItem(draftKey(threadId)) ?? "");
-    window.spawn.listMessages(threadId).then((ms) => {
+    window.agentdeck.listMessages(threadId).then((ms) => {
       setMessages(ms);
       setHasOlder(ms.length >= 200);
     });
@@ -250,7 +250,7 @@ export default function ChatThread({
   }, []);
 
   useEffect(() => {
-    return window.spawn.onEvent((ev) => {
+    return window.agentdeck.onEvent((ev) => {
       if (ev.type === "turn:queued") {
         if (ev.payload.threadId === threadId) setQueued(ev.payload.depth);
         return;
@@ -290,7 +290,7 @@ export default function ChatThread({
     const first = messages[0];
     if (!first || !el) return;
     const prevHeight = el.scrollHeight;
-    const older = await window.spawn.listMessages(threadId, { before: first.id, limit: PAGE } as any);
+    const older = await window.agentdeck.listMessages(threadId, { before: first.id, limit: PAGE } as any);
     setHasOlder(older.length >= PAGE);
     setMessages((prev) => [...older, ...prev]);
     // Keep the viewport anchored on the row the user was reading.
@@ -310,8 +310,8 @@ export default function ChatThread({
     if (wasBusy) setQueued((n) => n + 1);
     else markBusy(threadId);
     try {
-      await window.spawn.sendMessage(threadId, text);
-      setMessages(await window.spawn.listMessages(threadId));
+      await window.agentdeck.sendMessage(threadId, text);
+      setMessages(await window.agentdeck.listMessages(threadId));
       scrollToBottom();
     } catch (e) {
       // The daemon never saw it — restore the draft so nothing is lost.

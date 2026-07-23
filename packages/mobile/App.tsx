@@ -39,7 +39,7 @@ const TOKEN_KEY = "spawn.token";
 const URL_KEY = "spawn.relay";
 const httpFrom = (ws: string) => ws.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
 
-// Spawn mobile — a relay client of the local daemon. Discord-shaped shell:
+// AgentDeck mobile — a relay client of the local daemon. Discord-shaped shell:
 // bottom tabs + a pushed thread screen (swipe back, hardware back), every
 // list SQLite-cached for instant cold start.
 
@@ -48,8 +48,8 @@ interface Ctx {
   projects: any[];
   status: string;
 }
-const SpawnCtx = createContext<Ctx>(null as any);
-const useSpawn = () => useContext(SpawnCtx);
+const AgentDeckCtx = createContext<Ctx>(null as any);
+const useAgentDeck = () => useContext(AgentDeckCtx);
 
 type StackParams = {
   Tabs: undefined;
@@ -75,27 +75,27 @@ const openThreadFrom = (navigation: any) => (id: number, title: string) =>
   navigation.navigate("Thread", { id, title });
 
 function BoardTab({ navigation }: any) {
-  const { client, projects } = useSpawn();
+  const { client, projects } = useAgentDeck();
   return <BoardScreen client={client} projects={projects} openThread={openThreadFrom(navigation)} />;
 }
 function MapTab({ navigation }: any) {
-  const { client } = useSpawn();
+  const { client } = useAgentDeck();
   return <MapScreen client={client} openThread={openThreadFrom(navigation)} />;
 }
 function RunsTab({ navigation }: any) {
-  const { client } = useSpawn();
+  const { client } = useAgentDeck();
   return <RunsScreen client={client} openThread={openThreadFrom(navigation)} />;
 }
 function ApprovalsTab() {
-  const { client } = useSpawn();
+  const { client } = useAgentDeck();
   return <ApprovalsScreen client={client} />;
 }
 function UsageTab() {
-  const { client } = useSpawn();
+  const { client } = useAgentDeck();
   return <UsageScreen client={client} />;
 }
 function SettingsTab() {
-  const { client, projects } = useSpawn();
+  const { client, projects } = useAgentDeck();
   return <SettingsScreen client={client} projects={projects} />;
 }
 
@@ -123,7 +123,7 @@ function Tabs({
     <View style={{ flex: 1 }}>
       {/* Top bar */}
       <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}>
-        <Text style={{ color: C.text, fontSize: 17, fontWeight: "600" }}>Spawn</Text>
+        <Text style={{ color: C.text, fontSize: 17, fontWeight: "600" }}>AgentDeck</Text>
         <Dot color={status === "ready" ? C.ok : status === "daemon-offline" ? C.warn : C.n600} />
         <View style={{ flex: 1 }} />
         {liveTotal > 0 && (
@@ -159,7 +159,13 @@ function Tabs({
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          lazy: false,
+          // Lazy-mount tabs: cold start renders only Board + fires its one RPC,
+          // instead of mounting all 6 screens and firing ~6 list fetches at
+          // once. Each tab hydrates from the SQLite cache the moment it's first
+          // opened, so lazy mount costs nothing visible. Global badges
+          // (approvals, in-flight tokens) run at the App root off the event
+          // stream, so they stay live without the screens being mounted.
+          lazy: true,
           tabBarActiveTintColor: C.accent300,
           tabBarInactiveTintColor: C.n500,
           tabBarStyle: { backgroundColor: C.bg, borderTopColor: C.n800 },
@@ -185,7 +191,7 @@ function Tabs({
 }
 
 function ThreadRoute({ route, navigation }: any) {
-  const { client } = useSpawn();
+  const { client } = useAgentDeck();
   return (
     <ThreadScreen
       client={client}
@@ -337,7 +343,7 @@ export default function App() {
               contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, gap: 12 }}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={{ color: C.text, fontSize: 28, fontWeight: "600" }}>Spawn</Text>
+              <Text style={{ color: C.text, fontSize: 28, fontWeight: "600" }}>AgentDeck</Text>
               <Text style={{ color: C.n500, fontSize: 13, marginBottom: 8 }}>Sign in to your relay.</Text>
               <TextInput
                 style={inputStyle}
@@ -399,7 +405,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <SpawnCtx.Provider value={{ client, projects, status }}>
+        <AgentDeckCtx.Provider value={{ client, projects, status }}>
           <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
             <StatusBar barStyle="light-content" />
             <NavigationContainer theme={navTheme}>
@@ -413,7 +419,7 @@ export default function App() {
               </Stack.Navigator>
             </NavigationContainer>
           </SafeAreaView>
-        </SpawnCtx.Provider>
+        </AgentDeckCtx.Provider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

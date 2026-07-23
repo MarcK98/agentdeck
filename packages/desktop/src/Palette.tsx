@@ -38,7 +38,7 @@ export default function Palette({
     let stale = false;
     Promise.all(
       projects.map((p) =>
-        window.spawn
+        window.agentdeck
           .listThreads(p.id)
           .then((ts) => ts.map((t) => ({ ...t, project_name: p.name })))
           .catch(() => [] as (Thread & { project_name: string })[])
