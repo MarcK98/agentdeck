@@ -1,0 +1,32 @@
+import React from "react";
+import { createRoot } from "react-dom/client";
+import "@fontsource/space-grotesk/400.css";
+import "@fontsource/space-grotesk/500.css";
+import "@fontsource/space-grotesk/700.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/700.css";
+import "@phosphor-icons/web/regular";
+import "@phosphor-icons/web/fill";
+import "./nocturne.css";
+import "./app.css";
+import App from "./App";
+import { installMock } from "./mock";
+
+// Outside Electron (plain browser against the Vite dev server) there is no
+// preload bridge — install a fixture-backed window.agentdeck so the UI can be
+// eyeballed and screenshotted without a daemon.
+const inElectron = Boolean(window.agentdeck);
+if (!inElectron) installMock();
+
+// In the real app on macOS the title bar is ours (hiddenInset) — pad the top
+// bar clear of the floating traffic lights.
+if (inElectron && navigator.platform.startsWith("Mac")) {
+  document.body.classList.add("mac-electron");
+}
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

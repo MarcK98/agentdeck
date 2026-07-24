@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd template for the AgentDeck daemon (macOS). NOT auto-installed in
+  Phase 1 — see README.md next to this file. Replace every __PLACEHOLDER__
+  before loading:
+
+    __NODE_BIN__        absolute path to a plain Node >= 20 binary
+                        (e.g. /opt/homebrew/bin/node — NOT Electron)
+    __SERVER_JS__       absolute path to packages/core/src/daemon/server.js
+    __SPAWN_DATA_DIR__  absolute dir for runtime state (db, token, pid, log)
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentdeck.daemon</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_BIN__</string>
+    <string>__SERVER_JS__</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SPAWN_DATA_DIR</key>
+    <string>__SPAWN_DATA_DIR__</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- The daemon single-instances itself (port bind); a losing start exits 0,
+       so KeepAlive only restarts crashes, not duplicate launches. -->
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__SPAWN_DATA_DIR__/agentdeck-daemon.log</string>
+  <key>StandardErrorPath</key>
+  <string>__SPAWN_DATA_DIR__/agentdeck-daemon.log</string>
+</dict>
+</plist>

@@ -1,0 +1,22 @@
+{
+  "name": "agentdeck-monorepo",
+  "version": "0.1.0",
+  "description": "AgentDeck (agentdeck.ai) — a mastermind for Claude. Monorepo: @agentdeck/core (daemon + orchestration + legacy Discord bridge) and @agentdeck/desktop (Electron client).",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/desktop"
+  ],
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node packages/core/scripts/dev.js",
+    "dev:plain": "node --watch src/index.js",
+    "dashboard": "node packages/core/src/dashboard.js",
+    "desktop": "npm run dev -w @agentdeck/desktop",
+    "daemon": "node packages/core/src/daemon/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

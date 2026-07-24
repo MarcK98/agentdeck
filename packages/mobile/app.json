@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "AgentDeck",
+    "slug": "spawn-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#161826",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#161826"
+    },
+    "ios": {
+      "bundleIdentifier": "ai.spawnmy.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9df63626-bc86-4584-98de-1d1b708de688"
+      }
+    },
+    "owner": "marck98",
+    "plugins": [
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-font"
+    ]
+  }
+}
