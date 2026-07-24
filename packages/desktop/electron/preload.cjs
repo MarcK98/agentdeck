@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld("agentdeck", {
   delegateTask: (args) => ipcRenderer.invoke("agentdeck:delegateTask", args),
   listActiveThreads: () => ipcRenderer.invoke("agentdeck:listActiveThreads"),
   getThreadContext: (threadId) => ipcRenderer.invoke("agentdeck:getThreadContext", threadId),
+  getThreadDiff: (threadId) => ipcRenderer.invoke("agentdeck:getThreadDiff", threadId),
+  getThreadFileDiff: (threadId, path) => ipcRenderer.invoke("agentdeck:getThreadFileDiff", threadId, path),
   cleanupThread: (threadId, force) => ipcRenderer.invoke("agentdeck:cleanupThread", threadId, force),
   getMap: () => ipcRenderer.invoke("agentdeck:getMap"),
   listApprovals: () => ipcRenderer.invoke("agentdeck:listApprovals"),

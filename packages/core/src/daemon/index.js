@@ -19,6 +19,8 @@ import {
   createWorktree,
   removeWorktree,
   worktreeStatus,
+  worktreeDiff,
+  worktreeFileDiff,
   prStatus,
 } from "../worktrees.js";
 import { dirFor as deliverablesDirFor, commitAll as commitDeliverables, listFiles as listDeliverableFiles } from "../deliverables.js";
@@ -862,6 +864,36 @@ export function createDaemon() {
           lastModel: stats?.model ?? null,
         },
       };
+    },
+
+    // The GitHub-style "files changed" list for a thread's code view: every
+    // path this thread's branch touched vs its base, plus untracked files.
+    // Empty (not an error) for threads with no worktree — team-lead / plain
+    // chat threads that never got an isolated branch.
+    getThreadDiff: async (threadId) => {
+      const thread = db.getThread(threadId);
+      if (!thread) throw new Error(`No such thread: ${threadId}`);
+      if (!thread.worktree_path) {
+        return { branch: thread.branch, worktreePath: null, base: null, files: [], additions: 0, deletions: 0 };
+      }
+      const d = await worktreeDiff(thread.worktree_path);
+      return {
+        branch: thread.branch,
+        worktreePath: thread.worktree_path,
+        base: d?.base ?? null,
+        files: d?.files ?? [],
+        additions: d?.additions ?? 0,
+        deletions: d?.deletions ?? 0,
+      };
+    },
+
+    // The unified diff for one file in a thread's worktree (lazy-loaded when the
+    // code view expands a file). Raw git-diff text; the client parses hunks.
+    getThreadFileDiff: async (threadId, path) => {
+      const thread = db.getThread(threadId);
+      if (!thread) throw new Error(`No such thread: ${threadId}`);
+      if (!thread.worktree_path || !path) return { path, diff: "" };
+      return { path, diff: await worktreeFileDiff(thread.worktree_path, path) };
     },
 
     // Retire a finished ticket: remove its worktree checkout (branch + commits

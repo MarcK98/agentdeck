@@ -563,6 +563,32 @@ export function installMock() {
     },
     listActiveThreads: async () => activeThreads,
     getThreadContext: async (threadId) => ctxFor(threadId),
+    getThreadDiff: async (threadId) => {
+      const t = threads.find((x) => x.id === threadId);
+      if (!t?.branch) return { branch: null, worktreePath: null, base: null, files: [], additions: 0, deletions: 0 };
+      return {
+        branch: t.branch,
+        worktreePath: `~/dev/worktrees/ticket-${threadId}`,
+        base: "origin/master",
+        additions: 47,
+        deletions: 12,
+        files: [
+          { path: "packages/desktop/src/CodePanel.tsx", status: "A" as const, additions: 31, deletions: 0, binary: false },
+          { path: "packages/desktop/src/ThreadsView.tsx", status: "M" as const, additions: 12, deletions: 4, binary: false },
+          { path: "packages/desktop/src/app.css", status: "M" as const, additions: 4, deletions: 8, binary: false },
+        ],
+      };
+    },
+    getThreadFileDiff: async (_threadId, path) => ({
+      path,
+      diff:
+        `diff --git a/${path} b/${path}\n` +
+        `--- a/${path}\n+++ b/${path}\n` +
+        `@@ -1,4 +1,5 @@\n` +
+        ` import { useState } from "react";\n` +
+        `-const OLD = 1;\n+const NEW = 2;\n+const EXTRA = 3;\n` +
+        ` export default function X() {\n   return null;\n }\n`,
+    }),
     cleanupThread: async () => ({ ok: true }),
     getMap: async () => map,
     listApprovals: async () => approvals,

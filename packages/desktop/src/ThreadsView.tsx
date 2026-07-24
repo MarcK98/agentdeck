@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Project, ProjectThread, Thread } from "./types";
 import ChatThread from "./ChatThread";
 import ContextRail from "./ContextRail";
+import CodePanel from "./CodePanel";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
 import { useEscapeToClose, useFocusTrap } from "./hooks";
 
@@ -36,6 +37,10 @@ export default function ThreadsView({
   unread: Map<number, number>;
 }) {
   const [threads, setThreads] = useState<ProjectThread[]>([]);
+  // Which panel fills the thread's right column: the isolation/PR context rail,
+  // or the GitHub-style Changes/diff review (SPWN-41). Sticky across threads —
+  // a dev reviewing code stays in code mode as they move between threads.
+  const [rightPane, setRightPane] = useState<"context" | "code">("context");
 
   // Right-click menu target + position; inline-rename state; a transient note
   // banner (worktree copied, reset done, why a delete/cleanup was refused).
@@ -176,7 +181,7 @@ export default function ThreadsView({
   };
 
   return (
-    <div className="threads-view">
+    <div className={`threads-view ${current != null && rightPane === "code" ? "code-mode" : ""}`}>
       <div className="thread-list fade-r" ref={listRef} onKeyDown={onListKeyDown}>
         <div className="sect" style={{ padding: "0 10px 10px" }}>
           <span>All threads</span>
@@ -267,6 +272,25 @@ export default function ThreadsView({
               <span className="sub">
                 {current.kind === "teamlead" ? "orchestrates every project" : current.kind}
               </span>
+              <div className="pane-toggle" role="tablist" aria-label="Right panel">
+                <button
+                  role="tab"
+                  aria-selected={rightPane === "context"}
+                  className={rightPane === "context" ? "on" : ""}
+                  onClick={() => setRightPane("context")}
+                >
+                  <i className="ph ph-info" /> Context
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={rightPane === "code"}
+                  className={rightPane === "code" ? "on" : ""}
+                  onClick={() => setRightPane("code")}
+                  title="Review the code this thread changed"
+                >
+                  <i className="ph ph-git-diff" /> Changes
+                </button>
+              </div>
             </div>
             <ChatThread
               threadId={current.id}
@@ -282,7 +306,15 @@ export default function ThreadsView({
         )}
       </div>
 
-      {current != null ? <ContextRail threadId={current.id} /> : <aside className="rail fade-l" />}
+      {current != null ? (
+        rightPane === "code" ? (
+          <CodePanel threadId={current.id} />
+        ) : (
+          <ContextRail threadId={current.id} />
+        )
+      ) : (
+        <aside className="rail fade-l" />
+      )}
 
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.thread)} onClose={() => setMenu(null)} />
