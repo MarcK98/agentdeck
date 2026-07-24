@@ -299,6 +299,71 @@ button.row.out-file { background: none; border: 0; padding: 2px 0; cursor: point
 button.row.out-file:hover { color: var(--color-accent-300); }
 button.row.out-file:hover i { color: var(--color-accent-300); }
 
+/* ── Code view (SPWN-41) — GitHub-style Changes panel in the thread's right
+   column. In code mode the right column widens so diffs get real room. */
+.threads-view.code-mode { grid-template-columns: 250px minmax(320px, 1fr) minmax(440px, 1.3fr); }
+
+/* Segmented Context/Changes toggle in the chat header. */
+.pane-toggle { margin-left: auto; flex: none; display: inline-flex; gap: 2px; padding: 2px; background: var(--color-neutral-900); border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); }
+.pane-toggle button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--color-neutral-400); font: 500 11px var(--font-heading); padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease); }
+.pane-toggle button i { font-size: 13px; }
+.pane-toggle button:hover { color: var(--color-neutral-200); }
+.pane-toggle button.on { background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-accent-200); }
+
+.code-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+.code-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; flex: none; }
+.code-head .ttl { display: flex; align-items: center; gap: 7px; min-width: 0; font: 500 12.5px var(--font-heading); color: var(--color-neutral-200); }
+.code-head .ttl > i { color: var(--color-accent-300); font-size: 15px; flex: none; }
+.code-head .ttl .vs { font: 10.5px var(--font-mono); color: var(--color-neutral-500); background: var(--color-neutral-900); padding: 1px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-head .acts { margin-left: auto; display: flex; gap: 4px; flex: none; }
+.code-summary { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; font-size: 11.5px; color: var(--color-neutral-500); flex: none; }
+.code-summary .a { color: #55e0a6; font-family: var(--font-mono); }
+.code-summary .d { color: #ff8b98; font-family: var(--font-mono); }
+
+.code-files { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.code-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; margin: auto; padding: 24px; max-width: 260px; color: var(--color-neutral-500); font-size: 12px; line-height: 1.5; }
+.code-empty i { font-size: 26px; color: var(--color-neutral-600); }
+.code-empty code { font: 11px var(--font-mono); color: var(--color-accent-200); }
+
+.file { border: 1px solid var(--color-neutral-800); border-radius: var(--radius-md); overflow: hidden; background: color-mix(in srgb, var(--color-surface) 60%, transparent); }
+.file.open { border-color: color-mix(in srgb, var(--color-accent) 32%, var(--color-neutral-800)); }
+.file-head { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; color: var(--color-neutral-200); padding: 8px 10px; cursor: pointer; text-align: left; font-family: inherit; min-width: 0; }
+.file-head:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.file-head .caret { color: var(--color-neutral-500); font-size: 12px; flex: none; }
+.file-head .sicon { font-size: 14px; flex: none; }
+.file-head .sicon.add { color: #55e0a6; }
+.file-head .sicon.mod { color: #ffc873; }
+.file-head .sicon.del { color: #ff8b98; }
+.file-head .path { flex: 1; min-width: 0; display: flex; align-items: baseline; font: 11.5px var(--font-mono); }
+.file-head .path .dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-neutral-600); }
+.file-head .path .name { flex: none; white-space: nowrap; color: var(--color-neutral-100); }
+.file-head .stat { display: flex; align-items: center; gap: 6px; flex: none; font: 10.5px var(--font-mono); }
+.file-head .stat .a { color: #55e0a6; }
+.file-head .stat .d { color: #ff8b98; }
+.file-head .stat .bin { color: var(--color-neutral-500); }
+.file-head .stat .bar { display: inline-flex; gap: 1.5px; }
+.file-head .stat .bar span { width: 6px; height: 6px; border-radius: 1px; }
+.file-head .stat .bar .g { background: #55e0a6; }
+.file-head .stat .bar .r { background: #ff8b98; }
+.file-head .stat .bar .n { background: var(--color-neutral-700); }
+
+.diff-body { border-top: 1px solid var(--color-neutral-800); overflow-x: auto; font: 11.5px/1.5 var(--font-mono); background: color-mix(in srgb, #000 22%, transparent); }
+.diff-row { display: grid; grid-template-columns: 42px 42px 1fr; width: max-content; min-width: 100%; }
+.diff-row .ln { text-align: right; padding: 0 8px; color: var(--color-neutral-600); background: color-mix(in srgb, #000 18%, transparent); user-select: none; -webkit-user-select: none; }
+.diff-row .dl { padding: 0 10px 0 4px; white-space: pre; color: var(--color-neutral-200); }
+.diff-row .dl .sg { display: inline-block; width: 8px; color: var(--color-neutral-600); }
+.diff-row.add { background: color-mix(in srgb, #55e0a6 11%, transparent); }
+.diff-row.add .dl, .diff-row.add .dl .sg { color: #9df0cb; }
+.diff-row.add .ln { color: color-mix(in srgb, #55e0a6 55%, var(--color-neutral-500)); }
+.diff-row.del { background: color-mix(in srgb, #ff7b8a 11%, transparent); }
+.diff-row.del .dl, .diff-row.del .dl .sg { color: #ffb3bc; }
+.diff-row.del .ln { color: color-mix(in srgb, #ff7b8a 55%, var(--color-neutral-500)); }
+.diff-row.hunk { background: color-mix(in srgb, var(--color-accent) 9%, transparent); }
+.diff-row.hunk .dl { color: var(--color-accent-300); padding-top: 2px; padding-bottom: 2px; }
+.diff-row.meta .dl { color: var(--color-neutral-600); font-style: italic; }
+.diff-note { padding: 8px 12px; font-size: 11px; color: var(--color-neutral-500); border-top: 1px solid var(--color-neutral-800); }
+.diff-note.loading { color: var(--color-accent-300); }
+
 /* ── Approvals view ──────────────────────────────────────────────────────── */
 .approvals-body { padding: 20px 28px; display: grid; grid-template-columns: 1fr 340px; gap: 24px; min-height: 0; overflow-y: auto; align-content: start; flex: 1; }
 .appr-list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

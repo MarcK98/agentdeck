@@ -203,6 +203,25 @@ export interface ThreadContext {
   };
 }
 
+// ── Code view (daemon getThreadDiff / getThreadFileDiff) — the GitHub-style
+// "files changed" review panel for a thread's worktree branch.
+export interface DiffFile {
+  path: string;
+  status: "A" | "M" | "D"; // added / modified / deleted
+  additions: number | null; // null for binary
+  deletions: number | null;
+  binary: boolean;
+}
+
+export interface ThreadDiff {
+  branch: string | null;
+  worktreePath: string | null;
+  base: string | null; // e.g. "origin/master" — what the branch is diffed against
+  files: DiffFile[];
+  additions: number;
+  deletions: number;
+}
+
 // One agent-produced output file (daemon listDeliverables).
 export interface DeliverableFile {
   path: string; // absolute
@@ -386,6 +405,8 @@ declare global {
       }): Promise<Thread>;
       listActiveThreads(): Promise<ActiveThread[]>;
       getThreadContext(threadId: number): Promise<ThreadContext>;
+      getThreadDiff(threadId: number): Promise<ThreadDiff>;
+      getThreadFileDiff(threadId: number, path: string): Promise<{ path: string; diff: string }>;
       cleanupThread(threadId: number, force?: boolean): Promise<CleanupResult>;
       getMap(): Promise<MapData>;
       listApprovals(): Promise<ApprovalRequest[]>;

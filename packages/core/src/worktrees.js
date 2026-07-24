@@ -33,6 +33,23 @@ const git = async (dir, ...args) => {
   return stdout.trim();
 };
 
+// Like `git`, but keeps stdout when git exits non-zero. `git diff --no-index`
+// (used for untracked files) exits 1 whenever a difference exists — that's not
+// an error, the diff we want is on stdout. Bigger buffer: a single file's diff
+// can be large. Re-throws only when there's genuinely no output.
+const gitRaw = async (dir, ...args) => {
+  try {
+    const { stdout } = await execFileP("git", ["-C", dir, ...args], {
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    return stdout;
+  } catch (e) {
+    if (e && typeof e.stdout === "string" && e.stdout) return e.stdout;
+    throw e;
+  }
+};
+
 export const worktreesRoot = () =>
   process.env.SPAWN_WORKTREES_DIR || dataPath("worktrees");
 
@@ -108,6 +125,112 @@ export async function worktreeStatus(dir) {
     return { branch, dirty, ahead, behind, lastCommit };
   } catch {
     return null;
+  }
+}
+
+// The fork point this branch diverged from its base — everything after it is
+// "this thread's work". merge-base against origin's default branch (or repo
+// HEAD for local-only repos) so the base advancing doesn't pollute the diff.
+// Null when there's no sensible base (empty repo, detached with no history).
+async function diffBase(dir) {
+  const base = await defaultBase(dir); // origin/master, or "HEAD" locally
+  try {
+    return (await git(dir, "merge-base", base, "HEAD")) || null;
+  } catch {
+    return null;
+  }
+}
+
+const parseNumstat = (out) => {
+  const map = new Map();
+  for (const line of out.split("\n")) {
+    if (!line) continue;
+    const [add, del, ...rest] = line.split("\t");
+    const path = rest.join("\t");
+    if (!path) continue;
+    const binary = add === "-" || del === "-";
+    map.set(path, {
+      additions: binary ? null : Number(add) || 0,
+      deletions: binary ? null : Number(del) || 0,
+      binary,
+    });
+  }
+  return map;
+};
+
+// The "files changed" list for a thread's worktree — every path this branch
+// touched vs its base (committed + staged + unstaged), plus untracked files as
+// additions. Shaped for a GitHub-style review panel. Never throws: a bad dir
+// or non-repo yields null and the caller shows an empty state.
+export async function worktreeDiff(dir) {
+  try {
+    const base = await defaultBase(dir);
+    const mergeBase = await diffBase(dir);
+
+    // Tracked changes: numstat gives +/- counts, name-status the A/M/D verb.
+    // --no-renames keeps paths stable (a rename shows as delete + add), which
+    // is simpler to render and to diff per-file than R-status pairs.
+    const files = new Map(); // path -> { path, status, additions, deletions, binary }
+    if (mergeBase) {
+      const nums = parseNumstat(await gitRaw(dir, "diff", "--numstat", "--no-renames", mergeBase));
+      const names = await gitRaw(dir, "diff", "--name-status", "--no-renames", mergeBase);
+      for (const line of names.split("\n")) {
+        if (!line) continue;
+        const [code, ...rest] = line.split("\t");
+        const path = rest.join("\t");
+        if (!path) continue;
+        const status = code[0] === "A" ? "A" : code[0] === "D" ? "D" : "M";
+        const n = nums.get(path) || { additions: 0, deletions: 0, binary: false };
+        files.set(path, { path, status, ...n });
+      }
+    }
+
+    // Untracked files (git diff ignores them) — surface as new/added.
+    const others = (await git(dir, "ls-files", "--others", "--exclude-standard"))
+      .split("\n")
+      .filter(Boolean);
+    for (const path of others.slice(0, 200)) {
+      if (files.has(path)) continue;
+      let additions = 0;
+      let binary = false;
+      try {
+        const one = parseNumstat(
+          await gitRaw(dir, "diff", "--numstat", "--no-index", "--", "/dev/null", path)
+        );
+        const stat = one.get(path);
+        if (stat) {
+          additions = stat.additions ?? 0;
+          binary = stat.binary;
+        }
+      } catch {
+        /* best-effort counts — the file still lists, just without +N */
+      }
+      files.set(path, { path, status: "A", additions, deletions: 0, binary });
+    }
+
+    const list = [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
+    const additions = list.reduce((s, f) => s + (f.additions || 0), 0);
+    const deletions = list.reduce((s, f) => s + (f.deletions || 0), 0);
+    return { base, files: list, additions, deletions };
+  } catch {
+    return null;
+  }
+}
+
+// The unified diff for one file in a thread's worktree (the per-file body the
+// review panel lazy-loads on click). Untracked files diff against /dev/null so
+// a brand-new file renders as all-additions. Returns "" on any miss.
+export async function worktreeFileDiff(dir, path) {
+  try {
+    const untracked = (await git(dir, "status", "--porcelain", "--", path)).startsWith("??");
+    if (untracked) {
+      return await gitRaw(dir, "diff", "--no-index", "--no-renames", "--", "/dev/null", path);
+    }
+    const mergeBase = await diffBase(dir);
+    if (!mergeBase) return "";
+    return await gitRaw(dir, "diff", "--no-renames", mergeBase, "--", path);
+  } catch {
+    return "";
   }
 }
 
